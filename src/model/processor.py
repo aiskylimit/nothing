@@ -342,7 +342,8 @@ def Llava_ONEVISION_process_fn(model_inputs: dict, processor, max_length=None):
         "texts": texts,
         "images": images,
         "pixel_values": inputs["pixel_values"],   # đã được pad (batch_size, max_patches, C, H, W)
-        "image_sizes": image_sizes,
+        # "image_sizes": image_sizes,
+        "image_sizes": torch.tensor(np.array(image_sizes)).long(),
     }
     return batch_encoding
 
