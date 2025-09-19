@@ -425,7 +425,7 @@ class LlavaOnevisionModel(LlavaOnevisionPreTrainedModel):
             selected_image_feature = selected_image_feature
         image_features = self.multi_modal_projector(selected_image_feature)
         image_features = torch.split(image_features, image_num_patches, dim=0)
-        print(f"Number of images: {len(image_features)}, image feature shapes: {[f.shape for f in image_features]}")
+        # print(f"Number of images: {len(image_features)}, image feature shapes: {[f.shape for f in image_features]}")
 
         image_features, feature_lens = self.pack_image_features(
             image_features,
@@ -544,7 +544,7 @@ class LlavaOnevisionModel(LlavaOnevisionPreTrainedModel):
                 input_ids, inputs_embeds=inputs_embeds, image_features=image_features
             )
             inputs_embeds = inputs_embeds.masked_scatter(special_image_mask, image_features)
-            print("Input embeds shape after adding image features:", inputs_embeds.shape)
+            # print("Input embeds shape after adding image features:", inputs_embeds.shape)
 
         # Video are simply embedded and further pooled to decrease seq len
         if pixel_values_videos is not None:
@@ -575,7 +575,7 @@ class LlavaOnevisionModel(LlavaOnevisionPreTrainedModel):
             cache_position=cache_position,
             **kwargs,
         )
-        print("Language model outputs shape:", outputs.hidden_states[-1].shape)
+        # print("Language model outputs shape:", outputs.hidden_states[-1].shape)
         # print("Image hidden states shape:", image_features.shape if pixel_values is not None else None)
 
         return LlavaOnevisionModelOutputWithPast(
@@ -823,17 +823,17 @@ class LlavaOnevisionForConditionalGeneration(LlavaOnevisionPreTrainedModel, Gene
         hidden_states = outputs[0]
         # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
         slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
-        logits = self.lm_head(hidden_states[:, slice_indices, :])
+        # logits = self.lm_head(hidden_states[:, slice_indices, :])
 
         loss = None
-        if labels is not None:
-            loss = self.loss_function(
-                logits=logits, labels=labels, vocab_size=self.config.text_config.vocab_size, **kwargs
-            )
+        # if labels is not None:
+        #     loss = self.loss_function(
+        #         logits=logits, labels=labels, vocab_size=self.config.text_config.vocab_size, **kwargs
+        #     )
 
         return LlavaOnevisionCausalLMOutputWithPast(
             loss=loss,
-            logits=logits,
+            logits=None,
             past_key_values=outputs.past_key_values,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,

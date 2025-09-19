@@ -145,6 +145,7 @@ def load_processor(model_args, data_args=None):
         from transformers import Qwen2VLImageProcessor
         # from src.model.vlm_backbone.qwen2_vl.tokenization_qwen2_fast import Qwen2TokenizerFast
         from transformers import Qwen2TokenizerFast
+        print("Load Qwen2-VL processor")
 
         model_name_or_path = PeftConfig.from_pretrained(model_args.model_name).base_model_name_or_path if(model_args.init_lora_model) else model_name_or_path
         print(f">>>>>>>>>>>>>>>>>>>>>>>> Processor {model_name_or_path}")
@@ -295,6 +296,9 @@ def Llava_NEXT_process_fn(model_inputs: dict, processor, max_length=None):
 def Llava_ONEVISION_process_fn(model_inputs: dict, processor, max_length=None):
     texts = model_inputs["text"]
     images = model_inputs["images"]
+    # print("texts:", texts)
+    # print("len(images):", len(images))
+    # print("images types:", [type(img) for img in images])
     # print(f"Processing texts: {texts}")
 
     # Trường hợp không có ảnh nào
@@ -417,11 +421,13 @@ def Qwen2_VL_process_fn(model_inputs: dict, processor: Qwen2VLProcessor, max_len
     vlm_image_token, vlm_video_token = VLM_IMAGE_TOKENS[QWEN2_VL], VLM_VIDEO_TOKENS[QWEN2_VL]
     # import ipdb; ipdb.set_trace()
     # 1. iterate each pair and process (since processors do not support batch processing)
+    # print("texts:", texts)
+    # print("visual_inputs types:", [type(img) for img in visual_inputs])
     for text, images in zip(texts, visual_inputs):
         # print(f"Processing text: {text}")
         if images is None or (type(images)==list and any(i is None for i in images)):
             # all images must be valid
-            inputs = processor(text=[text], images=None, return_tensors="np", max_length=max_length, truncation=True)
+            inputs = processor(text=[text], images=None, return_tensors="pt", max_length=max_length, truncation=True)
             input_id = inputs["input_ids"].squeeze().tolist()
             if isinstance(input_id, int):
                 # in case of empty string, only BOS is included
@@ -442,18 +448,15 @@ def Qwen2_VL_process_fn(model_inputs: dict, processor: Qwen2VLProcessor, max_len
                     if image.size[0] < 28 or image.size[1] < 28:
                         image = image.resize((56, 56))
                         images[iid] = image
-                inputs = processor(text=[text], images=images, return_tensors="np", max_length=None, truncation=False, input_data_format=ChannelDimension.LAST)
+                # for image in images:
+                #     print(f"Image size (w, h): {image.size}, mode: {image.mode}, type: {type(image)}")
+                inputs = processor(text=[text], images=images, return_tensors="pt", max_length=None, truncation=False, input_data_format=ChannelDimension.LAST)
             elif vlm_video_token in text:
                 # TODO: check text/video data validity
-                inputs = processor(text=[text], videos=[images], return_tensors="np", max_length=None, truncation=False, input_data_format=ChannelDimension.LAST)
+                inputs = processor(text=[text], videos=[images], return_tensors="pt", max_length=None, truncation=False, input_data_format=ChannelDimension.LAST)
             else:
                 raise NotImplementedError
             input_ids.append(inputs["input_ids"].squeeze().tolist())
-            # print("Inputs length:", len(inputs["input_ids"].squeeze().tolist()))
-            # print("Input ids:", inputs["input_ids"].squeeze().tolist())
-            # print("Inputs keys:", inputs.keys())
-            # print(f"Last 10 input_ids: {inputs['input_ids'].squeeze().tolist()[-10:]}")
-            # print(f"Shape of input_ids: {np.array(input_ids).shape}, pixel_values: {inputs['pixel_values'].shape if 'pixel_values' in inputs else None}")
             if 'pixel_values' in inputs:
                 pixel_values.append(inputs['pixel_values'])
                 image_grid_thw.append(inputs['image_grid_thw'])

@@ -35,7 +35,17 @@ class ModelArguments:
     teacher_model_path: str = field(default=None, metadata={"help": "teacher model name or path"})
     train_student_lora: bool = field(default=False, metadata={"help": "whether to train student lora"})
     teacher_lora: bool = field(default=False, metadata={"help": "whether teacher is lora"})
-    
+    student_lora_r: int = field(default=16, metadata={"help": "student lora r"})
+    student_lora_alpha: int = field(default=64, metadata={"help": "student lora alpha"})
+    student_lora_dropout: float = field(default=0.1, metadata={"help": "student lora dropout"})
+    student_lora_target_modules: str = field(default="qkv_proj,o_proj,gate_up_proj,down_proj,k_proj,q_proj,out_proj,v_proj", metadata={"help": "student lora target modules"})
+    student_pooling: str = field(default='last', metadata={"help": "pooling method for student encoder"})
+    student_normalize: bool = field(default=False, metadata={"help": "normalize query and passage representations for student"})
+    teacher_lora_r: int = field(default=16, metadata={"help": "teacher lora r"})
+    teacher_lora_alpha: int = field(default=64, metadata={"help": "teacher lora alpha"})
+    teacher_lora_dropout: float = field(default=0.1, metadata={"help": "teacher lora dropout"})
+    teacher_lora_target_modules: str = field(default="qkv_proj,o_proj,gate_up_proj,down_proj,k_proj,q_proj,out_proj,v_proj", metadata={"help": "teacher lora target modules"})
+    teacher_pooling: str = field(default='last', metadata={"help": "pooling method for teacher encoder"})
 
 @dataclass
 class DataArguments:

@@ -6,6 +6,7 @@ import json
 from datasets import load_dataset, concatenate_datasets
 import torch
 import torch.nn as nn
+import PIL
 import argparse
 from transformers import (
     AutoConfig,
@@ -99,51 +100,54 @@ class Distiller(nn.Module):
             model_args = ModelArguments(
                 model_name=self.model_args.student_model_path,
                 checkpoint_path=getattr(self.model_args, 'student_checkpoint_path', None),
-                lora=self.model_args.student_lora,
-                pooling=self.model_args.pooling,
+                lora=self.model_args.train_student_lora,
+                lora_r=self.model_args.student_lora_r,
+                pooling=self.model_args.student_pooling,
                 normalize=self.model_args.normalize,
                 temperature=self.model_args.temperature,
-                model_type=self.model_args.model_type
+                model_type=self.model_args.student_backbone,
+                model_backbone=self.model_args.student_backbone
             )
         else:  # teacher
             model_args = ModelArguments(
                 model_name=self.model_args.teacher_model_path,
                 checkpoint_path=getattr(self.model_args, 'teacher_checkpoint_path', None),
                 lora=self.model_args.teacher_lora,
-                pooling=self.model_args.pooling,
+                lora_r=self.model_args.teacher_lora_r,
+                pooling=self.model_args.teacher_pooling,
                 normalize=self.model_args.normalize,
                 temperature=self.model_args.temperature,
-                model_type=getattr(self.model_args, 'model_type', None)
+                model_type=self.model_args.teacher_backbone,
+                model_backbone=self.model_args.teacher_backbone
             )
         return model_args
     
     def _load_teacher(self):
         model_args = self._create_model_args('teacher')
+        print("Load teacher with lora rank:", model_args.lora_r)
+        print("Teacher use lora:", model_args.lora)
         teacher = MMEBModel.load(model_args, is_trainable=False)
-        for param in teacher.parameters():
+        for param in teacher.encoder.parameters():
             param.requires_grad = False
         teacher.eval()
+        print("Teacher model built.")
         return teacher
     
     def _load_student(self):
         model_args = self._create_model_args('student')
-        student = MMEBModel.load(model_args, is_trainable=True)
-        if self.model_args.student_lora:
-            lora_config = LoraConfig(
-                r=self.model_args.student_lora_r,
-                lora_alpha=self.model_args.student_lora_alpha,
-                lora_dropout=self.model_args.student_lora_dropout,
-                target_modules=self.model_args.student_lora_target_modules.split(','),
-            )
-            student = get_peft_model(student, lora_config)
-            print_rank("Applied LoRA to student model")
+        print("Load student with lora rank:", model_args.lora_r)
+        print("Student use lora:", model_args.lora)
+        student = MMEBModel.build(model_args, is_trainable=True)
+        print("Student model built.")
         return student 
     def get_student_processor(self):
         processor = load_processor(self._create_model_args('student'), None)
+        print("Student processor loaded.")
         return processor
     
     def get_teacher_processor(self):
         processor = load_processor(self._create_model_args('teacher'), None)
+        print("Teacher processor loaded.")
         return processor
     
     def student_forward(self, qry: Dict[str, torch.Tensor], tgt: Dict[str, torch.Tensor]= None, *args, **kwargs):
@@ -202,53 +206,77 @@ class DistillationCollator:
         self.batch_size = batch_size
     
     def _get_batch_inputs(self, batch, text_keyname, image_keyname):
+        # print("Processing batch for keys:", text_keyname, image_keyname)
         texts, visual_inputs = [], []
         for example in batch:
             if example is None or not example:
                 text, visual_input = ' ', None
+                texts.append(text)
+                visual_inputs.append(visual_input)
             else:
                 text, raw_images = example[text_keyname], example[image_keyname]
-                if type(raw_images) == dict: 
-                    visual_input = []
-                    assert 'resolutions' in raw_images, "we need len(raw_images['resolutions']) to determine the number of images, set it a list of None of for cases that no resizing is needed"
-                    num_images = len(raw_images['resolutions'])
-                    for image_idx in range(num_images):
-                        bytes = raw_images['bytes'][image_idx] if 'bytes' in raw_images else None
-                        path = raw_images['path'][image_idx] if 'path' in raw_images else None
-                        image_resolution = raw_images['resolutions'][image_idx] if 'resolutions' in raw_images else None
-                        if bytes is None and path is None:
-                            image = None
-                        elif bytes is not None: 
-                            image = Image.open(io.BytesIO(bytes))
-                        elif path is not None:
-                            image = Image.open(path).convert('RGB')
-                        else: 
-                            print_rank(f"\n{'=' * 50}\nsomething went wrong with a data point from {example['global_dataset_name']}, neither bytes or path is given. \n\t\tquery_text: {example['query_text']}")
-                        if not self.data_args.resize_min_pixels and image is not None and image_resolution: 
-                            image = image.resize(image_resolution) 
-                        if image is not None and (self.data_args.image_decay_factor is not None and image_resolution is None): 
-                            assert image_resolution is None, "image_resolution is conflicting with image_decay_factor"
-                            assert self.model_args.model_backbone in [QWEN2_VL, QWEN2_5_VL, QWEN2_VL_TOKENSELECTION, QWEN2_5_VL_TOKENSELECTION], "image_decay_factor is only supported for Qwen models"
-                            # TODO: this is a hacky way to decay image resolution, need to be refactored 
-                            max_pixels = max(self.data_args.resize_min_pixels, self.data_args.resize_min_pixels * self.data_args.image_decay_factor ** (num_images - image_idx))
-                            width, height = image.size
-                            resized_width, resized_height = smart_resize(width, height, min_pixels=self.data_args.resize_min_pixels, max_pixels=max_pixels)
-                            image = image.resize((resized_width, resized_height))
+                # print("text:", text)
+                # print("raw_images type:", type(raw_images))
+                # print("raw_images:", raw_images)
+                # if type(raw_images) == PIL.Image.Image: 
+                #     visual_input = []
+                #     assert 'resolutions' in raw_images, "we need len(raw_images['resolutions']) to determine the number of images, set it a list of None of for cases that no resizing is needed"
+                #     num_images = len(raw_images['resolutions'])
+                #     for image_idx in range(num_images):
+                #         bytes = raw_images['bytes'][image_idx] if 'bytes' in raw_images else None
+                #         path = raw_images['path'][image_idx] if 'path' in raw_images else None
+                #         image_resolution = raw_images['resolutions'][image_idx] if 'resolutions' in raw_images else None
+                #         if bytes is None and path is None:
+                #             image = None
+                #         elif bytes is not None: 
+                #             image = Image.open(io.BytesIO(bytes))
+                #         elif path is not None:
+                #             image = Image.open(path).convert('RGB')
+                #         else: 
+                #             print_rank(f"\n{'=' * 50}\nsomething went wrong with a data point from {example['global_dataset_name']}, neither bytes or path is given. \n\t\tquery_text: {example['query_text']}")
+                #         if not self.data_args.resize_min_pixels and image is not None and image_resolution: 
+                #             image = image.resize(image_resolution) 
+                #         if image is not None and (self.data_args.image_decay_factor is not None and image_resolution is None): 
+                #             assert image_resolution is None, "image_resolution is conflicting with image_decay_factor"
+                #             assert self.model_args.model_backbone in [QWEN2_VL, QWEN2_5_VL, QWEN2_VL_TOKENSELECTION, QWEN2_5_VL_TOKENSELECTION], "image_decay_factor is only supported for Qwen models"
+                #             # TODO: this is a hacky way to decay image resolution, need to be refactored 
+                #             max_pixels = max(self.data_args.resize_min_pixels, self.data_args.resize_min_pixels * self.data_args.image_decay_factor ** (num_images - image_idx))
+                #             width, height = image.size
+                #             resized_width, resized_height = smart_resize(width, height, min_pixels=self.data_args.resize_min_pixels, max_pixels=max_pixels)
+                #             image = image.resize((resized_width, resized_height))
+                #         visual_input.append(image)
+                # else:
+                #     visual_input = raw_images
+                # print("text:", text)
+                visual_input = []
+                for image in raw_images:
+                    if image is None:
+                        visual_input.append(None)
+                    else:
+                        # if not isinstance(image, PIL.Image.Image):
+                        #     image = Image.open(image).convert('RGB')
+                        # if not self.data_args.resize_min_pixels and image is not None
+                        #     image = process_image(image, self.data_args.image_resolution)
+                        # image = image.convert('RGB')
+                        # print("image size:", image.size)
+                        # if image is not None and (self.data_args.image_decay_factor is not None):
+                        #     assert self.model_args.model_backbone in [QWEN2_VL, QWEN2_5_VL, QWEN2_VL_TOKENSELECTION, QWEN2_5_VL_TOKENSELECTION], "image_decay_factor is only supported for Qwen models"
+                        #     width, height = image.size
+                        #     resized_width, resized_height = smart_resize(width, height, min_pixels=self.data_args.resize_min_pixels, max_pixels=self.data_args.resize_max_pixels)
+                        #     image = image.resize((resized_width, resized_height))
                         visual_input.append(image)
-                else:
-                    visual_input = None
-            texts.append(text)
-            visual_inputs.append(visual_input)
+                texts.extend(text)
+                visual_inputs.extend(visual_input)
         inputs = {'text': texts, 'images': visual_inputs}
         return inputs
     
     def __call__(self, examples):
         student_qry_inputs = self._get_batch_inputs(examples, "student_query_text", "student_query_image")
         student_pos_inputs = self._get_batch_inputs(examples, "student_pos_text", "student_pos_image")
-        student_neg_inputs = self._get_batch_inputs(examples, "student_neg_text", "student_neg_image")
+        # student_neg_inputs = self._get_batch_inputs(examples, "student_neg_text", "student_neg_image")
         teacher_qry_inputs = self._get_batch_inputs(examples, "teacher_query_text", "teacher_query_image")
         teacher_pos_inputs = self._get_batch_inputs(examples, "teacher_pos_text", "teacher_pos_image")
-        teacher_neg_inputs = self._get_batch_inputs(examples, "teacher_neg_text", "teacher_neg_image")
+        # teacher_neg_inputs = self._get_batch_inputs(examples, "teacher_neg_text", "teacher_neg_image")
 
         bs = len(student_qry_inputs['text'])
         assert bs > 0, 'An empty batch is detected!'
@@ -263,14 +291,14 @@ class DistillationCollator:
         processed_teacher_qry_inputs = process_teacher_fn(teacher_qry_inputs, processor=self.teacher_processor, max_length=self.data_args.max_len)
         processed_teacher_pos_inputs = process_teacher_fn(teacher_pos_inputs, processor=self.teacher_processor, max_length=self.data_args.max_len)
 
-        processed_student_qry_inputs['text'] = [e['query_text'] for e in examples]
-        processed_student_pos_inputs['text'] = [e['positive_text'] for e in examples]
-        processed_student_qry_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
-        processed_student_pos_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
-        processed_teacher_qry_inputs['text'] = [e['query_text'] for e in examples]
-        processed_teacher_pos_inputs['text'] = [e['positive_text'] for e in examples]
-        processed_teacher_qry_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
-        processed_teacher_pos_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
+        processed_student_qry_inputs['text'] = [e['student_query_text'] for e in examples]
+        processed_student_pos_inputs['text'] = [e['student_pos_text'] for e in examples]
+        # processed_student_qry_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
+        # processed_student_pos_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
+        processed_teacher_qry_inputs['text'] = [e['teacher_query_text'] for e in examples]
+        processed_teacher_pos_inputs['text'] = [e['teacher_pos_text'] for e in examples]
+        # processed_teacher_qry_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
+        # processed_teacher_pos_inputs['global_dataset_name'] = [e['global_dataset_name'] for e in examples]
         
         return {
             'student_inputs': {
@@ -313,7 +341,7 @@ class DistillationDataset(Dataset):
             return image
         
     def __getitem__(self, data_idx):
-        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>get image called, {data_idx}", flush=True)
+        # print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>get image called, {data_idx}", flush=True)
         
         qry_texts, qry_image_paths, pos_texts, pos_image_paths = (
             self.train_data[data_idx]["qry"], self.train_data[data_idx]["qry_image_path"],
@@ -328,25 +356,25 @@ class DistillationDataset(Dataset):
             qry_image_paths = [qry_image_paths]
             pos_texts = [pos_texts]
             pos_image_paths = [pos_image_paths]
-            neg_texts = [neg_texts]
-            neg_image_paths = [neg_image_paths]
+            # neg_texts = [neg_texts]
+            # neg_image_paths = [neg_image_paths]
         student_qry_texts, student_qry_images, student_pos_texts, student_pos_images, student_neg_texts, student_neg_images = [], [], [], [], [], []
         teacher_qry_texts, teacher_qry_images, teacher_pos_texts, teacher_pos_images, teacher_neg_texts, teacher_neg_images = [], [], [], [], [], []
         
         student_backbone = self.model_args.student_backbone
         teacher_backbone = self.model_args.teacher_backbone
 
-        for qry_text, qry_image_path, pos_text, pos_image_path, neg_text, neg_image_path \
-            in zip(qry_texts, qry_image_paths, pos_texts, pos_image_paths, neg_texts, neg_image_paths):
+        for qry_text, qry_image_path, pos_text, pos_image_path \
+            in zip(qry_texts, qry_image_paths, pos_texts, pos_image_paths):
             # instructions were hardcoded with Phi3 image special tokens
             # Update image token for llava and colqwen2, qwenvl
             if student_backbone != PHI3V:
                 stu_qry_text = qry_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
                 stu_pos_text = pos_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
-                stu_neg_text = neg_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone]) if neg_text else None
+                # stu_neg_text = neg_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone]) if neg_text else None
             stu_qry_image = self._get_image(qry_image_path)
             stu_pos_image = self._get_image(pos_image_path)
-            stu_neg_image = self._get_image(neg_image_path) if neg_image_path else None
+            # stu_neg_image = self._get_image(neg_image_path) if neg_image_path else None
             if (not stu_qry_text and not stu_qry_image) or (not stu_pos_text and not stu_pos_image):
                 print("empty inputs")
                 continue
@@ -354,16 +382,16 @@ class DistillationDataset(Dataset):
             student_qry_images.append(stu_qry_image)
             student_pos_texts.append(stu_pos_text)
             student_pos_images.append(stu_pos_image)
-            student_neg_texts.append(stu_neg_text)
-            student_neg_images.append(stu_neg_image)
+            # student_neg_texts.append(stu_neg_text)
+            # student_neg_images.append(stu_neg_image)
             
             if teacher_backbone != PHI3V:
                 tea_qry_text = qry_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone])
                 tea_pos_text = pos_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone])
-                tea_neg_text = neg_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone]) if neg_text else None
+                # tea_neg_text = neg_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone]) if neg_text else None
             tea_qry_image = self._get_image(qry_image_path)
             tea_pos_image = self._get_image(pos_image_path)
-            tea_neg_image = self._get_image(neg_image_path) if neg_image_path else None
+            # tea_neg_image = self._get_image(neg_image_path) if neg_image_path else None
             if (not tea_qry_text and not tea_qry_image) or (not tea_pos_text and not tea_pos_image):
                 print("empty inputs")
                 continue
@@ -371,20 +399,20 @@ class DistillationDataset(Dataset):
             teacher_qry_images.append(tea_qry_image)
             teacher_pos_texts.append(tea_pos_text)
             teacher_pos_images.append(tea_pos_image)
-            teacher_neg_texts.append(tea_neg_text)
-            teacher_neg_images.append(tea_neg_image)
+            # teacher_neg_texts.append(tea_neg_text)
+            # teacher_neg_images.append(tea_neg_image)
             
         return {
             "student_query_text": student_qry_texts,
             "student_query_image": student_qry_images,
             "student_pos_text": student_pos_texts,
             "student_pos_image": student_pos_images,
-            "student_neg_text": student_neg_texts,
-            "student_neg_image": student_neg_images,
+            # "student_neg_text": student_neg_texts,
+            # "student_neg_image": student_neg_images,
             "teacher_query_text": teacher_qry_texts,
             "teacher_query_image": teacher_qry_images,
             "teacher_pos_text": teacher_pos_texts,
             "teacher_pos_image": teacher_pos_images,
-            "teacher_neg_text": teacher_neg_texts,
-            "teacher_neg_image": teacher_neg_images,
+            # "teacher_neg_text": teacher_neg_texts,
+            # "teacher_neg_image": teacher_neg_images,
         }
