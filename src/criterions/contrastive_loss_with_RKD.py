@@ -44,8 +44,6 @@ class ContrastiveLossWithRKD(nn.Module):
             "loss": total_loss,
             "contrastive_loss": contrastive_loss,
             "kd_loss": kd_loss,
-            "distance_loss": distance_loss,
-            "angle_loss": angle_loss
         }
     
     def pairwise_distance(self, x):

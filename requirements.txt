@@ -23,3 +23,4 @@ opencv-python
 decord
 hnswlib
 einops
+deepspeed==0.17.6
