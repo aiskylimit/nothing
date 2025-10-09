@@ -46,6 +46,9 @@ class ProposalLossWithDTW(nn.Module):
         
         teacher_qry_input = input_data['teacher_inputs']['qry']
         teacher_pos_input = input_data['teacher_inputs']['pos']
+        num_text_qry_tokens = (teacher_qry_input['input_ids'] < 151652 | teacher_qry_input['input_ids'] > 151656).sum(dim=1)
+        num_text_pos_tokens = (teacher_pos_input['input_ids'] < 151652 | teacher_pos_input['input_ids'] > 151656).sum(dim=1)
+        batch_size = student_qry_input['input_ids'].size(0)
         with torch.no_grad():
             teacher_model.eval()
             teacher_qry_reps, teacher_qry_image_features, teacher_qry_attention = teacher_model.encode_input(teacher_qry_input)
@@ -65,17 +68,20 @@ class ProposalLossWithDTW(nn.Module):
                            self.dtw_criterion(teacher_qry_reps, student_pos_reps).mean() + self.dtw_criterion(teacher_pos_reps, student_qry_reps).mean()
         self.kd_loss_dtw_image = torch.tensor(0.0).to(contrastive_loss.device)
         
-        if student_qry_image_features is not None and teacher_qry_image_features is not None:
-            teacher_qry_image_features = teacher_qry_image_features.mean(dim=0, keepdim=True)
-            student_qry_image_features = student_qry_image_features.mean(dim=0, keepdim=True)
-            self.kd_loss_dtw_image += self.dtw_criterion(teacher_qry_image_features, student_qry_image_features).mean()
-        if student_pos_image_features is not None and teacher_pos_image_features is not None:
-            self.kd_loss_dtw_image += self.dtw_criterion(teacher_pos_image_features, student_pos_image_features).mean()
+        for i in range(batch_size):
+            if student_qry_image_features is not None and teacher_qry_image_features is not None:
+                s_qry_image_features = student_qry_image_features[i].mean(dim=0, keepdim=True).unsqueeze(dim=-1)
+                t_qry_image_features = teacher_qry_image_features[i].mean(dim=0, keepdim=True).unsqueeze(dim=-1)
+                self.kd_loss_dtw_image += self.dtw_criterion(t_qry_image_features, s_qry_image_features).mean()
+            if student_pos_image_features is not None and teacher_pos_image_features is not None:
+                s_pos_image_features = student_pos_image_features[i].mean(dim=0, keepdim=True).unsqueeze(dim=-1)
+                t_pos_image_features = teacher_pos_image_features[i].mean(dim=0, keepdim=True).unsqueeze(dim=-1)
+                self.kd_loss_dtw_image += self.dtw_criterion(t_pos_image_features, s_pos_image_features).mean()
 
         self.kd_loss_dtw = self.kd_loss_dtw_text + self.kd_loss_dtw_image
 
         # Attention loss with CKA
-        topk_token_text_results = self.extract_top_k_text_token(input_data, teacher_qry_attention, teacher_pos_attention, k=5)
+        topk_token_text_results = self.extract_top_k_text_token(input_data, teacher_qry_attention, teacher_pos_attention, num_text_qry_tokens, num_text_pos_tokens)
         self.attn_loss = self.compute_attention_loss(teacher_qry_attention, teacher_pos_attention, 
                                                      student_qry_attention, student_pos_attention, 
                                                      input_data, topk_token_text_results, k_layer=1)
@@ -86,7 +92,7 @@ class ProposalLossWithDTW(nn.Module):
             "kd_loss": self.kd_loss_dtw + 0.1 * self.attn_loss,
         }
 
-    def extract_top_k_text_token(self, input_data, teacher_qry_attention, teacher_pos_attention, k):
+    def extract_top_k_text_token(self, input_data, teacher_qry_attention, teacher_pos_attention, num_text_qry_tokens, num_text_pos_tokens):
         VISION_START_TOKEN_ID = 151652
         VISION_END_TOKEN_ID = 151656
         teacher_qry_input_ids = input_data['teacher_inputs']['qry']['input_ids']
@@ -113,8 +119,8 @@ class ProposalLossWithDTW(nn.Module):
 
             qry_imp = qry_imp * qry_mask.float()
             pos_imp = pos_imp * pos_mask.float()
-            qry_topk_idx = torch.topk(qry_imp, min(k, int(qry_mask.sum().item()))).indices
-            pos_topk_idx = torch.topk(pos_imp, min(k, int(pos_mask.sum().item()))).indices
+            qry_topk_idx = torch.topk(qry_imp, min(num_text_qry_tokens[i]//2, int(qry_mask.sum().item()))).indices
+            pos_topk_idx = torch.topk(pos_imp, min(num_text_pos_tokens[i]//2, int(pos_mask.sum().item()))).indices
 
             qry_topk = [(int(idx), int(qry_ids[idx]), float(qry_imp[idx])) for idx in qry_topk_idx if qry_mask[idx]]
             pos_topk = [(int(idx), int(pos_ids[idx]), float(pos_imp[idx])) for idx in pos_topk_idx if pos_mask[idx]]
@@ -136,24 +142,41 @@ class ProposalLossWithDTW(nn.Module):
             s_qry_ids = student_qry_input_ids[i].tolist()
             s_pos_ids = student_pos_input_ids[i].tolist()
             
-            # extract student indices based on teacher top-k token ids
+            s_qry_id_to_indices = {}
+            for j, token_id in enumerate(s_qry_ids):
+                if token_id not in s_qry_id_to_indices:
+                    s_qry_id_to_indices[token_id] = []
+                s_qry_id_to_indices[token_id].append(j)
+
+            s_pos_id_to_indices = {}
+            for j, token_id in enumerate(s_pos_ids):
+                if token_id not in s_pos_id_to_indices:
+                    s_pos_id_to_indices[token_id] = []
+                s_pos_id_to_indices[token_id].append(j)
+
             qry_topk = topk_results[i]['qry_topk']
             pos_topk = topk_results[i]['pos_topk']
             
             qry_student_idx = []
-            pos_student_idx = []
-            
-            for idx, token_id, _ in qry_topk:
-                for j, student_token_id in enumerate(s_qry_ids):
-                    if student_token_id == token_id and j not in qry_student_idx:
-                        qry_student_idx.append(j)
-                        break
-            for idx, token_id, _ in pos_topk:
-                for j, student_token_id in enumerate(s_pos_ids):
-                    if student_token_id == token_id and j not in pos_student_idx:
-                        pos_student_idx.append(j)
-                        break
+            used_qry_indices = set()
+            for _, token_id, _ in qry_topk:
+                if token_id in s_qry_id_to_indices:
+                    for index in s_qry_id_to_indices[token_id]:
+                        if index not in used_qry_indices:
+                            qry_student_idx.append(index)
+                            used_qry_indices.add(index)
+                            break 
 
+            pos_student_idx = []
+            used_pos_indices = set()
+            for _, token_id, _ in pos_topk:
+                if token_id in s_pos_id_to_indices:
+                    for index in s_pos_id_to_indices[token_id]:
+                        if index not in used_pos_indices:
+                            pos_student_idx.append(index)
+                            used_pos_indices.add(index)
+                            break
+                            
             student_indices.append({
                 "qry": qry_student_idx,
                 "pos": pos_student_idx
@@ -203,15 +226,15 @@ class ProposalLossWithDTW(nn.Module):
             sp_mean = student_pos_first[i, :, s_pos_topk_idx, :].mean(dim=0)
             
             # mask -inf
-            tq_topk = torch.where(tq_topk <= -1e2, torch.zeros_like(tq_topk), tq_topk)
-            sq_topk = torch.where(sq_topk <= -1e2, torch.zeros_like(sq_topk), sq_topk)
-            tp_topk = torch.where(tp_topk <= -1e2, torch.zeros_like(tp_topk), tp_topk)
-            sp_topk = torch.where(sp_topk <= -1e2, torch.zeros_like(sp_topk), sp_topk)
-            
+            tq_mean = torch.where(tq_mean <= -1e2, torch.zeros_like(tq_mean), tq_mean)
+            sq_mean = torch.where(sq_mean <= -1e2, torch.zeros_like(sq_mean), sq_mean)
+            tp_mean = torch.where(tp_mean <= -1e2, torch.zeros_like(tp_mean), tp_mean)
+            sp_mean = torch.where(sp_mean <= -1e2, torch.zeros_like(sp_mean), sp_mean)
+
             # calculate CKA loss
             att_loss = cka_fn_loss(tq_mean, sq_mean) + cka_fn_loss(tp_mean, sp_mean)
             att_loss_total += att_loss / 2
         
-        return att_loss_total
+        return att_loss_total / batch_size
     
     

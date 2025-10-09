@@ -205,14 +205,20 @@ class DistillationCollator:
                 visual_inputs.append(visual_input)
             else:
                 text, raw_images = example[text_keyname], example[image_keyname]
-                visual_input = []
-                for image in raw_images:
-                    if image is None:
-                        visual_input.append(None)
-                    else:
-                        visual_input.append(image)
-                texts.extend(text)
-                visual_inputs.extend(visual_input)
+                if not isinstance(text, list):
+                    text = [text]
+                if not isinstance(raw_images, list):
+                    raw_images = [raw_images]
+                if not text and not raw_images:
+                    text, visual_input = ' ', None
+                    texts.append(text)
+                    visual_inputs.append(visual_input)
+                else:
+                    for t, img in zip(text, raw_images):
+                        if not t and img is None:
+                            t, img = ' ', None
+                        texts.append(t)
+                        visual_inputs.append(img)
         inputs = {'text': texts, 'images': visual_inputs}
         return inputs
     
@@ -268,12 +274,11 @@ class DistillationDataset(Dataset):
     
     def __len__(self):
         return len(self.train_data)
-    def _get_image(self, img_path):
+    def _get_image(self, img_path, backbone):
         if not img_path:
             return None
         full_img_path = os.path.join(self.data_args.image_dir, img_path)
         image = Image.open(full_img_path)
-        backbone = self.model_args.model_backbone
         if backbone != PHI3V and self.data_args.image_resolution:
             return process_image(image, self.data_args.image_resolution)
         else:
@@ -302,12 +307,14 @@ class DistillationDataset(Dataset):
         for qry_text, qry_image_path, pos_text, pos_image_path in zip(qry_texts, qry_image_paths, pos_texts, pos_image_paths):
             # instructions were hardcoded with Phi3 image special tokens
             # Update image token for llava and colqwen2, qwenvl
-            if student_backbone != PHI3V:
-                stu_qry_text = qry_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
-                stu_pos_text = pos_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
-            stu_qry_image = self._get_image(qry_image_path)
-            stu_pos_image = self._get_image(pos_image_path)
             
+            stu_qry_text, stu_pos_text = qry_text, pos_text
+            if student_backbone != PHI3V:
+                stu_qry_text = stu_qry_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
+                stu_pos_text = stu_pos_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
+            stu_qry_image = self._get_image(qry_image_path, student_backbone)
+            stu_pos_image = self._get_image(pos_image_path, student_backbone)
+
             if (not stu_qry_text and not stu_qry_image) or (not stu_pos_text and not stu_pos_image):
                 print("empty inputs")
                 continue
@@ -316,12 +323,13 @@ class DistillationDataset(Dataset):
             student_qry_images.append(stu_qry_image)
             student_pos_texts.append(stu_pos_text)
             student_pos_images.append(stu_pos_image)
-        
+
+            teacher_qry_text, teacher_pos_text = qry_text, pos_text
             if teacher_backbone != PHI3V:
-                teacher_qry_text = [t.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone]) for t in qry_texts]
-                teacher_pos_text = [t.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone]) for t in pos_texts]
-            teacher_qry_image = self._get_image(qry_image_path)
-            teacher_pos_image = self._get_image(pos_image_path)
+                teacher_qry_text = teacher_qry_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone])
+                teacher_pos_text = teacher_pos_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[teacher_backbone])
+            teacher_qry_image = self._get_image(qry_image_path, teacher_backbone)
+            teacher_pos_image = self._get_image(pos_image_path, teacher_backbone)
 
             if (not teacher_qry_text and not teacher_qry_image) or (not teacher_pos_text and not teacher_pos_image):
                 print("empty inputs")
