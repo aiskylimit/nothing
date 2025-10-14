@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
+from torch import Tensor
 from .soft_DTW import SoftDTW
 
 class CKALoss(nn.Module):
@@ -35,6 +36,20 @@ class ProposalLossWithDTW(nn.Module):
         self.epsilon = 1e-9
         self.ot_dist_type = 'attention'
         self.dtw_criterion = SoftDTW(use_cuda=True, gamma=0.0001, normalize=False)
+        if dist.is_initialized():
+            self.world_size = dist.get_world_size()
+            self.process_rank = dist.get_rank()
+        else:
+            self.world_size = 1
+            self.process_rank = 0
+            
+    def _dist_gather_tensor(self, t: Tensor):
+        t = t.contiguous()
+        all_tensors = [torch.empty_like(t) for _ in range(self.world_size)]
+        dist.all_gather(all_tensors, t)
+        all_tensors[self.process_rank] = t
+        all_tensors = torch.cat(all_tensors, dim=0)
+        return all_tensors
     
     def forward(self, distiller, input_data):
         self.distiller = distiller
@@ -56,11 +71,17 @@ class ProposalLossWithDTW(nn.Module):
         
         student_qry_reps, student_qry_image_features, student_qry_attention = student_model.encode_input(student_qry_input)
         student_pos_reps, student_pos_image_features, student_pos_attention = student_model.encode_input(student_pos_input)
-        
-        scores = student_model.compute_similarity(student_qry_reps, student_pos_reps)
-        scores = scores.view(student_qry_reps.size(0), -1)
+        if self.world_size > 1:
+            all_student_qry_reps = self._dist_gather_tensor(student_qry_reps)
+            all_student_pos_reps = self._dist_gather_tensor(student_pos_reps)
+        else:
+            all_student_qry_reps = student_qry_reps
+            all_student_pos_reps = student_pos_reps
+            
+        scores = student_model.compute_similarity(all_student_qry_reps, all_student_pos_reps)
+        scores = scores.view(all_student_qry_reps.size(0), -1)
         target = torch.arange(scores.size(0), device=scores.device, dtype=torch.long)
-        target = target * (student_qry_reps.size(0) // student_pos_reps.size(0))
+        target = target * (all_student_qry_reps.size(0) // all_student_pos_reps.size(0))
         contrastive_loss = nn.CrossEntropyLoss()(scores / self.distiller.temperature, target)
 
         # KD loss with DTW
@@ -69,18 +90,18 @@ class ProposalLossWithDTW(nn.Module):
         self.kd_loss_dtw_image = 0.0
 
         for i in range(batch_size):
-            if student_qry_image_features is not None and teacher_qry_image_features is not None:
+            if student_qry_image_features[i] is not None and teacher_qry_image_features[i] is not None:
                 s_qry_image_features = F.normalize(student_qry_image_features[i].mean(dim=0, keepdim=True), p=2, dim=-1).unsqueeze(dim=-1)
                 t_qry_image_features = F.normalize(teacher_qry_image_features[i].mean(dim=0, keepdim=True), p=2, dim=-1).unsqueeze(dim=-1)
                 self.kd_loss_dtw_image = self.kd_loss_dtw_image + self.dtw_criterion(s_qry_image_features, t_qry_image_features).mean()
-            if student_pos_image_features is not None and teacher_pos_image_features is not None:
+            if student_pos_image_features[i] is not None and teacher_pos_image_features[i] is not None:
                 s_pos_image_features = F.normalize(student_pos_image_features[i].mean(dim=0, keepdim=True), p=2, dim=-1).unsqueeze(dim=-1)
                 t_pos_image_features = F.normalize(teacher_pos_image_features[i].mean(dim=0, keepdim=True), p=2, dim=-1).unsqueeze(dim=-1)
                 self.kd_loss_dtw_image = self.kd_loss_dtw_image + self.dtw_criterion(s_pos_image_features, t_pos_image_features).mean()
         self.kd_loss_dtw_image = self.kd_loss_dtw_image / batch_size
 
         self.kd_loss_dtw = self.kd_loss_dtw_text + self.kd_loss_dtw_image
-        # self.kd_loss_dtw = self.kd_loss_dtw_image
+        self.kd_loss_dtw = self.kd_loss_dtw_image
 
         # Attention loss with CKA
         topk_token_text_results = self.extract_top_k_text_token(input_data, teacher_qry_attention, teacher_pos_attention, num_text_qry_tokens, num_text_pos_tokens)
@@ -92,7 +113,7 @@ class ProposalLossWithDTW(nn.Module):
         return {
             "loss": total_loss, 
             "contrastive_loss": contrastive_loss,
-            "kd_loss": self.kd_loss_dtw + 0.1 * self.attn_loss,
+            "kd_loss": self.kd_loss_dtw + 0.3 * self.attn_loss,
             # "kd_loss": 0.1 * self.attn_loss,
         }
 

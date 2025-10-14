@@ -22,6 +22,7 @@ class ContrastiveLossWithRKD(nn.Module):
         teacher_input_qry = input_data['teacher_inputs']['qry']
         teacher_input_pos = input_data['teacher_inputs']['pos']
         with torch.no_grad():
+            teacher_model.eval()
             teacher_qry_reps, _, _ = teacher_model.encode_input(teacher_input_qry)
             teacher_pos_reps, _, _ = teacher_model.encode_input(teacher_input_pos)
 
@@ -36,10 +37,10 @@ class ContrastiveLossWithRKD(nn.Module):
         
         distance_loss = self.compute_distance_loss(student_qry_reps, student_pos_reps, teacher_qry_reps, teacher_pos_reps)
         angle_loss = self.compute_angle_loss(student_qry_reps, student_pos_reps, teacher_qry_reps, teacher_pos_reps)
-        
-        kd_loss = self.kd_loss_weight * (self.distance_weight * distance_loss + self.angle_weight * angle_loss)
 
-        total_loss = contrastive_loss + kd_loss
+        kd_loss = (0.5 * distance_loss + 0.5 * angle_loss)
+
+        total_loss = contrastive_loss + self.kd_loss_weight * kd_loss
         return {
             "loss": total_loss,
             "contrastive_loss": contrastive_loss,

@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
 import deepspeed
@@ -24,6 +25,26 @@ from huggingface_hub import HfApi, HfFolder, Repository, create_repo
 from transformers import AutoConfig, AutoProcessor, AutoTokenizer, HfArgumentParser
 from transformers.integrations import HfDeepSpeedConfig
 # Todo
+def get_optimizer_params(model, training_args):
+    param_optimizer = list(model.named_parameters())
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in param_optimizer if p.requires_grad]},
+    ]
+
+    return optimizer_grouped_parameters
+
+def get_optimizer(model, training_args):
+    while isinstance(model, DDP):
+        model = model.module
+    optimizer_grouped_parameters = get_optimizer_params(model, training_args)
+    optimizer = AdamW(
+        optimizer_grouped_parameters, 
+        lr=training_args.learning_rate,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=training_args.weight_decay,
+    )
+    return optimizer
 
 def prepare_dataset(data_args, model_args):
     dataset = DistillationDataset(data_args, model_args)
@@ -132,17 +153,19 @@ def finetune(
         config_params=ds_config,
     )
     print(model_engine.module is distiller)  # phải là True
-    print(sum(p.numel() for p in model_engine.module.parameters()))
-    
+    print(sum(p[1].numel() for p in model_engine.named_parameters() if p[1].requires_grad))
+    total_trainable = 0
     for n, p in model_engine.named_parameters():
         if p.requires_grad:
+            total_trainable += p.numel()
+            print_rank(f"Trainable param: {n}, shape: {p.shape}, numel: {p.numel()}")
             try:
                 p.data = p.data.to(dtype=torch.bfloat16)
             except Exception as e:
                 # If bf16 not supported, ignore and continue
                 print_rank(f"Warning: cannot cast param {n} to bfloat16: {e}")
                 pass
-
+    print_rank(f"Total trainable parameters: {total_trainable}")
     print_rank(f"model device: {next(model_engine.parameters()).device}")
     model_engine.train()
     
@@ -177,6 +200,7 @@ def finetune(
         end_epoch = False
         epoch_step = 0
         epoch_loss, epoch_contrastive_loss, epoch_kd_loss = 0, 0, 0
+        losses, contrastive_losses, kd_losses = [], [], []
         model_engine.train()
         
         if is_distributed and isinstance(train_dataloader.sampler, DistributedSampler):
@@ -191,30 +215,24 @@ def finetune(
             desc=f"Epoch {epoch+1}",
             disable=(getattr(model_engine, "global_rank", 0) != 0)
         )
-        
-        while True:
+
+        while True: 
             global_batch = []
-            losses, contrastive_losses, kd_losses = [], [], []
-            for i in range(grad_accum):
+            for _ in range(grad_accum):
                 try:
                     batch = next(train_iter)
+                    batch = batch_to_device(batch, model_engine.device)
                     global_batch.append(batch)
                 except StopIteration:
                     end_epoch = True
                     break
             
-            if end_epoch and len(global_batch) == 0:
+            if end_epoch:
                 break
-            
             for batch in global_batch:
-                # print(f"Batch device before to device: {batch['student_inputs']['qry']['input_ids'].device}")
-                device_batch = batch_to_device(batch, model_engine.device)
-                # print(f"Model device: {next(model_engine.parameters()).device}")
-                # print(f"Batch device after to device: {device_batch['student_inputs']['qry']['input_ids'].device}")
-                st_time = time.time()
                 
-                # print(f"Teacher_qry_reps dtype: {teacher_qry_reps.dtype}, device: {teacher_qry_reps.device}")
-                loss_dict = model_engine(criterion, device_batch)
+            # print(f"Teacher_qry_reps dtype: {teacher_qry_reps.dtype}, device: {teacher_qry_reps.device}")
+                loss_dict = model_engine(criterion, batch)
 
                 loss = loss_dict['loss']
                 model_engine.backward(loss)
@@ -225,28 +243,17 @@ def finetune(
                 losses.append(loss_dict['loss'].detach().item())
                 contrastive_losses.append(contrastive_loss.detach().item())
                 kd_losses.append(kd_loss.detach().item())
-                logging_output['micro_step_time'].append(time.time() - st_time)
-            model_engine.step()
-            
-            try: 
-                if lr_scheduler is not None:
-                    lr_scheduler.step()
-            except Exception: 
-                pass 
-            step += 1
-            epoch_step += 1
-            logging_output['global_step'] = step
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-            
-            batch_loss = sum(losses)/len(losses)
-            batch_contrastive_loss = sum(contrastive_losses)/len(contrastive_losses)
-            batch_kd_loss = sum(kd_losses)/len(kd_losses)
-            
-            epoch_loss += sum(losses)
-            epoch_contrastive_loss += sum(contrastive_losses)
-            epoch_kd_loss += sum(kd_losses)
-            
+
+                model_engine.step()
+                
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                # try: 
+                #     if lr_scheduler is not None:
+                #         lr_scheduler.step()
+                # except Exception: 
+                #     pass 
+                step += 1
             if getattr(model_engine, "global_rank", 0) == 0 and step % training_args.logging_steps == 0:
                 current_lr = None
                 try: 
@@ -254,6 +261,12 @@ def finetune(
                 except Exception:
                     print_rank("Cannot get learning rate from lr_scheduler")
                     current_lr = None
+                batch_loss = sum(losses) / len(losses) if len(losses) > 0 else 0
+                batch_contrastive_loss = sum(contrastive_losses) / len(contrastive_losses) if len(contrastive_losses) > 0 else 0
+                batch_kd_loss = sum(kd_losses) / len(kd_losses) if len(kd_losses) > 0 else 0
+                epoch_loss += sum(losses)
+                epoch_contrastive_loss += sum(contrastive_losses)
+                epoch_kd_loss += sum(kd_losses)
                 progress_bar.set_postfix({
                     "loss": f"{batch_loss:.4f}",
                     "contrastive_loss": f"{batch_contrastive_loss:.4f}",
@@ -274,9 +287,9 @@ def finetune(
                     
                     logging_output['micro_step_time'] = []
                     logging_output['step_time'] = []
-                    
-            if end_epoch:
-                continue
+                losses, contrastive_losses, kd_losses = [], [], []
+                epoch_step += 1
+
             
         # End of epoch
         if getattr(model_engine, "global_rank", 0) == 0:
@@ -394,6 +407,10 @@ def main():
     train_dataset = prepare_dataset(data_args, model_args)
     print_rank(f"Number of training samples: {len(train_dataset)}")
     distiller = Distiller(model_args, training_args, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    print(f"Number of parameters in student model: {sum(p.numel() for p in distiller.student.parameters())}")
+    print(f"Number of parameters in teacher model: {sum(p.numel() for p in distiller.teacher.parameters())}")
+    print(f"Number of trainable parameters in student model: {sum(p.numel() for p in distiller.student.parameters() if p.requires_grad)}")
+    print(f"Number of trainable parameters in teacher model: {sum(p.numel() for p in distiller.teacher.parameters() if p.requires_grad)}")
     collator = DistillationCollator(
         student_processor=distiller.get_student_processor(),
         teacher_processor=distiller.get_teacher_processor(),
@@ -401,19 +418,18 @@ def main():
         data_args=data_args,
         training_args=training_args,
     )
-    optimizer = AdamW(
-        distiller.student.parameters(),
-        lr=training_args.learning_rate,
-        betas=(0.9, 0.999),
-        eps=1e-8,
-        weight_decay=training_args.weight_decay,
-    )
+    optimizer = get_optimizer(distiller, training_args)
+    print_rank(f"Number of optimizer parameters: {sum(p.numel() for group in optimizer.param_groups for p in group['params'])}")
     world_size = dist.get_world_size() if dist.is_initialized() else 1
+    print("World size: ", world_size)
     # Initialize learning rate scheduler
     steps_per_epoch = len(train_dataset) // (
         training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps * world_size
     )
+    print(f"Steps per epoch: {steps_per_epoch}")
     total_steps = steps_per_epoch * training_args.num_train_epochs
+    print(f"Total training steps: {total_steps}")
+    print(f"Num warmup steps: {training_args.warmup_ratio * total_steps}")
         
     if training_args.lr_scheduler_type == "linear":
         from transformers import get_linear_schedule_with_warmup

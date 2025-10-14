@@ -7,7 +7,7 @@ NUM_GPUS=1
 TRAIN_SCRIPT="train_distillation.py"
 
 # Đường dẫn tới file config DeepSpeed bạn vừa tạo
-DS_CONFIG="ds_config.json"
+DS_CONFIG="ds_config_test.json"
 
 # =========================================================================
 # Cách 1: Dùng launcher của DeepSpeed (Khuyên dùng)
@@ -25,12 +25,12 @@ deepspeed --num_gpus=$NUM_GPUS $TRAIN_SCRIPT \
     --model_backbone "llava_onevision" \
     --pooling "eos" \
     --dataset_name "TIGER-Lab/MMEB-train" \
-    --subset_name HatefulMemes \
+    --subset_name HatefulMemes ImageNet_1K\
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
-    --output_dir "training/distill_B2_Qwen2_2B_2" \
-    --per_device_train_batch_size 2 \
-    --gradient_accumulation_steps 2 \
+    --output_dir "training/rkd_2" \
+    --per_device_train_batch_size 4 \
+    --gradient_accumulation_steps 4 \
     --learning_rate 1e-5 \
     --num_train_epochs 1 \
     --bf16 \
@@ -44,6 +44,6 @@ deepspeed --num_gpus=$NUM_GPUS $TRAIN_SCRIPT \
     --lr_scheduler_type "cosine" \
     --warmup_ratio 0.03 \
     --report_to "wandb" \
-    --kd_weight 0.1 \
-    --kd_loss_type "proposal_dtw" \
+    --kd_weight 0.3 \
+    --kd_loss_type "contrastive_rkd" \
     --image_resolution low
