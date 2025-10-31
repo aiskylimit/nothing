@@ -35,6 +35,18 @@ from transformers import ProcessorMixin
 from qwen_vl_utils import smart_resize
 from PIL import Image
 
+POS_MOD_CLASS_LABEL = "Represent the class label: "
+POS_MOD_IMAGE_CAPTION = "Represent the image caption: "
+POS_MOD_ANSWER = "Represent the answer: "
+
+POS_MOD_DICT = {
+                "ImageNet_1K": POS_MOD_CLASS_LABEL,"HatefulMemes":POS_MOD_CLASS_LABEL,"SUN397":POS_MOD_CLASS_LABEL,"N24News":POS_MOD_CLASS_LABEL,"VOC2007":POS_MOD_CLASS_LABEL, "Place365":POS_MOD_CLASS_LABEL,"ImageNet-A":POS_MOD_CLASS_LABEL,"ImageNet-R":POS_MOD_CLASS_LABEL,"ObjectNet":POS_MOD_CLASS_LABEL,"Country211":POS_MOD_CLASS_LABEL,
+                
+                "OK-VQA":POS_MOD_ANSWER, "A-OKVQA":POS_MOD_ANSWER, "DocVQA":POS_MOD_ANSWER, "InfographicsVQA":POS_MOD_ANSWER, "ChartQA":POS_MOD_ANSWER, "Visual7W":POS_MOD_ANSWER,"ScienceQA":POS_MOD_ANSWER, "GQA":POS_MOD_ANSWER, "TextVQA":POS_MOD_ANSWER, "VizWiz":POS_MOD_ANSWER,
+                
+                "MSCOCO_i2t":POS_MOD_IMAGE_CAPTION, "VisualNews_i2t":POS_MOD_IMAGE_CAPTION,
+                }
+
 def process_image(image, resolution, max_dim=1344):
     if image is None:
         return None
@@ -252,7 +264,10 @@ class DistillationDataset(Dataset):
                 subset,
                 split=f"{self.data_args.dataset_split}"
             )
+            subset_data = subset_data.add_column("pos_text_instruction", [POS_MOD_DICT.get(subset, "") + text for text in subset_data['pos_text']])
             subset_data = subset_data.remove_columns(set(['neg_text', 'neg_image_path']) & set(subset_data.column_names))
+            subset_data = subset_data.remove_columns(set(subset_data.column_names) - set(['qry', 'qry_image_path', 'pos_image_path', 'pos_text_instruction']))
+            subset_data = subset_data.rename_column("pos_text_instruction", "pos_text")
             train_data.append(subset_data)
             
         self.train_data = concatenate_datasets(train_data)
