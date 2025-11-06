@@ -65,11 +65,11 @@ class ProposalLossWithProj(nn.Module):
         batch_size = student_qry_input['input_ids'].size(0)
         with torch.no_grad():
             teacher_model.eval()
-            teacher_qry_reps, teacher_qry_image_features, teacher_qry_attention = teacher_model.encode_input(teacher_qry_input)
-            teacher_pos_reps, teacher_pos_image_features, teacher_pos_attention = teacher_model.encode_input(teacher_pos_input)
-        
-        student_qry_reps, student_qry_image_features, student_qry_attention = student_model.encode_input(student_qry_input)
-        student_pos_reps, student_pos_image_features, student_pos_attention = student_model.encode_input(student_pos_input)
+            teacher_qry_reps, teacher_qry_image_features, teacher_qry_attention, _ = teacher_model.encode_input(teacher_qry_input)
+            teacher_pos_reps, teacher_pos_image_features, teacher_pos_attention, _ = teacher_model.encode_input(teacher_pos_input)
+
+        student_qry_reps, student_qry_image_features, student_qry_attention, _ = student_model.encode_input(student_qry_input)
+        student_pos_reps, student_pos_image_features, student_pos_attention, _ = student_model.encode_input(student_pos_input)
         if self.world_size > 1:
             all_student_qry_reps = self._dist_gather_tensor(student_qry_reps)
             all_student_pos_reps = self._dist_gather_tensor(student_pos_reps)

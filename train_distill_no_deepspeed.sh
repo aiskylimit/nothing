@@ -24,7 +24,7 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --subset_name "HatefulMemes"  \
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
-    --output_dir "training/no_deepspeed_propose_kd_weight" \
+    --output_dir "training/no_deepspeed_propose_kd_weight_1" \
     --per_device_train_batch_size 16 \
     --gradient_accumulation_steps 2 \
     --learning_rate 1e-5 \
@@ -41,7 +41,7 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --warmup_ratio 0.03 \
     --report_to "wandb" \
     --kd_weight 0.3 \
-    --kd_loss_type "proposal_proj" \
+    --kd_loss_type "proposal_dtw" \
     --image_resolution low \
     --projector_config_path "/workspace/ComfyUI/models/gligen/VLM_Embed/config/projector_config.json" \
     --projector_lr 5e-5 \

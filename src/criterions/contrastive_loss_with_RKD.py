@@ -23,11 +23,11 @@ class ContrastiveLossWithRKD(nn.Module):
         teacher_input_pos = input_data['teacher_inputs']['pos']
         with torch.no_grad():
             teacher_model.eval()
-            teacher_qry_reps, _, _ = teacher_model.encode_input(teacher_input_qry)
-            teacher_pos_reps, _, _ = teacher_model.encode_input(teacher_input_pos)
+            teacher_qry_reps, _, _, output_hidden_states = teacher_model.encode_input(teacher_input_qry)
+            teacher_pos_reps, _, _, output_hidden_states = teacher_model.encode_input(teacher_input_pos)
 
-        student_qry_reps, _, _ = student_model.encode_input(student_input_qry)
-        student_pos_reps, _, _ = student_model.encode_input(student_input_pos)
+        student_qry_reps, _, _, output_hidden_states = student_model.encode_input(student_input_qry)
+        student_pos_reps, _, _, output_hidden_states = student_model.encode_input(student_input_pos)
 
         scores = student_model.compute_similarity(student_qry_reps, student_pos_reps)
         scores = scores.view(student_qry_reps.size(0), -1)

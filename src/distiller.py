@@ -72,6 +72,20 @@ def process_image(image, resolution, max_dim=1344):
 
     return image
 
+def create_semi_orthogonal_matrix(tensor):
+    rows, cols = tensor.shape
+    if rows >= cols:
+        # QR trực tiếp
+        a = torch.randn(rows, cols, device=tensor.device, dtype=tensor.dtype)
+        q, _ = torch.linalg.qr(a, mode='reduced')
+        tensor.data[:] = q[:, :cols]
+    else:
+        # QR trên ma trận transpose để đảm bảo W W^T = I
+        a = torch.randn(cols, rows, device=tensor.device, dtype=tensor.dtype)
+        q, _ = torch.linalg.qr(a, mode='reduced')
+        tensor.data[:] = q.T[:rows, :]
+    return tensor
+
 class Distiller(nn.Module):
     def __init__(self, model_args, training_args, device):
         super(Distiller, self).__init__()
@@ -164,12 +178,16 @@ class Distiller(nn.Module):
             for i in range(len(parsed) -1):
                 a, b = parsed[i], parsed[i+1]
                 if isinstance(a, int) and isinstance(b, int):
-                    seq.append(nn.Linear(a, b))
+                    layer = nn.Linear(a, b)
+                    create_semi_orthogonal_matrix(layer.weight)
+                    seq.append(layer)
                 elif b == "relu":
                     seq.append(name_dict[b])
                 elif a =="relu" and isinstance(b, int):
                     prev_out = parsed[i-1] if isinstance(parsed[i-1], int) else None
-                    seq.append(nn.Linear(prev_out, b))
+                    layer = nn.Linear(prev_out, b)
+                    create_semi_orthogonal_matrix(layer.weight)
+                    seq.append(layer)
             self.projectors[name] = seq
             print(f"Projector {name} created with structure: {seq}")
     

@@ -113,11 +113,12 @@ class MMEBModel(nn.Module):
                 image_features = hidden_states.batch_image_embeds
             else: 
                 image_features = None
+            output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
             attention_matrix = hidden_states.attentions if hasattr(hidden_states, 'attentions') else None
             pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
             print("len image features:", None if image_features is None else image_features.shape)
-            return pooled_output, image_features, attention_matrix
+            return pooled_output, image_features, attention_matrix, output_hidden_states
         elif getattr(self, "model_backbone", None) == LLAVA_QWEN2:
             # print("Encoding input for FastVLM model backbone")
             hidden_states = self.encoder(**input, return_dict=True, output_hidden_states=True, output_attentions=True)
@@ -125,10 +126,11 @@ class MMEBModel(nn.Module):
                 image_features = hidden_states.batch_image_embeds
             else: 
                 image_features = None
+            output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
             attention_matrix = hidden_states.attentions if hasattr(hidden_states, 'attentions') else None
             pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
-            return pooled_output, image_features, attention_matrix
+            return pooled_output, image_features, attention_matrix, output_hidden_states
         else:
             # import ipdb; ipdb.set_trace()
             hidden_states = self.encoder(**input, return_dict=True, output_hidden_states=True, output_attentions=True)
@@ -136,10 +138,11 @@ class MMEBModel(nn.Module):
                 image_features = hidden_states.batch_image_embeds
             else: 
                 image_features = None
+            output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
             attention_matrix = hidden_states.attentions if hasattr(hidden_states, 'attentions') else None
             pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
-            return pooled_output, image_features, attention_matrix
+            return pooled_output, image_features, attention_matrix, output_hidden_states
 
     def _pooling(self, last_hidden_state, attention_mask):
         if self.pooling == 'last' or self.pooling == 'eos':
@@ -150,10 +153,13 @@ class MMEBModel(nn.Module):
                 reps = last_hidden_state[torch.arange(batch_size), -1, :]
             else:
                 # Calculate last 1 position in the original tensor
-                eos_indices = attention_mask.sum(dim=1) - 1
+                max_length = last_hidden_state.size(1)
+                invert_mask = (attention_mask == 0).long()
+                num_padding_tokens = invert_mask.sum(dim=1)
+                eos_indices_positive = max_length - num_padding_tokens - 1
                 # Get the vectors at the last 1 position of each attention mask
                 reps = last_hidden_state[
-                    torch.arange(batch_size, device=last_hidden_state.device), eos_indices]
+                    torch.arange(batch_size, device=last_hidden_state.device), eos_indices_positive]
         else:
             raise NotImplementedError
         if self.normalize:
@@ -415,8 +421,8 @@ class MMEBModel(nn.Module):
 
     def forward(self, qry: Dict[str, Tensor] = None, tgt: Dict[str, Tensor] = None, *args, **kwargs):
         # print(f"qry keys: {qry.keys() if qry else None}, tgt keys: {tgt.keys() if tgt else None}")
-        qry_reps, _, _ = self.encode_input(qry) if qry else (None, None, None)  # (bsz_per_device, dim)
-        tgt_reps, _, _ = self.encode_input(tgt) if tgt else (None, None, None) # (bsz_per_device, dim)
+        qry_reps, _, _, output_hidden_states = self.encode_input(qry) if qry else (None, None, None, None)  # (bsz_per_device, dim)
+        tgt_reps, _, _, output_hidden_states = self.encode_input(tgt) if tgt else (None, None, None, None) # (bsz_per_device, dim)
 
         if qry_reps is None or tgt_reps is None:
             return {"qry_reps": qry_reps, "tgt_reps": tgt_reps}
