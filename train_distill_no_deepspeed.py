@@ -73,18 +73,29 @@ def finetune(
 ):
     print_rank("Start finetuning...")
     start_time = time.time()
-    
+
+    is_distributed = dist.is_initialized()
+    if is_distributed:
+        sampler = DistributedSampler(train_dataset, shuffle=True)
+        train_dataloader = DataLoader(
+            train_dataset, 
+            batch_size=training_args.per_device_train_batch_size,
+            collate_fn=collator,
+            sampler=sampler,
+            drop_last=True,
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_dataset, 
+            batch_size=training_args.per_device_train_batch_size,
+            collate_fn=collator,
+            shuffle=True, 
+            drop_last=True,
+        )
     accelerator = Accelerator(
         gradient_accumulation_steps=training_args.gradient_accumulation_steps,
         mixed_precision="bf16",
         log_with="wandb" if "wandb" in training_args.report_to else None,
-    )
-    train_dataloader = DataLoader(
-        train_dataset, 
-        batch_size=training_args.per_device_train_batch_size,
-        collate_fn=collator,
-        shuffle=True, 
-        drop_last=True,
     )
     distiller, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         distiller, optimizer, train_dataloader, lr_scheduler
