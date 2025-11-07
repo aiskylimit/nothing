@@ -14,7 +14,7 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --teacher_model_name "raghavlite/B3_Qwen2_2B" \
     --lora True \
     --teacher_lora True \
-    --lora_r 64 \
+    --lora_r 2 \
     --teacher_lora_r 8 \
     --teacher_pooling "eos" \
     --teacher_backbone "qwen2_vl" \
@@ -25,7 +25,7 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
     --output_dir "training/RKD" \
-    --per_device_train_batch_size 16 \
+    --per_device_train_batch_size 4 \
     --gradient_accumulation_steps 1 \
     --learning_rate 1e-5 \
     --num_train_epochs 1 \
@@ -42,4 +42,4 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --report_to "wandb" \
     --kd_weight 0.3 \
     --kd_loss_type "contrastive_rkd" \
-    --image_resolution "mid" 
+    --image_resolution "low" 

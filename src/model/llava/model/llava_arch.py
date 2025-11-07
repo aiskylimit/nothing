@@ -140,6 +140,7 @@ class LlavaMetaForCausalLM(ABC):
 
     def encode_images(self, images):
         image_features = self.get_model().get_vision_tower()(images)
+        image_features = image_features.to(dtype=torch.bfloat16)
         image_features = self.get_model().mm_projector(image_features)
         # print("Image features shape:", image_features.shape)
         return image_features
@@ -148,6 +149,7 @@ class LlavaMetaForCausalLM(ABC):
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
         images, image_sizes=None
     ):
+        
         vision_tower = self.get_vision_tower()
         if vision_tower is None or images is None or input_ids.shape[1] == 1:
             # Return input ids, position ids, attention mask, past key values, inputs embeds, labels and None for images features
@@ -245,7 +247,6 @@ class LlavaMetaForCausalLM(ABC):
             if num_images == 0:
                 # cur_image_features = image_features[cur_image_idx]
                 cur_input_embeds_1 = self.get_model().embed_tokens(cur_input_ids)
-                output_image_features.append(None)
                 # cur_input_embeds = torch.cat([cur_input_embeds_1, cur_image_features[0:0]], dim=0)
                 cur_input_embeds = cur_input_embeds_1
                 new_input_embeds.append(cur_input_embeds)

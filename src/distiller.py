@@ -77,22 +77,21 @@ def create_semi_orthogonal_matrix(tensor):
     rows, cols = tensor.shape
     if rows >= cols:
         # QR trực tiếp
-        a = torch.randn(rows, cols, device=tensor.device, dtype=tensor.dtype)
+        a = torch.randn(rows, cols, dtype=tensor.dtype)
         q, _ = torch.linalg.qr(a, mode='reduced')
         tensor.data[:] = q[:, :cols]
     else:
         # QR trên ma trận transpose để đảm bảo W W^T = I
-        a = torch.randn(cols, rows, device=tensor.device, dtype=tensor.dtype)
+        a = torch.randn(cols, rows, dtype=tensor.dtype)
         q, _ = torch.linalg.qr(a, mode='reduced')
         tensor.data[:] = q.T[:rows, :]
     return tensor
 
 class Distiller(nn.Module):
-    def __init__(self, model_args, training_args, device):
+    def __init__(self, model_args, training_args):
         super(Distiller, self).__init__()
         self.model_args = model_args
         self.training_args = training_args
-        self.device = device
         self.student = self._load_student()
         self.teacher = self._load_teacher()
         self.student_hidden_dim = self.model_args.student_hidden_dim
@@ -181,6 +180,7 @@ class Distiller(nn.Module):
                 if isinstance(a, int) and isinstance(b, int):
                     layer = nn.Linear(a, b)
                     create_semi_orthogonal_matrix(layer.weight)
+                    layer = layer.to(dtype=torch.bfloat16)
                     seq.append(layer)
                 elif b == "relu":
                     seq.append(name_dict[b])
@@ -188,6 +188,7 @@ class Distiller(nn.Module):
                     prev_out = parsed[i-1] if isinstance(parsed[i-1], int) else None
                     layer = nn.Linear(prev_out, b)
                     create_semi_orthogonal_matrix(layer.weight)
+                    layer = layer.to(dtype=torch.bfloat16)
                     seq.append(layer)
             self.projectors[name] = seq
             print(f"Projector {name} created with structure: {seq}")
@@ -293,7 +294,7 @@ class DistillationDataset(Dataset):
             train_data.append(subset_data)
             
         self.train_data = concatenate_datasets(train_data)
-        print(f"Loaded {len(self.train_data)} samples from {self.data_args.dataset_name} with subsets {self.data_args.subset_name}")
+        print_rank(f"Loaded {len(self.train_data)} samples from {self.data_args.dataset_name} with subsets {self.data_args.subset_name}")
     
     def __len__(self):
         return len(self.train_data)

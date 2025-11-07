@@ -338,7 +338,7 @@ def main():
     training_args: TrainingArguments
     
     train_dataset = prepare_dataset(data_args, model_args)
-    distiller = Distiller(model_args, training_args, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    distiller = Distiller(model_args, training_args)
     collator = DistillationCollator(
         student_processor=distiller.get_student_processor(),
         teacher_processor=distiller.get_teacher_processor(),

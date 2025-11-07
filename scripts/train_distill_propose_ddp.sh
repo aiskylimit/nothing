@@ -4,12 +4,13 @@
 NUM_GPUS_PER_NODE=1
 
 # Đường dẫn tới file script training của bạn
-TRAIN_SCRIPT="train_distill_no_deepspeed.py"
+TRAIN_SCRIPT="train_distill_ddp.py"
 
 # =========================================================================
 # Dùng torchrun để khởi chạy
 # =========================================================================
-torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
+torchrun --standalone \
+    --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --model_name "apple/FastVLM-0.5B" \
     --teacher_model_name "raghavlite/B3_Qwen2_2B" \
     --lora True \
@@ -24,7 +25,7 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --subset_name "ImageNet_1K" "N24News" "HatefulMemes" "VOC2007" "SUN397" "OK-VQA" "A-OKVQA" "DocVQA" "InfographicsVQA" "ChartQA" "Visual7W" "VisDial" "CIRR" "VisualNews_t2i" "VisualNews_i2t" "MSCOCO_i2t" "MSCOCO_t2i" "NIGHTS" "WebQA" "MSCOCO" \
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
-    --output_dir "training/propose_V" \
+    --output_dir "training/propose_ddp_V" \
     --per_device_train_batch_size 16 \
     --gradient_accumulation_steps 1 \
     --learning_rate 1e-5 \
