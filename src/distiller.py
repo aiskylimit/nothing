@@ -284,6 +284,11 @@ class DistillationDataset(Dataset):
                 subset,
                 split=f"{self.data_args.dataset_split}"
             )
+            if subset == "WebQA" and "qry" in subset_data.column_names:
+                subset_data = subset_data.map(
+                    lambda x: {"qry": x["qry"].replace("<|image_1|>", "").strip()}
+                )
+                print_rank("Preprocessed WebQA to remove <image_1> tokens in queries.")
             total_samples = len(subset_data)
             num_samples_to_keep = math.ceil(total_samples * 0.3)
             subset_data = subset_data.select(range(num_samples_to_keep))

@@ -142,7 +142,6 @@ class LlavaMetaForCausalLM(ABC):
         image_features = self.get_model().get_vision_tower()(images)
         image_features = image_features.to(dtype=torch.bfloat16)
         image_features = self.get_model().mm_projector(image_features)
-        # print("Image features shape:", image_features.shape)
         return image_features
 
     def prepare_inputs_labels_for_multimodal(
@@ -242,6 +241,13 @@ class LlavaMetaForCausalLM(ABC):
         new_labels = []
         cur_image_idx = 0
         output_image_features = []
+
+        num_img = []
+        for img in images:
+            if img is not None:
+                num_img.append(img.shape[0])
+            else:
+                num_img.append(0)
         for batch_idx, cur_input_ids in enumerate(input_ids):
             num_images = (cur_input_ids == IMAGE_TOKEN_INDEX).sum()
             if num_images == 0:
@@ -271,6 +277,7 @@ class LlavaMetaForCausalLM(ABC):
                 cur_new_input_embeds.append(cur_input_embeds_no_im[i])
                 cur_new_labels.append(cur_labels_noim[i])
                 if i < num_images:
+                    
                     cur_image_features = image_features[cur_image_idx]
                     output_image_features.append(cur_image_features)
                     cur_image_idx += 1

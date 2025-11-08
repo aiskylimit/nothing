@@ -85,30 +85,31 @@ class ProposalLossWithDTW(nn.Module):
         projected_teacher_pos_reps = self.distiller.projectors["t2s_txt"](teacher_pos_reps)
         self.kd_loss_mse_seq = 0.25 * (self.mse_loss(student_qry_reps, projected_teacher_qry_reps) + self.mse_loss(student_pos_reps, projected_teacher_pos_reps) + self.mse_loss(student_qry_reps, projected_teacher_pos_reps) + self.mse_loss(student_pos_reps, projected_teacher_qry_reps))
         self.kd_loss_dtw_image = 0.0
-
+        cur_idx_qry_img = 0
+        cur_idx_pos_img = 0
         for i in range(batch_size):
             if student_qry_image_features is not None and teacher_qry_image_features is not None:
-                if len(student_qry_image_features) <= i or len(teacher_qry_image_features) <= i:
-                    continue
-                if student_qry_image_features[i] is not None and teacher_qry_image_features[i] is not None:
-                    s_qry_image_features = F.normalize(student_qry_image_features[i], p=2, dim=-1)
-                    t_qry_image_features = F.normalize(teacher_qry_image_features[i], p=2, dim=-1)
-                    projected_t_qry_image_features = self.distiller.projectors["t2s_img"](t_qry_image_features)
-                    s = s_qry_image_features.unsqueeze(0).to(torch.float32)
-                    t = projected_t_qry_image_features.unsqueeze(0).to(torch.float32)
-                    self.kd_loss_dtw_image = self.kd_loss_dtw_image + self.dtw_criterion(s, t).mean()
-                    self.kd_loss_dtw_image = self.kd_loss_dtw_image.to(torch.bfloat16)
+                if cur_idx_qry_img < len(student_qry_image_features) and cur_idx_qry_img < len(teacher_qry_image_features):
+                    if student_qry_image_features[cur_idx_qry_img] is not None and teacher_qry_image_features[cur_idx_qry_img] is not None:
+                        s_qry_image_features = F.normalize(student_qry_image_features[cur_idx_qry_img], p=2, dim=-1)
+                        t_qry_image_features = F.normalize(teacher_qry_image_features[cur_idx_qry_img], p=2, dim=-1)
+                        projected_t_qry_image_features = self.distiller.projectors["t2s_img"](t_qry_image_features)
+                        s = s_qry_image_features.unsqueeze(0).to(torch.float32)
+                        t = projected_t_qry_image_features.unsqueeze(0).to(torch.float32)
+                        self.kd_loss_dtw_image = self.kd_loss_dtw_image + self.dtw_criterion(s, t).mean()
+                        self.kd_loss_dtw_image = self.kd_loss_dtw_image.to(torch.bfloat16)
+                        cur_idx_qry_img += 1
             if student_pos_image_features is not None and teacher_pos_image_features is not None:
-                if len(student_pos_image_features) <= i or len(teacher_pos_image_features) <= i:
-                    continue
-                if student_pos_image_features[i] is not None and teacher_pos_image_features[i] is not None:
-                    s_pos_image_features = F.normalize(student_pos_image_features[i], p=2, dim=-1)
-                    t_pos_image_features = F.normalize(teacher_pos_image_features[i], p=2, dim=-1)
-                    projected_t_pos_image_features = self.distiller.projectors["t2s_img"](t_pos_image_features)
-                    s = s_pos_image_features.unsqueeze(0).to(torch.float32)
-                    t = projected_t_pos_image_features.unsqueeze(0).to(torch.float32)
-                    self.kd_loss_dtw_image = self.kd_loss_dtw_image + self.dtw_criterion(s, t).mean()
-                    self.kd_loss_dtw_image = self.kd_loss_dtw_image.to(torch.bfloat16)
+                if cur_idx_pos_img < len(student_pos_image_features) and cur_idx_pos_img < len(teacher_pos_image_features):
+                    if student_pos_image_features[cur_idx_pos_img] is not None and teacher_pos_image_features[cur_idx_pos_img] is not None:
+                        s_pos_image_features = F.normalize(student_pos_image_features[cur_idx_pos_img], p=2, dim=-1)
+                        t_pos_image_features = F.normalize(teacher_pos_image_features[cur_idx_pos_img], p=2, dim=-1)
+                        projected_t_pos_image_features = self.distiller.projectors["t2s_img"](t_pos_image_features)
+                        s = s_pos_image_features.unsqueeze(0).to(torch.float32)
+                        t = projected_t_pos_image_features.unsqueeze(0).to(torch.float32)
+                        self.kd_loss_dtw_image = self.kd_loss_dtw_image + self.dtw_criterion(s, t).mean()
+                        self.kd_loss_dtw_image = self.kd_loss_dtw_image.to(torch.bfloat16)
+                        cur_idx_pos_img += 1
         self.kd_loss_dtw_image = self.kd_loss_dtw_image / batch_size
 
         self.kd_loss_dtw = self.kd_loss_mse_seq + 0.1 * self.kd_loss_dtw_image
