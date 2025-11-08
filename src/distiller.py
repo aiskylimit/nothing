@@ -308,6 +308,17 @@ class DistillationDataset(Dataset):
             return None
         full_img_path = os.path.join(self.data_args.image_dir, img_path)
         image = Image.open(full_img_path)
+        image = image.convert("RGB")
+        width, height = image.size
+        MIN_SIZE = 16
+        if width < MIN_SIZE or height < MIN_SIZE:
+            new_width = max(width, MIN_SIZE)
+            new_height = max(height, MIN_SIZE)
+            result = Image.new(image.mode, (new_width, new_height), (0,0,0))
+            x_offset = (new_width - width) // 2
+            y_offset = (new_height - height) // 2
+            result.paste(image, (x_offset, y_offset))
+            image = result
         if backbone != PHI3V and self.data_args.image_resolution:
             return process_image(image, self.data_args.image_resolution)
         else:
