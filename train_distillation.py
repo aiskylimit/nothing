@@ -174,7 +174,7 @@ def finetune(
     if "wandb" in training_args.report_to and dist.get_rank() == 0:
         print("Initialized wandb")
         wandb.init(
-            project="vlm_distillation", 
+            project="vlm_distillation_projector", 
             name=model_args.model_backbone if model_args.model_backbone else "distillation_experiment", 
             config={
                 "learning_rate": training_args.learning_rate,

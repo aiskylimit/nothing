@@ -283,15 +283,28 @@ class MMEBModel(nn.Module):
 
         if model_args.lora:
             print_master(f'Loading lora adapter from {base_model}')
-            lora_config = LoraConfig(
-                r=model_args.lora_r,
-                lora_alpha=model_args.lora_alpha,
-                target_modules=model_args.lora_target_modules.split(','),
-                lora_dropout=model_args.lora_dropout,
-                init_lora_weights="gaussian",
-                use_dora=True,
-                inference_mode=False
-            )
+            if model_backbone in [LLAVA_QWEN2]:
+                modules_to_save = ["mm_projector"]
+                lora_config = LoraConfig(
+                    r=model_args.lora_r,
+                    lora_alpha=model_args.lora_alpha,
+                    target_modules=model_args.lora_target_modules.split(','),
+                    lora_dropout=model_args.lora_dropout,
+                    init_lora_weights="gaussian",
+                    use_dora=True,
+                    inference_mode=False,
+                    modules_to_save=modules_to_save
+                )
+            else:
+                lora_config = LoraConfig(
+                    r=model_args.lora_r,
+                    lora_alpha=model_args.lora_alpha,
+                    target_modules=model_args.lora_target_modules.split(','),
+                    lora_dropout=model_args.lora_dropout,
+                    init_lora_weights="gaussian",
+                    use_dora=True,
+                    inference_mode=False,
+                )
             lora_model = get_peft_model(base_model, lora_config)
             
             if model_backbone in [LLAVA_QWEN2]:

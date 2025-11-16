@@ -25,14 +25,14 @@ deepspeed --num_gpus=$NUM_GPUS $TRAIN_SCRIPT \
     --model_backbone "llava_qwen2" \
     --pooling "eos" \
     --dataset_name "TIGER-Lab/MMEB-train" \
-    --subset_name "CIRR" "VOC2007" "MSCOCO" "OK-VQA" \
+    --subset_name "VOC2007" "OK-VQA"\
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
-    --output_dir "training/deepspeed_propose_kd_weight_1" \
+    --output_dir "training/deepspeed_projector_test" \
     --per_device_train_batch_size 16 \
-    --gradient_accumulation_steps 1 \
+    --gradient_accumulation_steps 2 \
     --deepspeed_config $DS_CONFIG \
-    --learning_rate 1e-5 \
+    --learning_rate 5e-5 \
     --num_train_epochs 1 \
     --bf16 \
     --save_total_limit 2 \
@@ -47,5 +47,5 @@ deepspeed --num_gpus=$NUM_GPUS $TRAIN_SCRIPT \
     --kd_weight 0.3 \
     --kd_loss_type "proposal_dtw" \
     --image_resolution "low" \
-    --projector_config_path "/workspace/ComfyUI/models/gligen/VLM_Embed/config/projector_config.json" \
+    --projector_config_path "./config/projector_config.json" \
     --projector_lr 5e-5
