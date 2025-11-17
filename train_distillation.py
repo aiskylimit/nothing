@@ -326,8 +326,8 @@ def finetune(
             if training_args.save_strategy == "epoch":
                 ckpt_dir = os.path.join(training_args.output_dir, f"checkpoint-epoch{epoch + 1}")
                 os.makedirs(ckpt_dir, exist_ok=True)
-                with GatheredParameters(model_engine.module.student.parameters(), modifier_rank=0):
-                    model_engine.module.student.encoder.save_pretrained(ckpt_dir)
+                # with GatheredParameters(model_engine.module.student.parameters(), modifier_rank=0):
+                model_engine.module.student.encoder.save_pretrained(ckpt_dir)
                     
                 try:
                     student_config = AutoConfig.from_pretrained(model_args.model_name) if model_args.model_name else None
@@ -354,8 +354,8 @@ def finetune(
     if dist.get_rank() == 0 and training_args.save_strategy == "epoch":
         final_ckpt_dir = os.path.join(training_args.output_dir, f"checkpoint-final")
         os.makedirs(final_ckpt_dir, exist_ok=True)
-        with GatheredParameters(model_engine.module.student.parameters(), modifier_rank=0):
-            model_engine.module.student.encoder.save_pretrained(final_ckpt_dir)
+        # with GatheredParameters(model_engine.module.student.parameters(), modifier_rank=0):
+        model_engine.module.student.encoder.save_pretrained(final_ckpt_dir)
 
         print_rank(f"Final model saved at {final_ckpt_dir}")
         
@@ -433,10 +433,10 @@ def main():
     steps_per_epoch = len(train_dataset) // (
         training_args.per_device_train_batch_size * training_args.gradient_accumulation_steps * world_size
     )
-    print(f"Steps per epoch: {steps_per_epoch}")
+    # print(f"Steps per epoch: {steps_per_epoch}")
     total_steps = steps_per_epoch * training_args.num_train_epochs
-    print(f"Total training steps: {total_steps}")
-    print(f"Num warmup steps: {training_args.warmup_ratio * total_steps}")
+    # print(f"Total training steps: {total_steps}")
+    # print(f"Num warmup steps: {training_args.warmup_ratio * total_steps}")
         
     if training_args.lr_scheduler_type == "linear":
         from transformers import get_linear_schedule_with_warmup
