@@ -1,4 +1,4 @@
-#0
+#1
 #gpu-burn-log
 
 # sudo apt-get update
