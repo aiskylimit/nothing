@@ -9,8 +9,8 @@ bash install_miniconda.sh
 # ./gpu_burn 36000000000
 
 # screen -ls
-# nvidia-smi
+nvidia-smi
 
 # pkill -f gpu_burn 2>/dev/null || true
 # nvidia-smi
-#3
+#9
