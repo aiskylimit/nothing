@@ -11,4 +11,4 @@ nvidia-smi
 
 # pkill -f gpu_burn 2>/dev/null || true
 # nvidia-smi
-#5
+#6
