@@ -1,9 +1,9 @@
-#1 +60
-#gpu-burn-log
+#1
+#main
 
 # sudo apt-get update
 # sudo apt-get install -y cuda-toolkit-13-0
-bash install_miniconda.sh
+# bash install_miniconda.sh
 
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
