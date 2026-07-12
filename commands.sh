@@ -11,4 +11,4 @@ make CUDAPATH=/usr/local/cuda-13.0
 
 # pkill -f gpu_burn 2>/dev/null || true
 # nvidia-smi
-#3
+#5
