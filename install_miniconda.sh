@@ -3,31 +3,37 @@ set -e
 
 INSTALL_DIR="$HOME/miniconda3"
 
-echo "Downloading Miniconda..."
-wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
+if [ ! -d "$INSTALL_DIR" ]; then
+    echo "Miniconda not found. Installing..."
 
-echo "Installing Miniconda..."
-bash /tmp/miniconda.sh -b -p "$INSTALL_DIR"
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
 
-rm -f /tmp/miniconda.sh
+    bash /tmp/miniconda.sh -b -p "$INSTALL_DIR"
 
-echo "Initializing conda..."
-"$INSTALL_DIR/bin/conda" init bash >/dev/null 2>&1
+    rm -f /tmp/miniconda.sh
 
-# Make conda available for current shell
+    "$INSTALL_DIR/bin/conda" init bash >/dev/null 2>&1
+else
+    echo "Miniconda already installed. Skipping installation."
+fi
+
+# Load conda into current shell
 eval "$("$INSTALL_DIR/bin/conda" shell.bash hook)"
 
-echo "Updating conda..."
-conda update -n base -c defaults conda -y
-
-echo ""
-echo "========================================"
-echo "Miniconda installed successfully!"
-echo "Restart your shell or run:"
-echo "source ~/.bashrc"
-echo ""
 echo "Conda version:"
 conda --version
+
+# Install uv only if it is not already installed
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Installing uv..."
+    pip install -q uv
+else
+    echo "uv already installed."
+fi
+
 echo "========================================"
-pip install -q uv
+echo "Setup completed successfully!"
+echo "If this is the first installation, run:"
+echo "    source ~/.bashrc"
+echo "or open a new terminal."
 echo "========================================"
