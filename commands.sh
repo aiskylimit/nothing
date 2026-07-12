@@ -1,5 +1,5 @@
 #1 +10
-#gpu-burn-log
+#test
 
 # sudo apt-get update
 # sudo apt-get install -y cuda-toolkit-13-0
