@@ -19,6 +19,7 @@ fi
 
 # Load conda into current shell
 eval "$("$INSTALL_DIR/bin/conda" shell.bash hook)"
+conda activate base
 
 echo "Conda version:"
 conda --version
