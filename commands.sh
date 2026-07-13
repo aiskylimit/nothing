@@ -12,7 +12,7 @@
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
 echo "nvcc"
-nvcc
+nvcc --version
 
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
