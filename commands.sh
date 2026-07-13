@@ -11,6 +11,10 @@
 # bash install_miniconda.sh
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+
+
 echo "nvcc"
 nvcc --version
 
