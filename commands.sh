@@ -1,15 +1,15 @@
-#1 +300
+#1 +10
 #main
 
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
-sudo dpkg -i cuda-keyring_1.1-1_all.deb
-sudo apt update
-sudo apt-get install -y cuda-toolkit-13-0
+# wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+# sudo dpkg -i cuda-keyring_1.1-1_all.deb
+# sudo apt update
+# sudo apt-get install -y cuda-toolkit-13-0
 # bash install_miniconda.sh
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
+echo "nvcc"
 which nvcc
-lsb_release -a
 
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
