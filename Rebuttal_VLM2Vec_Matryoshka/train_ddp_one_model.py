@@ -32,7 +32,7 @@ logging.getLogger('numba.cuda.cudadrv.driver').setLevel(logging.WARNING)
 # You may also want to set the general Numba logger level
 logging.getLogger('numba').setLevel(logging.WARNING)
 # Todo
-# wandb.login(key="f5a118efa8813fb4edc7f6b8a7ab5c9c5f9e1ece")
+# Login to Weights & Biases via environment or CLI instead of hardcoding credentials.
 
 
 class CombinedOptimizer:
