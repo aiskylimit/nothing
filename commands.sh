@@ -6,7 +6,7 @@
 # bash install_miniconda.sh
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
-nvcc --version
+which nvcc
 
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
