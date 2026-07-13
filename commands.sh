@@ -1,14 +1,14 @@
-#1 +30
+#1 +10
 #main
 
 # sudo apt-get update
 # sudo apt-get install -y cuda-toolkit-13-0
-bash install_miniconda.sh
-source "$HOME/miniconda3/etc/profile.d/conda.sh"
-conda activate base
+# bash install_miniconda.sh
+# source "$HOME/miniconda3/etc/profile.d/conda.sh"
+# conda activate base
 
-# which python
-# which pip
+which python
+which pip
 
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
