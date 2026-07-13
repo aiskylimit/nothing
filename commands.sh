@@ -5,8 +5,9 @@
 # sudo apt-get install -y cuda-toolkit-13-0
 # bash install_miniconda.sh
 # source "$HOME/miniconda3/etc/profile.d/conda.sh"
-# conda activate base
-
+conda config --set auto_activate_base true
+~/miniconda3/bin/conda init bash
+source ~/.bashrc
 which python
 which pip
 
