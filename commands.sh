@@ -24,7 +24,7 @@ nvidia-smi
 # pkill -f gpu_burn 2>/dev/null || true
 # nvidia-smi
 # git clone --branch new_ap https://github.com/DanhVinhLe/Rebuttal_VLM2Vec_Matryoshka.git
-cd Rebuttal_VLM2Vec_Matryoshka
+rm -rf Rebuttal_VLM2Vec_Matryoshka
 ls
 # sudo apt-get update
 # sudo apt-get upgrade -y
