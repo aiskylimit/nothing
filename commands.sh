@@ -53,4 +53,4 @@ nvidia-smi
 # bash eval_vqa3.sh
 # bash eval_vqa4.sh
 
-#9
+#5
