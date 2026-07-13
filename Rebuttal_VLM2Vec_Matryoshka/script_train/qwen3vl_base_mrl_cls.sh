@@ -1,0 +1,35 @@
+torchrun \
+    --standalone \
+    --nproc_per_node=1 \
+    --master_port=29500 \
+    train_ddp_one_model.py \
+    --lora \
+    --lora_r 16 \
+    --lora_alpha 64 \
+    --model_name Qwen/Qwen3-VL-Embedding-2B \
+    --model_backbone "qwen3_vl" \
+    --bf16 \
+    --pooling eos \
+    --normalize True \
+    --temperature 0.02 \
+    --dataset_name "TIGER-Lab/MMEB-train" \
+    --subset_name "ImageNet_1K" "N24News" "HatefulMemes" "VOC2007" "SUN397" \
+    --dataset_split "original" \
+    --image_dir "vlm2vec_train/MMEB-train" \
+    --output_dir "training/MRL_Qwen3_cls" \
+    --per_device_train_batch_size 16 \
+    --gradient_accumulation_steps 1 \
+    --kd_loss_type "mrl" \
+    --lr_scheduler_type cosine \
+    --learning_rate 5e-5 \
+    --num_train_epochs 2 \
+    --bf16 \
+    --save_total_limit 2 \
+    --logging_steps 1 \
+    --save_strategy "epoch" \
+    --seed 42 \
+    --weight_decay 0.01 \
+    --kd_loss_type mrl \
+    --warmup_ratio 0.03 \
+    --image_resolution mid \
+    --nested_dims 64 128 256 512 768 1024 2048

@@ -1,0 +1,756 @@
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Tuple
+
+import torch
+import torch.distributed as dist
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn.utils import parametrizations
+from torch import Tensor
+
+
+class AdaptiveMatryoshkaStage1Loss(nn.Module):
+    """
+    Stage-1 loss for Adaptive Matryoshka representation learning.
+
+    This implements:
+      1) CLIP-style cross-modal alignment on a chosen student prefix.
+      2) Curriculum training across nested dimensions with trainable projections.
+      3) Orthogonality regularization on each projection matrix (P^T P -> I).
+
+    Supported prefix chain (default): [64, 128, 256, 512, 768, 1024].
+    Curriculum stage pairs are built from:
+      - explicit user projection graph (`stage1_projection_spec`), or
+      - all larger->smaller valid pairs from configured dims.
+    Multiple larger dimensions can project into the same smaller dimension.
+    """
+
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        self.temperature = getattr(args, "temperature", 0.02)
+        nested_dims = getattr(args, "nested_dims", None) or [64, 128, 256, 512, 768, 1024]
+        self.nested_dims = sorted(set(nested_dims))
+        self.phase = str(getattr(args, "stage1_phase", "all")).upper()
+        self.projection_spec = str(getattr(args, "stage1_projection_spec", "")).strip()
+        self.align_l1_weight = float(getattr(args, "align_l1_weight", 1.0))
+        self.full_dim_l1_weight = float(getattr(args, "full_dim_l1_weight", 0.0))
+        self.orthogonal_weight = float(getattr(args, "orthogonal_weight", 0.01))
+        self.orthogonal_pair_weights = self._parse_pair_weight_map(getattr(args, "orthogonal_pair_weights", ""))
+        self.projection_weights = self._parse_pair_weight_map(getattr(args, "stage1_projection_weights", ""))
+        self.dim_align_l1_weights = self._parse_dim_weight_map(getattr(args, "align_l1_weights", ""))
+        self.spectrum_kl_weight = float(getattr(args, "spectrum_kl_weight", 0.0))
+        self.spectrum_kl_eps = float(getattr(args, "spectrum_kl_eps", 1e-8))
+        self.spectrum_kl_pair_weights = self._parse_pair_weight_map(getattr(args, "spectrum_kl_pair_weights", ""))
+        self.laplacian_pair_weights = self._parse_pair_weight_map(getattr(args, "laplacian_pair_weights", ""))
+        self.spectrum_loss_type = str(getattr(args, "spectrum_loss_type", "svd_kl")).strip().lower()
+        self.laplacian_tau = float(getattr(args, "laplacian_tau", 0.07))
+        self.laplacian_k_eig = int(getattr(args, "laplacian_k_eig", 10))
+        laplacian_top_k = int(getattr(args, "laplacian_top_k", -1))
+        self.laplacian_top_k: Optional[int] = laplacian_top_k if laplacian_top_k > 0 else None
+        if self.spectrum_loss_type not in {"svd_kl", "laplacian_kl"}:
+            raise ValueError(
+                f"Unsupported spectrum_loss_type={self.spectrum_loss_type}. Use one of: svd_kl, laplacian_kl."
+            )
+
+        if dist.is_initialized():
+            self.world_size = dist.get_world_size()
+            self.process_rank = dist.get_rank()
+        else:
+            self.world_size = 1
+            self.process_rank = 0
+
+    def _dist_gather_tensor(self, t: Tensor) -> Tensor:
+        t = t.contiguous()
+        all_tensors = [torch.empty_like(t) for _ in range(self.world_size)]
+        dist.all_gather(all_tensors, t)
+        all_tensors[self.process_rank] = t
+        return torch.cat(all_tensors, dim=0)
+
+    def _build_contrastive_target(self, q: Tensor, p: Tensor) -> Tensor:
+        # Supports grouped positives (n_hardneg + 1 layout used in this repo).
+        target = torch.arange(q.size(0), device=q.device, dtype=torch.long)
+        target_per_qry = p.size(0) // q.size(0)
+        return target * target_per_qry
+
+    def _project_to_dim(self, model, x: Tensor, dim: int, src_dim: Optional[int] = None) -> Tensor:
+        if src_dim is None:
+            src_dim = x.size(-1)
+        if src_dim == dim:
+            return x[:, :dim]
+        if src_dim < dim:
+            raise ValueError(f"Cannot project {src_dim} -> {dim}: source dim is smaller.")
+        if not hasattr(model, "matryoshka_proj_bank"):
+            raise RuntimeError("Model missing `matryoshka_proj_bank`. Attach it before stage1 training.")
+        return model.matryoshka_proj_bank.project(x[:, :src_dim], src_dim=src_dim, dst_dim=dim)
+
+    def _cross_alignment_l1(
+        self,
+        model,
+        qry: Tensor,
+        pos: Tensor,
+        target: Tensor,
+        dim: int,
+        bigger_dim: Optional[int] = None,
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        """
+        Cross alignment requested by review:
+          - keep a single directional contrastive CE (like base_mrl.py)
+          - add L1 between two cross-projected cosine similarity maps
+
+        Branch A (contrastive + cosine map):
+          qry_dim vs pos projected from bigger_dim -> dim.
+        Branch B (cosine map only):
+          qry projected from bigger_dim -> dim vs pos_dim.
+        """
+        if bigger_dim is None:
+            bigger_dim = dim
+
+        q_dim = F.normalize(self._project_to_dim(model, qry, dim, src_dim=bigger_dim), p=2, dim=-1)
+        p_dim = F.normalize(self._project_to_dim(model, pos, dim, src_dim=bigger_dim), p=2, dim=-1)
+
+        # One-direction contrastive CE, consistent with base_mrl style.
+        logits = (q_dim @ p_dim.t()) / self.temperature
+        contrastive = F.cross_entropy(logits, target)
+
+        # Cross-projected cosine maps for L1 consistency.
+        # Use native prefix slices for the "small" side so only adjacent projections are required.
+        # Map-1: qry_prefix(dim) x proj(pos_big->dim)
+        q_small = F.normalize(qry[:, :dim], p=2, dim=-1)
+        p_from_big = F.normalize(self._project_to_dim(model, pos, dim, src_dim=bigger_dim), p=2, dim=-1)
+        cosine_map_1 = q_small @ p_from_big.t()
+
+        # Map-2: proj(qry_big->dim) x pos_prefix(dim)
+        q_from_big = F.normalize(self._project_to_dim(model, qry, dim, src_dim=bigger_dim), p=2, dim=-1)
+        p_small = F.normalize(pos[:, :dim], p=2, dim=-1)
+        cosine_map_2 = q_from_big @ p_small.t()
+
+        l1_consistency = F.l1_loss(cosine_map_1, cosine_map_2)
+        return contrastive, l1_consistency, logits
+
+    def _resolve_dims(self, full_dim: int) -> List[int]:
+        valid_dims = [d for d in self.nested_dims if d <= full_dim]
+        if full_dim not in valid_dims:
+            valid_dims.append(full_dim)
+        return sorted(set(valid_dims))
+
+    def _parse_dim_weight_map(self, spec) -> Dict[int, float]:
+        """
+        Parse per-dimension weight spec.
+
+        Accepted format: "64:0.5,256:1.0,512:1.2"
+        """
+        if not spec:
+            return {}
+        if isinstance(spec, dict):
+            return {int(k): float(v) for k, v in spec.items()}
+
+        out: Dict[int, float] = {}
+        for item in str(spec).split(","):
+            item = item.strip()
+            if not item:
+                continue
+            if ":" not in item:
+                raise ValueError(
+                    f"Invalid dim weight entry '{item}'. Expected format like '64:0.5,256:1.0'."
+                )
+            dim_str, weight_str = item.split(":", 1)
+            out[int(dim_str.strip())] = float(weight_str.strip())
+        return out
+
+    def _resolve_selected_stage_ids(self, stage_pairs: List[Tuple[int, int]]) -> List[int]:
+        """
+        Resolve user-selected curriculum stages.
+
+        Backward compatibility:
+          - "A/B/C/D" still maps to stage indices 0/1/2/3.
+        Generalized behavior:
+          - Any single alphabetic token maps to an index (A=0, B=1, ... Z=25).
+          - Comma-separated lists are supported, e.g. "A,C" or "0,2,4".
+          - "ALL" means include every available stage built from nested_dims.
+
+        If selection is empty or invalid, defaults to [0] (largest/full dimension stage).
+        """
+        max_idx = len(stage_pairs) - 1
+        phase = self.phase.strip().upper()
+
+        if phase == "ALL":
+            return list(range(len(stage_pairs)))
+
+        tokens = [tok.strip() for tok in phase.replace(";", ",").split(",") if tok.strip()]
+        selected_ids: List[int] = []
+        for token in tokens:
+            if token.isdigit():
+                selected_ids.append(int(token))
+                continue
+
+            if token.isalpha():
+                # Support arbitrary alphabetic stage labels beyond D.
+                if len(token) == 1:
+                    selected_ids.append(ord(token) - ord("A"))
+                else:
+                    # Accept labels like "PHASE_E" by reading the trailing letter.
+                    last_char = token[-1]
+                    if "A" <= last_char <= "Z":
+                        selected_ids.append(ord(last_char) - ord("A"))
+
+        selected_ids = sorted({idx for idx in selected_ids if 0 <= idx <= max_idx})
+        return selected_ids or [0]
+
+    def _parse_pair_weight_map(self, spec) -> Dict[Tuple[int, int], float]:
+        """
+        Parse per-pair orthogonal regularizer weights.
+
+        Accepted format:
+          - "1024->512:1.0,512->256:0.7"
+          - "1024:512:1.0,512:256:0.7"
+        """
+        if not spec:
+            return {}
+
+        out: Dict[Tuple[int, int], float] = {}
+        for item in str(spec).split(","):
+            item = item.strip()
+            if not item:
+                continue
+
+            if "->" in item and ":" in item:
+                pair_spec, weight_spec = item.rsplit(":", 1)
+                src_str, dst_str = pair_spec.split("->", 1)
+            else:
+                parts = item.split(":")
+                if len(parts) != 3:
+                    raise ValueError(
+                        f"Invalid orthogonal pair weight entry '{item}'. "
+                        f"Use '1024->512:1.0' (or '1024:512:1.0')."
+                    )
+                src_str, dst_str, weight_spec = parts
+
+            src_dim = int(src_str.strip())
+            dst_dim = int(dst_str.strip())
+            out[(src_dim, dst_dim)] = float(weight_spec.strip())
+        return out
+
+    @staticmethod
+    def _resolve_pair_weight(weight_map: Dict[Tuple[int, int], float], src_dim: int, dst_dim: int, default: float = 1.0) -> float:
+        """
+        Resolve a pair weight with explicit fallback.
+        - If (src_dim, dst_dim) exists in `weight_map`, use it.
+        - Otherwise use `default`.
+        """
+        return float(weight_map.get((src_dim, dst_dim), default))
+
+    def _parse_projection_pairs(self, spec: str) -> List[Tuple[int, int]]:
+        """
+        Parse projection pair spec in formats:
+          - "1024->768,1024->512,768->512"
+          - "1024:768,1024:512"
+        """
+        out: List[Tuple[int, int]] = []
+        if not spec:
+            return out
+        for item in str(spec).split(","):
+            item = item.strip()
+            if not item:
+                continue
+            if "->" in item:
+                src_str, dst_str = item.split("->", 1)
+            else:
+                parts = item.split(":")
+                if len(parts) != 2:
+                    raise ValueError(
+                        f"Invalid stage1 projection entry '{item}'. "
+                        f"Use '1024->768' (or '1024:768')."
+                    )
+                src_str, dst_str = parts
+            src_dim = int(src_str.strip())
+            dst_dim = int(dst_str.strip())
+            if src_dim <= dst_dim:
+                raise ValueError(
+                    f"Invalid projection pair {src_dim}->{dst_dim}. Source dim must be larger than destination dim."
+                )
+            out.append((src_dim, dst_dim))
+        return out
+
+    def _spectral_distribution(self, rep_matrix: Tensor) -> Tensor:
+        """
+        Build normalized singular-value spectrum from a batch matrix.
+        Input shape: [batch_like, dim].
+        Output shape: [dim], sums to 1.
+        """
+        # torch.linalg.svd/svdvals on CUDA does not support bfloat16 directly.
+        # Run SVD in float32, then continue in the caller's tensor dtype/device context.
+        svd_input = rep_matrix.float() if rep_matrix.dtype in (torch.bfloat16, torch.float16) else rep_matrix
+        singular_values = torch.linalg.svdvals(svd_input)
+        spectrum = singular_values.pow(2)
+        spectrum = spectrum / spectrum.sum().clamp_min(self.spectrum_kl_eps)
+        return spectrum
+
+    def _adjacent_spectrum_kl_loss(self, qry_full: Tensor, pos_full: Tensor, dims: List[int]) -> Tensor:
+        """
+        Concatenate one batch of query/positive reps into one matrix per dim,
+        then compute KL between spectra of adjacent dimensions.
+        """
+        if len(dims) < 2:
+            return torch.zeros((), device=qry_full.device, dtype=qry_full.dtype)
+
+        asc_dims = sorted(dims)
+        pair_losses = []
+        pair_weights = []
+        for small_dim, large_dim in zip(asc_dims[:-1], asc_dims[1:]):
+            small_rep = torch.cat([qry_full[:, :small_dim], pos_full[:, :small_dim]], dim=0)
+            large_rep = torch.cat([qry_full[:, :large_dim], pos_full[:, :large_dim]], dim=0)
+            if self.spectrum_loss_type == "laplacian_kl":
+                kl_loss, _, _ = self.spectral_loss(
+                    z_small=small_rep,
+                    z_large=large_rep,
+                    tau=self.laplacian_tau,
+                    k_eig=self.laplacian_k_eig,
+                    top_k=self.laplacian_top_k,
+                )
+            else:
+                small_spec = self._spectral_distribution(small_rep)
+                large_spec = self._spectral_distribution(large_rep)[:small_dim]
+                large_spec = large_spec / large_spec.sum().clamp_min(self.spectrum_kl_eps)
+
+                kl_loss = F.kl_div(
+                    large_spec.clamp_min(self.spectrum_kl_eps).log(),
+                    small_spec.clamp_min(self.spectrum_kl_eps),
+                    reduction="batchmean",
+                )
+            pair_losses.append(kl_loss)
+            pair_weight_map = self.spectrum_kl_pair_weights
+            if self.spectrum_loss_type == "laplacian_kl":
+                pair_weight_map = self.laplacian_pair_weights or self.spectrum_kl_pair_weights
+            pair_weights.append(
+                self._resolve_pair_weight(
+                    pair_weight_map,
+                    large_dim,
+                    small_dim,
+                    default=1.0,
+                )
+            )
+
+        loss_stack = torch.stack(pair_losses)
+        weight_tensor = torch.tensor(pair_weights, device=loss_stack.device, dtype=loss_stack.dtype)
+        weighted_loss = (loss_stack * weight_tensor).sum() / weight_tensor.sum().clamp_min(self.spectrum_kl_eps)
+        return weighted_loss
+
+    def compute_laplacian(self, z: Tensor, tau: float, top_k: Optional[int] = None) -> Tensor:
+        z = F.normalize(z, p=2, dim=-1, eps=self.spectrum_kl_eps)
+        sim = z @ z.t()
+        adj = torch.exp(sim / max(tau, self.spectrum_kl_eps))
+
+        if top_k is not None:
+            top_k = max(1, min(int(top_k), adj.size(-1)))
+            keep_idx = torch.topk(adj, k=top_k, dim=-1, largest=True, sorted=False).indices
+            keep_mask = torch.zeros_like(adj, dtype=torch.bool)
+            keep_mask.scatter_(dim=-1, index=keep_idx, value=True)
+            keep_mask = keep_mask | keep_mask.t()
+            adj = adj * keep_mask.to(adj.dtype)
+
+        degree = adj.sum(dim=-1)
+        degree_inv_sqrt = torch.rsqrt(degree + self.spectrum_kl_eps)
+        laplacian = torch.eye(adj.size(0), device=adj.device, dtype=adj.dtype)
+        laplacian = laplacian - (degree_inv_sqrt[:, None] * adj * degree_inv_sqrt[None, :])
+        return laplacian
+
+    def compute_spectrum(self, laplacian: Tensor, k_eig: int) -> Tensor:
+        eig_input = laplacian.float() if laplacian.dtype in (torch.bfloat16, torch.float16) else laplacian
+        eigvals = torch.linalg.eigh(eig_input).eigenvalues
+        eigvals = eigvals.clamp_min(self.spectrum_kl_eps)
+        k_eff = max(1, min(int(k_eig), eigvals.numel()))
+        low_freq = eigvals[:k_eff]
+        p = low_freq / (low_freq.sum() + self.spectrum_kl_eps)
+        return p.clamp_min(self.spectrum_kl_eps)
+
+    def spectral_loss(
+        self,
+        z_small: Tensor,
+        z_large: Tensor,
+        tau: float,
+        k_eig: int,
+        top_k: Optional[int],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        lap_small = self.compute_laplacian(z=z_small, tau=tau, top_k=top_k)
+        lap_large = self.compute_laplacian(z=z_large, tau=tau, top_k=top_k)
+
+        p_small = self.compute_spectrum(lap_small, k_eig=k_eig)
+        p_large = self.compute_spectrum(lap_large, k_eig=k_eig).detach()
+
+        p_small = p_small / (p_small.sum() + self.spectrum_kl_eps)
+        p_large = p_large / (p_large.sum() + self.spectrum_kl_eps)
+
+        kl_small_to_large = torch.sum(p_small * torch.log((p_small + self.spectrum_kl_eps) / (p_large + self.spectrum_kl_eps)))
+        kl_large_to_small = torch.sum(p_large * torch.log((p_large + self.spectrum_kl_eps) / (p_small + self.spectrum_kl_eps)))
+        loss = kl_small_to_large + kl_large_to_small
+        return loss, p_small, p_large
+
+    def forward(self, model_trainer, input_data: Dict[str, Dict[str, Tensor]]) -> Dict[str, Tensor]:
+        model = model_trainer.model
+        qry_input = input_data["qry"]
+        pos_input = input_data["pos"]
+
+        qry_full = model.encode_input(qry_input)[0]
+        pos_full = model.encode_input(pos_input)[0]
+
+        if self.world_size > 1:
+            qry_full = self._dist_gather_tensor(qry_full)
+            pos_full = self._dist_gather_tensor(pos_full)
+
+        full_dim = qry_full.size(-1)
+        valid_dims = self._resolve_dims(full_dim)
+        target = self._build_contrastive_target(qry_full, pos_full)
+
+        desc_dims = sorted(valid_dims, reverse=True)
+        stage_pairs: List[Tuple[int, int]] = []
+        if self.projection_spec:
+            parsed_pairs = self._parse_projection_pairs(self.projection_spec)
+            valid_dim_set = set(valid_dims)
+            stage_pairs = [
+                (src_dim, dst_dim)
+                for src_dim, dst_dim in parsed_pairs
+                if src_dim in valid_dim_set and dst_dim in valid_dim_set
+            ]
+        else:
+            # Default: all valid larger->smaller pairs.
+            for src_dim in desc_dims:
+                for dst_dim in desc_dims:
+                    if src_dim > dst_dim:
+                        stage_pairs.append((src_dim, dst_dim))
+        # remove duplicates while preserving order
+        stage_pairs = list(dict.fromkeys(stage_pairs))
+
+        selected_ids = self._resolve_selected_stage_ids(stage_pairs)
+
+        losses = []
+        align_losses = []
+        orth_losses = []
+        metrics: Dict[str, Tensor] = {}
+
+        if not stage_pairs:
+            # Single-dimension fallback (no projection pair available).
+            align_ce, align_l1, _ = self._cross_alignment_l1(
+                model=model,
+                qry=qry_full,
+                pos=pos_full,
+                target=target,
+                dim=desc_dims[0],
+                bigger_dim=desc_dims[0],
+            )
+            weighted_align_loss = align_ce + self.full_dim_l1_weight * align_l1
+            spectrum_kl_loss = self._adjacent_spectrum_kl_loss(qry_full, pos_full, valid_dims)
+            total_loss = weighted_align_loss + self.spectrum_kl_weight * spectrum_kl_loss
+            metrics["loss"] = total_loss
+            metrics["total_loss"] = total_loss.detach()
+            metrics["contrastive_loss"] = weighted_align_loss.detach()
+            metrics["align_loss"] = weighted_align_loss.detach()
+            metrics["orthogonal_loss"] = torch.zeros_like(weighted_align_loss).detach()
+            metrics["spectrum_kl_loss"] = spectrum_kl_loss.detach()
+            metrics["spectrum_kl_weight"] = torch.tensor(self.spectrum_kl_weight, device=weighted_align_loss.device)
+            return metrics
+
+        for idx in selected_ids:
+            teacher_dim, student_dim = stage_pairs[idx]
+            align_ce, align_l1, _ = self._cross_alignment_l1(
+                model=model,
+                qry=qry_full,
+                pos=pos_full,
+                target=target,
+                dim=student_dim,
+                bigger_dim=teacher_dim,
+            )
+
+            l1_weight = self.dim_align_l1_weights.get(student_dim, self.align_l1_weight)
+            weighted_align_loss = align_ce + l1_weight * align_l1
+            projection_weight = self._resolve_pair_weight(
+                self.projection_weights,
+                teacher_dim,
+                student_dim,
+                default=1.0,
+            )
+
+            if hasattr(model, "matryoshka_proj_bank"):
+                if getattr(model.matryoshka_proj_bank, "use_orthogonal_parametrization", False):
+                    # With torch.nn.utils.parametrizations.orthogonal(..., orthogonal_map='cayley'),
+                    # the projection is constrained directly, so no extra orthogonal regularizer is applied.
+                    orth_pair_weight = 0.0
+                    orth_loss = torch.zeros_like(weighted_align_loss)
+                else:
+                    base_orth = model.matryoshka_proj_bank.orthogonality_loss(src_dim=teacher_dim, dst_dim=student_dim)
+                    orth_pair_weight = self._resolve_pair_weight(
+                        self.orthogonal_pair_weights,
+                        teacher_dim,
+                        student_dim,
+                        default=1.0,
+                    )
+                    orth_loss = orth_pair_weight * base_orth
+            else:
+                orth_pair_weight = 1.0
+                orth_loss = torch.zeros_like(weighted_align_loss)
+
+            total = projection_weight * weighted_align_loss + self.orthogonal_weight * projection_weight * orth_loss
+
+            metrics[f"align_ce_{teacher_dim}_to_{student_dim}"] = align_ce.detach()
+            metrics[f"align_l1_{teacher_dim}_to_{student_dim}"] = align_l1.detach()
+            metrics[f"align_l1_weight_{teacher_dim}_to_{student_dim}"] = torch.tensor(l1_weight, device=align_ce.device)
+            metrics[f"projection_weight_{teacher_dim}_to_{student_dim}"] = torch.tensor(projection_weight, device=align_ce.device)
+            metrics[f"orthogonal_pair_weight_{teacher_dim}_to_{student_dim}"] = torch.tensor(
+                orth_pair_weight, device=align_ce.device
+            )
+            metrics[f"align_loss_{teacher_dim}_to_{student_dim}"] = weighted_align_loss.detach()
+            metrics[f"orthogonal_loss_{teacher_dim}_to_{student_dim}"] = orth_loss.detach()
+            losses.append(total)
+            align_losses.append(weighted_align_loss)
+            orth_losses.append(orth_loss)
+
+        final_loss = torch.stack(losses).mean()
+        mean_align_loss = torch.stack(align_losses).mean()
+        mean_orth_loss = torch.stack(orth_losses).mean()
+        spectrum_kl_loss = self._adjacent_spectrum_kl_loss(qry_full, pos_full, valid_dims)
+
+        final_loss = final_loss + self.spectrum_kl_weight * spectrum_kl_loss
+        if hasattr(model, "matryoshka_proj_bank"):
+            # Touch all projection parameters with zero weight so DDP sees every parameter
+            # in the autograd graph even when curriculum phase uses only a subset of pairs.
+            final_loss = final_loss + model.matryoshka_proj_bank.zero_weight_ddp_param_touch()
+
+        # Keep `contrastive_loss` for compatibility with existing trainer logging.
+        metrics["loss"] = final_loss
+        metrics["total_loss"] = final_loss.detach()
+        metrics["contrastive_loss"] = mean_align_loss
+        metrics["align_loss"] = mean_align_loss.detach()
+        metrics["orthogonal_loss"] = mean_orth_loss.detach()
+        metrics["spectrum_kl_loss"] = spectrum_kl_loss.detach()
+        metrics["spectrum_kl_weight"] = torch.tensor(self.spectrum_kl_weight, device=final_loss.device)
+        return metrics
+
+
+class PairwiseProjectionBank(nn.Module):
+    """Trainable projection matrices P for mapping src_dim -> dst_dim with orthogonality regularization."""
+
+    def __init__(self, dimension_pairs: List[Tuple[int, int]], orthogonal_projection_map: str = ""):
+        super().__init__()
+        self.orthogonal_projection_map = str(orthogonal_projection_map or "").strip().lower()
+        self.use_orthogonal_parametrization = self.orthogonal_projection_map in {"cayley", "matrix_exp", "cayley_safe"}
+        if self.orthogonal_projection_map and not self.use_orthogonal_parametrization:
+            raise ValueError(
+                f"Unsupported orthogonal_projection_map={self.orthogonal_projection_map}. "
+                "Supported options: '', 'cayley', 'matrix_exp', 'cayley_safe'."
+            )
+        # Use `cayley_safe` to route to matrix_exp for maximal BF16/CUDA stability.
+        self.effective_orthogonal_projection_map = (
+            "matrix_exp" if self.orthogonal_projection_map == "cayley_safe" else self.orthogonal_projection_map
+        )
+
+        self.projections = nn.ParameterDict()
+        self.projection_layers = nn.ModuleDict()
+        for src_dim, dst_dim in dimension_pairs:
+            key = self._key(src_dim, dst_dim)
+            if self.use_orthogonal_parametrization:
+                layer = nn.Linear(src_dim, dst_dim, bias=False)
+                with torch.no_grad():
+                    layer.weight.copy_(self._init_projection(src_dim, dst_dim).transpose(0, 1))
+                self.projection_layers[key] = parametrizations.orthogonal(
+                    layer,
+                    name="weight",
+                    orthogonal_map=self.effective_orthogonal_projection_map,
+                )
+            else:
+                self.projections[key] = nn.Parameter(self._init_projection(src_dim, dst_dim))
+
+    def _apply(self, fn):
+        super()._apply(fn)
+        if self.use_orthogonal_parametrization and self.effective_orthogonal_projection_map == "cayley":
+            # Keep true-cayley parametrized layers in FP32 so internal torch.linalg.solve
+            # does not run in BF16 on CUDA after global model dtype casts.
+            for layer in self.projection_layers.values():
+                layer.float()
+        return self
+
+    @staticmethod
+    def _key(src_dim: int, dst_dim: int) -> str:
+        return f"{int(src_dim)}_to_{int(dst_dim)}"
+
+    @staticmethod
+    def _init_projection(src_dim: int, dst_dim: int) -> Tensor:
+        if src_dim == dst_dim:
+            return torch.eye(src_dim, dtype=torch.float32)
+        mat = torch.randn(src_dim, dst_dim, dtype=torch.float32)
+        q, _ = torch.linalg.qr(mat, mode="reduced")
+        return q[:, :dst_dim]
+
+    def project(self, x: Tensor, src_dim: int, dst_dim: int) -> Tensor:
+        if src_dim == dst_dim:
+            return x[:, :dst_dim]
+        key = self._key(src_dim, dst_dim)
+        if self.use_orthogonal_parametrization:
+            if key not in self.projection_layers:
+                raise KeyError(f"Missing projection matrix for {src_dim}->{dst_dim}.")
+            layer = self.projection_layers[key]
+            if self.effective_orthogonal_projection_map == "cayley":
+                out_dtype = x.dtype
+                # Run true-cayley projection in FP32 with autocast disabled, then cast back.
+                # This preserves true cayley behavior while avoiding BF16 CUDA solver failures.
+                with torch.autocast(device_type=x.device.type, enabled=False):
+                    projected = layer(x.float())
+                return projected.to(dtype=out_dtype)
+            return layer(x)
+
+        if key not in self.projections:
+            raise KeyError(f"Missing projection matrix for {src_dim}->{dst_dim}.")
+        return x @ self.projections[key]
+
+    def orthogonality_loss(self, src_dim: int, dst_dim: int) -> Tensor:
+        if self.use_orthogonal_parametrization:
+            return torch.zeros((), device=next(self.parameters()).device)
+        if src_dim == dst_dim:
+            return torch.zeros((), device=next(self.parameters()).device)
+        key = self._key(src_dim, dst_dim)
+        if key not in self.projections:
+            raise KeyError(f"Missing projection matrix for {src_dim}->{dst_dim}.")
+        p = self.projections[key]
+        gram = p.transpose(0, 1) @ p
+        eye = torch.eye(dst_dim, device=p.device, dtype=p.dtype)
+        return ((gram - eye) ** 2).mean()
+
+    def zero_weight_ddp_param_touch(self) -> Tensor:
+        touched: Optional[Tensor] = None
+        if self.use_orthogonal_parametrization:
+            for layer in self.projection_layers.values():
+                for param in layer.parameters():
+                    if not param.requires_grad:
+                        continue
+                    term = param.sum() * 0.0
+                    touched = term if touched is None else touched + term
+        else:
+            for param in self.projections.values():
+                if not param.requires_grad:
+                    continue
+                term = param.sum() * 0.0
+                touched = term if touched is None else touched + term
+
+        if touched is None:
+            # Fallback tensor if projection bank is unexpectedly empty.
+            device = next(self.parameters()).device
+            return torch.zeros((), device=device)
+        return touched
+
+
+class AdaptiveDimensionRouter(nn.Module):
+    """
+    Router MLP for Stage-2 adaptive dimension selection.
+
+    Input  : query embedding (full dim).
+    Output : logits over dimension levels [64, 128, 256, 512, 768, 1024] (or configured dims).
+    """
+
+    def __init__(self, input_dim: int, dim_levels: List[int], hidden_dim: int = 256):
+        super().__init__()
+        self.dim_levels = sorted(dim_levels)
+        self.mlp = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, len(self.dim_levels)),
+        )
+
+    def forward(self, query_embedding: Tensor) -> Tensor:
+        return self.mlp(query_embedding)
+
+
+class AdaptiveRouterLoss(nn.Module):
+    """
+    Stage-2 loss for adaptive router training.
+
+    - Builds pseudo labels by measuring retrieval correctness at each prefix and
+      selecting the smallest dimension that reaches `router_accuracy_threshold`.
+    - Optimizes CE(router_logits, target_dim_id) + alpha * expected_dimension_cost.
+    """
+
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        self.temperature = getattr(args, "temperature", 0.02)
+        self.dim_levels = sorted(getattr(args, "nested_dims", None) or [64, 128, 256, 512, 768, 1024])
+        self.alpha = float(getattr(args, "router_alpha", 0.01))
+        self.threshold = float(getattr(args, "router_accuracy_threshold", 0.9))
+        self.router_hidden_dim = int(getattr(args, "router_hidden_dim", 256))
+
+        if dist.is_initialized():
+            self.world_size = dist.get_world_size()
+            self.process_rank = dist.get_rank()
+        else:
+            self.world_size = 1
+            self.process_rank = 0
+
+    def _dist_gather_tensor(self, t: Tensor) -> Tensor:
+        t = t.contiguous()
+        all_tensors = [torch.empty_like(t) for _ in range(self.world_size)]
+        dist.all_gather(all_tensors, t)
+        all_tensors[self.process_rank] = t
+        return torch.cat(all_tensors, dim=0)
+
+    def _target_from_retrieval(self, q: Tensor, p: Tensor, target: Tensor) -> Tensor:
+        # For each query, choose the smallest dim whose top-1 retrieval is correct.
+        dim_levels = [d for d in self.dim_levels if d <= q.size(-1)]
+        costs = torch.tensor(dim_levels, dtype=q.dtype, device=q.device)
+
+        per_dim_correct = []
+        for dim in dim_levels:
+            qd = F.normalize(q[:, :dim], p=2, dim=-1)
+            pd = F.normalize(p[:, :dim], p=2, dim=-1)
+            logits = (qd @ pd.t()) / self.temperature
+            pred = logits.argmax(dim=-1)
+            correct = (pred == target)
+            per_dim_correct.append(correct)
+
+        correct_stack = torch.stack(per_dim_correct, dim=1)  # [bs, n_dim]
+        enough = correct_stack.float() >= self.threshold
+
+        # choose smallest valid idx; fallback to largest dim
+        fallback = torch.full((q.size(0),), len(dim_levels) - 1, device=q.device, dtype=torch.long)
+        has_hit = enough.any(dim=1)
+        first_hit = enough.float().argmax(dim=1)
+        target_idx = torch.where(has_hit, first_hit, fallback)
+        return target_idx, costs
+
+    def forward(self, model_trainer, input_data: Dict[str, Dict[str, Tensor]]) -> Dict[str, Tensor]:
+        model = model_trainer.model
+        qry = model.encode_input(input_data["qry"])[0]
+        pos = model.encode_input(input_data["pos"])[0]
+
+        if self.world_size > 1:
+            qry = self._dist_gather_tensor(qry)
+            pos = self._dist_gather_tensor(pos)
+
+        target = torch.arange(qry.size(0), device=qry.device, dtype=torch.long)
+        target_per_qry = pos.size(0) // qry.size(0)
+        target = target * target_per_qry
+
+        router = getattr(model, "router_head", None)
+        if router is None:
+            raise RuntimeError("Router head missing on model. Attach `model.router_head` before adaptive_router training.")
+        router_logits = router(qry)
+        target_dim_idx, dim_costs = self._target_from_retrieval(qry, pos, target)
+
+        router_ce = F.cross_entropy(router_logits, target_dim_idx)
+
+        probs = F.softmax(router_logits, dim=-1)
+        normalized_costs = dim_costs / dim_costs.max().clamp_min(1.0)
+        compute_penalty = (probs * normalized_costs.unsqueeze(0)).sum(dim=-1).mean()
+
+        loss = router_ce + self.alpha * compute_penalty
+
+        pred_idx = router_logits.argmax(dim=-1)
+        acc = (pred_idx == target_dim_idx).float().mean()
+
+        return {
+            "loss": loss,
+            # Keep `contrastive_loss` key for trainer compatibility; map it to total router objective.
+            "contrastive_loss": loss,
+            "router_total_loss": loss.detach(),
+            "router_ce_loss": router_ce.detach(),
+            "router_compute_penalty": compute_penalty.detach(),
+            "router_acc": acc.detach(),
+        }

@@ -1,0 +1,348 @@
+import os
+import io
+from typing import Dict, Tuple, Optional
+import time
+import json
+import pickle
+from datasets import load_dataset, concatenate_datasets
+import torch
+import torch.nn as nn
+import PIL
+import argparse
+import inspect
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    AutoModelForCausalLM,
+    HfArgumentParser
+)
+from peft import (
+    PeftModel,
+    LoraConfig,
+    TaskType,
+    get_peft_model
+)
+from src.model.model import MMEBModel
+from src.model.processor import VLM_IMAGE_TOKENS, load_processor, get_backbone_name, process_vlm_inputs_fns, backbone2model, \
+    LLAVA_NEXT, QWEN2_VL, LLAVA_ONEVISION, QWEN2_5_VL_TOKENSELECTION, QWEN2_5_VL, QWEN2_VL_TOKENSELECTION, PHI3V
+from src.data.collator.train_collator import MultimodalDataCollator, TrainTextImageDataCollator
+from src.data.dataset.mmeb_dataset import TrainTextImageDataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset, RandomSampler, SequentialSampler
+from transformers.training_args import OptimizerNames, ParallelMode, TrainingArguments
+from src.utils import print_rank, print_master
+from src.arguments import ModelArguments, DataArguments, TrainingArguments
+from src.MRL.adaptive_matryoshka import AdaptiveDimensionRouter, PairwiseProjectionBank
+from peft import LoraConfig, get_peft_model, PeftModel 
+from transformers import ProcessorMixin
+from qwen_vl_utils import smart_resize
+from PIL import Image
+
+def process_image(image, resolution, max_dim=1024):
+    if image is None:
+        return None
+
+    width, height = image.size
+    max_side = max(width, height)
+
+    if resolution == "high":
+        target_max = 1024
+    elif resolution == "mid":
+        target_max = 504
+    elif resolution == "low":
+        target_max = 448
+    else:
+        target_max = max_dim
+
+    # Tính tỉ lệ scale sao cho cạnh lớn nhất = target_max
+    if max_side > target_max:
+        scale = target_max / max_side
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        image = image.resize((new_width, new_height))
+
+    return image
+
+POS_MOD_CLASS_LABEL = "Represent the class label: "
+POS_MOD_IMAGE_CAPTION = "Represent the image caption: "
+POS_MOD_ANSWER = "Represent the answer: "
+
+POS_MOD_DICT = {
+                "ImageNet_1K": POS_MOD_CLASS_LABEL,"HatefulMemes":POS_MOD_CLASS_LABEL,"SUN397":POS_MOD_CLASS_LABEL,"N24News":POS_MOD_CLASS_LABEL,"VOC2007":POS_MOD_CLASS_LABEL, "Place365":POS_MOD_CLASS_LABEL,"ImageNet-A":POS_MOD_CLASS_LABEL,"ImageNet-R":POS_MOD_CLASS_LABEL,"ObjectNet":POS_MOD_CLASS_LABEL,"Country211":POS_MOD_CLASS_LABEL,
+                
+                "OK-VQA":POS_MOD_ANSWER, "A-OKVQA":POS_MOD_ANSWER, "DocVQA":POS_MOD_ANSWER, "InfographicsVQA":POS_MOD_ANSWER, "ChartQA":POS_MOD_ANSWER, "Visual7W":POS_MOD_ANSWER,"ScienceQA":POS_MOD_ANSWER, "GQA":POS_MOD_ANSWER, "TextVQA":POS_MOD_ANSWER, "VizWiz":POS_MOD_ANSWER,
+                
+                "MSCOCO_i2t":POS_MOD_IMAGE_CAPTION, "VisualNews_i2t":POS_MOD_IMAGE_CAPTION,
+                }
+
+class OneModelTrainer(nn.Module):
+    def __init__(self, model_args, training_args, device):
+        super(OneModelTrainer, self).__init__()
+        self.model_args = model_args
+        self.training_args = training_args
+        self.device = device
+        self.model = self._load_model()
+        self.temperature = model_args.temperature
+        self._maybe_attach_router_head()
+        self._maybe_attach_projection_bank()
+    
+    def _maybe_attach_router_head(self):
+        """Attach a trainable router head directly on the model for Stage-2 training."""
+        if getattr(self.training_args, "kd_loss_type", "") != "adaptive_router":
+            return
+
+        nested_dims = getattr(self.training_args, "nested_dims", None) or [64, 128, 256, 512, 768, 1024]
+        hidden_dim = int(getattr(self.training_args, "router_hidden_dim", 256))
+        full_dim = getattr(self.model.encoder.config, "hidden_size", None)
+        if full_dim is None:
+            full_dim = getattr(self.model.encoder.config, "text_config", None)
+            full_dim = getattr(full_dim, "hidden_size", 1024)
+
+        dim_levels = sorted([d for d in nested_dims if d <= int(full_dim)])
+        if not dim_levels:
+            dim_levels = [int(full_dim)]
+
+        self.model.router_head = AdaptiveDimensionRouter(
+            input_dim=int(full_dim),
+            dim_levels=dim_levels,
+            hidden_dim=hidden_dim,
+        ).to(self.device)
+        print_rank(
+            f"Attached router head: input_dim={full_dim}, dim_levels={dim_levels}, hidden_dim={hidden_dim}"
+        )
+
+    def _maybe_attach_projection_bank(self):
+        """Attach trainable stage-1 projection matrices for projection-based adaptive MRL losses."""
+        projection_bank_losses = {"adaptive_mrl_stage1", "adaptive_mrl_projection_only"}
+        if getattr(self.training_args, "kd_loss_type", "") not in projection_bank_losses:
+            return
+
+        nested_dims = getattr(self.training_args, "nested_dims", None) or [64, 128, 256, 512, 768, 1024]
+        full_dim = getattr(self.model.encoder.config, "hidden_size", None)
+        if full_dim is None:
+            full_dim = getattr(self.model.encoder.config, "text_config", None)
+            full_dim = getattr(full_dim, "hidden_size", 1024)
+
+        valid_dims = sorted({int(d) for d in nested_dims if int(d) <= int(full_dim)} | {int(full_dim)})
+        desc_dims = sorted(valid_dims, reverse=True)
+        projection_spec = str(getattr(self.training_args, "stage1_projection_spec", "")).strip()
+        dimension_pairs = []
+        if projection_spec:
+            for item in projection_spec.split(","):
+                item = item.strip()
+                if not item:
+                    continue
+                if "->" in item:
+                    src_str, dst_str = item.split("->", 1)
+                else:
+                    parts = item.split(":")
+                    if len(parts) != 2:
+                        raise ValueError(
+                            f"Invalid stage1 projection entry '{item}'. Use '1024->768' (or '1024:768')."
+                        )
+                    src_str, dst_str = parts
+                src_dim = int(src_str.strip())
+                dst_dim = int(dst_str.strip())
+                if src_dim > dst_dim and src_dim in valid_dims and dst_dim in valid_dims:
+                    dimension_pairs.append((src_dim, dst_dim))
+        else:
+            # Default: all valid larger->smaller pairs.
+            for src_dim in desc_dims:
+                for dst_dim in desc_dims:
+                    if src_dim > dst_dim:
+                        dimension_pairs.append((int(src_dim), int(dst_dim)))
+        dimension_pairs = list(dict.fromkeys(dimension_pairs))
+
+        self.model.matryoshka_proj_bank = PairwiseProjectionBank(
+            dimension_pairs,
+            orthogonal_projection_map=getattr(self.training_args, "projection_orthogonal_map", ""),
+        ).to(self.device)
+        print_rank(
+            f"Attached matryoshka projection bank with {len(dimension_pairs)} matrices over dims {valid_dims}"
+        )
+
+    def _enable_gradient_checkpointing(self, model):
+        if not getattr(self.training_args, "gradient_checkpointing", False):
+            return
+
+        checkpoint_target = model.encoder if hasattr(model, "encoder") else model
+        gradient_checkpointing_kwargs = getattr(self.training_args, "gradient_checkpointing_kwargs", None) or {}
+        if isinstance(gradient_checkpointing_kwargs, str):
+            gradient_checkpointing_kwargs = json.loads(gradient_checkpointing_kwargs)
+        else:
+            gradient_checkpointing_kwargs = dict(gradient_checkpointing_kwargs)
+        # Reentrant checkpointing can mark shared LoRA parameters ready more than once under DDP.
+        gradient_checkpointing_kwargs.setdefault("use_reentrant", False)
+
+        if hasattr(checkpoint_target, "config") and hasattr(checkpoint_target.config, "use_cache"):
+            checkpoint_target.config.use_cache = False
+        if hasattr(model, "config") and hasattr(model.config, "use_cache"):
+            model.config.use_cache = False
+
+        if hasattr(checkpoint_target, "enable_input_require_grads"):
+            checkpoint_target.enable_input_require_grads()
+
+        if not hasattr(checkpoint_target, "gradient_checkpointing_enable"):
+            print_rank("Warning: --gradient_checkpointing was set, but the loaded model does not expose gradient_checkpointing_enable().")
+            return
+
+        enable_fn = checkpoint_target.gradient_checkpointing_enable
+        signature = inspect.signature(enable_fn)
+        if "gradient_checkpointing_kwargs" in signature.parameters:
+            enable_fn(gradient_checkpointing_kwargs=gradient_checkpointing_kwargs)
+        else:
+            enable_fn()
+        print_rank("Enabled gradient checkpointing for custom DDP training loop.")
+
+    def _load_model(self):
+        if self.model_args.lora:
+            print("Load model with lora rank:", self.model_args.lora_r)
+            print("Student use lora:", self.model_args.lora)
+        model = MMEBModel.build(self.model_args)
+        self._enable_gradient_checkpointing(model)
+        model.train()
+        model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        print("Model built.")
+        return model 
+    
+    def get_processor(self):
+        processor = load_processor(self.model_args, None)
+        print("Loading model's processor.")
+        return processor
+
+    
+    def forward(self, criterion, batch):
+        loss = criterion(self, batch)
+        return loss
+
+class TrainOneModelCollator:
+    def __init__(self, processor: ProcessorMixin,
+                 model_args: ModelArguments, data_args: DataArguments, training_args: TrainingArguments,
+                 batch_size: Optional[int] = None):
+        self.processor = processor
+        self.model_args = model_args
+        self.data_args = data_args
+        self.training_args = training_args
+        self.batch_size = batch_size
+    
+    def _get_batch_inputs(self, batch, text_keyname, image_keyname):
+        texts, visual_inputs = [], []
+        for example in batch:
+            if example is None or not example:
+                text, visual_input = ' ', None
+                texts.append(text)
+                visual_inputs.append(visual_input)
+            else:
+                text, raw_images = example[text_keyname], example[image_keyname]
+                visual_input = []
+                for image in raw_images:
+                    if image is None:
+                        visual_input.append(None)
+                    else:
+                        visual_input.append(image)
+                texts.extend(text)
+                visual_inputs.extend(visual_input)
+        inputs = {'text': texts, 'images': visual_inputs}
+        return inputs
+    
+    def __call__(self, examples):
+        student_qry_inputs = self._get_batch_inputs(examples, "query_text", "query_image")
+        student_pos_inputs = self._get_batch_inputs(examples, "pos_text", "pos_image")
+
+        bs = len(student_qry_inputs['text'])
+        assert bs > 0, 'An empty batch is detected!'
+        
+        if self.batch_size is not None and bs < self.batch_size:
+            raise RuntimeError(f"Expected batch size {self.batch_size}, but got {bs}.")
+        
+        process_student_fn = process_vlm_inputs_fns[self.model_args.model_backbone]
+        
+        processed_student_qry_inputs = process_student_fn(student_qry_inputs, processor=self.processor, max_length=self.data_args.max_len)
+        processed_student_pos_inputs = process_student_fn(student_pos_inputs, processor=self.processor, max_length=self.data_args.max_len)
+
+        return {
+            'qry': processed_student_qry_inputs,
+            'pos': processed_student_pos_inputs
+        }
+        
+class TrainOneModelDataset(Dataset):
+    def __init__(self, data_args, model_args):
+        self.data_args = data_args
+        self.model_args = model_args
+        self.percentage = 1
+        print(self.model_args.model_backbone)
+        train_data = []
+        
+        for subset in data_args.subset_name:
+            subset_data = load_dataset(
+                self.data_args.dataset_name, 
+                subset,
+                split=f"{self.data_args.dataset_split}"
+            )
+            if subset == "WebQA" and "qry" in subset_data.column_names:
+                subset_data = subset_data.map(
+                    lambda x: {"qry": x["qry"].replace("<|image_1|>", "").strip()}
+                )
+                print_rank("Preprocessed WebQA to remove <image_1> tokens in queries.")
+
+            # subset_data = subset_data.select(range(int(self.percentage * len(subset_data))))
+            subset_data = subset_data.add_column("pos_text_instruction", [POS_MOD_DICT.get(subset, "") + text for text in subset_data['pos_text']])
+            subset_data = subset_data.remove_columns(set(['neg_text', 'neg_image_path']) & set(subset_data.column_names))
+            subset_data = subset_data.remove_columns(set(subset_data.column_names) - set(['qry', 'qry_image_path', 'pos_image_path', 'pos_text_instruction']))
+            subset_data = subset_data.rename_column("pos_text_instruction", "pos_text")
+            train_data.append(subset_data)
+            
+        self.train_data = concatenate_datasets(train_data)
+        print(f"Loaded {len(self.train_data)} samples from {self.data_args.dataset_name} with subsets {self.data_args.subset_name}")
+    
+    def __len__(self):
+        return len(self.train_data)
+    def _get_image(self, img_path):
+        if not img_path:
+            return None
+        full_img_path = os.path.join(self.data_args.image_dir, img_path)
+        image = Image.open(full_img_path)
+        backbone = self.model_args.model_backbone
+        if backbone != PHI3V and self.data_args.image_resolution:
+            return process_image(image, self.data_args.image_resolution)
+        else:
+            return image
+        
+    def __getitem__(self, data_idx):
+        
+        qry_texts, qry_image_paths, pos_texts, pos_image_paths = (
+            self.train_data[data_idx]["qry"], self.train_data[data_idx]["qry_image_path"],
+            self.train_data[data_idx]["pos_text"], self.train_data[data_idx]["pos_image_path"]
+        )
+
+        if not isinstance(qry_texts, list):
+            qry_texts = [qry_texts]
+            qry_image_paths = [qry_image_paths]
+            pos_texts = [pos_texts]
+            pos_image_paths = [pos_image_paths]
+            
+        student_qry_texts, student_qry_images, student_pos_texts, student_pos_images = [], [], [], []
+        student_backbone = self.model_args.model_backbone
+
+        for qry_text, qry_image_path, pos_text, pos_image_path in zip(qry_texts, qry_image_paths, pos_texts, pos_image_paths):
+
+            if student_backbone != PHI3V:
+                stu_qry_text = qry_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
+                stu_pos_text = pos_text.replace(VLM_IMAGE_TOKENS[PHI3V], VLM_IMAGE_TOKENS[student_backbone])
+            stu_qry_image = self._get_image(qry_image_path)
+            stu_pos_image = self._get_image(pos_image_path)
+            
+            if (not stu_qry_text and not stu_qry_image) or (not stu_pos_text and not stu_pos_image):
+                print("empty inputs")
+                continue
+            
+            student_qry_texts.append(stu_qry_text)
+            student_qry_images.append(stu_qry_image)
+            student_pos_texts.append(stu_pos_text)
+            student_pos_images.append(stu_pos_image)
+        
+        return {
+            "query_text": student_qry_texts,
+            "query_image": student_qry_images,
+            "pos_text": student_pos_texts,
+            "pos_image": student_pos_images,
+        }

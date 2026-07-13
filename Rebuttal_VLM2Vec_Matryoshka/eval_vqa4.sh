@@ -1,0 +1,15 @@
+python eval_mmeb.py \
+    --model_name training/AdaptiveMRL_qwen3_vqa_projection_only/checkpoint-epoch-1 \
+    --encode_output_path ./MMEB-evaloutputs/AdaptiveMRL_qwen3_vqa_projection_only/ \
+    --pooling eos \
+    --model_backbone "qwen3_vl" \
+    --normalize True \
+    --bf16 \
+    --dataset_name TIGER-Lab/MMEB-eval \
+    --subset_name  OK-VQA A-OKVQA DocVQA InfographicsVQA ChartQA Visual7W \
+    --dataset_split test \
+    --per_device_eval_batch_size 32 \
+    --image_resolution mid \
+    --image_dir "eval_images" \
+    --tgt_prefix_mod \
+    --nested_dims 64 128 256 512 768 1024 2048
