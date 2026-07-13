@@ -1,4 +1,4 @@
-#1
+#2 -f-<paths>
 #main
 
 # sudo apt-get update
@@ -12,13 +12,13 @@
 
 pkill -f gpu_burn 2>/dev/null || true
 nvidia-smi
-git clone --branch new_ap https://github.com/DanhVinhLe/Rebuttal_VLM2Vec_Matryoshka.git
-cd Rebuttal_VLM2Vec_Matryoshka
+#git clone --branch new_ap https://github.com/DanhVinhLe/Rebuttal_VLM2Vec_Matryoshka.git
 cd Rebuttal_VLM2Vec_Matryoshka
 apt-get update
 apt-get upgrade -y
 apt install tmux zip unzip -y
 apt-get install -y libgl1 libglib2.0-0
+rm -rf ./vlm
 python -m venv vlm 
 source vlm/bin/activate
 pip install -r requirements.txt
@@ -26,14 +26,12 @@ python download.py
 wget https://huggingface.co/datasets/TIGER-Lab/MMEB-eval/resolve/main/images.zip
 unzip images.zip -d eval_images/
 python fix_lib.py
-bash script_train/fastvlm_adaptive_mrl_stage1_cls_0.5_0.1.sh
-bash script_train/fastvlm_adaptive_mrl_stage1_cls_0.5_0.3.sh
-bash fastvlm_adaptive_mrl_laplacian_only_stage1_vqa.sh
-bash fastvlm_adaptive_mrl_projection_only_stage1_vqa.sh
-bash qwen3vl_adaptive_mrl_laplacian_only_stage1_cls.sh
-bash qwen3vl_adaptive_mrl_projection_only_stage1_cls.sh
-bash qwen3vl_adaptive_mrl_laplacian_only_stage1_vqa.sh
-bash qwen3vl_adaptive_mrl_projection_only_stage1_vqa.sh
+bash script_train/fastvlm_adaptive_mrl_laplacian_only_stage1_vqa.sh
+bash script_train/fastvlm_adaptive_mrl_projection_only_stage1_vqa.sh
+bash script_train/qwen3vl_adaptive_mrl_laplacian_only_stage1_cls.sh
+bash script_train/qwen3vl_adaptive_mrl_projection_only_stage1_cls.sh
+bash script_train/qwen3vl_adaptive_mrl_laplacian_only_stage1_vqa.sh
+bash script_train/qwen3vl_adaptive_mrl_projection_only_stage1_vqa.sh
 bash eval.sh
 bash eval2.sh
 bash eval5.sh
