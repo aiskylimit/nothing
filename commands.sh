@@ -23,13 +23,8 @@ nvidia-smi
 
 # pkill -f gpu_burn 2>/dev/null || true
 # nvidia-smi
-# git clone --branch new_ap https://github.com/DanhVinhLe/Rebuttal_VLM2Vec_Matryoshka.git
-rm -rf Rebuttal_VLM2Vec_Matryoshka
-ls
-# sudo apt-get update
-# sudo apt-get upgrade -y
-# sudo apt install tmux zip unzip -y
-# sudo apt-get install -y libgl1 libglib2.0-0
+
+# cd Rebuttal_VLM2Vec_Matryoshka
 
 # conda create -n python311 python=3.11 -y
 # conda activate python311
