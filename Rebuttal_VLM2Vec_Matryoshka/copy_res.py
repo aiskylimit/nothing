@@ -84,14 +84,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source_dir",
         type=Path,
-        default=Path("./Rebuttal_VLM2Vec_Matryoshka/MMEB-evaloutputs/"),
+        default=Path("./MMEB-evaloutputs/"),
         help="Thư mục nguồn.",
     )
 
     parser.add_argument(
         "--destination_dir",
         type=Path,
-        default=Path("./Rebuttal_VLM2Vec_Matryoshka/MMEB_json_evaloutputs/"),
+        default=Path("./MMEB_json_evaloutputs/"),
         help="Thư mục đích.",
     )
 
