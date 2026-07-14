@@ -1,4 +1,4 @@
-#2 -f-MMEB-evaloutputs/AdaptiveMRL_qwen3_vqa_projection_only/ +a
+#1 +5
 #main
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
@@ -18,8 +18,9 @@
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-# screen -ls
-# nvidia-smi
+screen -ls
+nvidia-smi
+ls
 
 # pkill -f gpu_burn 2>/dev/null || true
 #nvidia-smi
