@@ -1,5 +1,6 @@
-#2 -f-Rebuttal_VLM2Vec_Matryoshka/MMEB-evaloutputs/AdaptiveMRL_qwen3_vqa_projection_only/ +a
+#1 +5
 #main
+#2 -f-Rebuttal_VLM2Vec_Matryoshka/MMEB-evaloutputs/AdaptiveMRL_qwen3_vqa_projection_only/ +a
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -21,6 +22,7 @@
 screen -ls
 nvidia-smi
 ls
+ls Rebuttal_VLM2Vec_Matryoshka
 
 # pkill -f gpu_burn 2>/dev/null || true
 #nvidia-smi
