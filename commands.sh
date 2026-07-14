@@ -1,7 +1,7 @@
-#2 -f-~/Rebuttal_VLM2Vec_Matryoshka/MMEB-evaloutputs/AdaptiveMRL_qwen3_vqa_projection_only/ +a
+#1 +5
 #main
 #2 -f-~/Rebuttal_VLM2Vec_Matryoshka/MMEB-evaloutputs/AdaptiveMRL_qwen3_vqa_projection_only/ +a
-
+pwd
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
 # sudo apt update
