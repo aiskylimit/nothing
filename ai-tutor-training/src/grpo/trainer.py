@@ -1,32 +1,11 @@
-# Copyright 2020-2025 The HuggingFace Team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-##########################################################################################
-# Slightly modified from official TRL Library.
-# - Changed the `_generate_and_score_completions` function to work with our vLLM server.
-# - Added `_compute_assistant_mask` function to mask user turns for loss computation.
-##########################################################################################
-
 
 import torch
-import subprocess
 from dotenv import load_dotenv
 import traceback
 
 _orig_load = torch.load
 
-# Fixes an error related to model loading.
+
 def _unsafe_load(*args, **kwargs):
     kwargs.setdefault("weights_only", False)
     return _orig_load(*args, **kwargs)
@@ -95,55 +74,6 @@ RewardFunc = Union[str, PreTrainedModel, Callable[[list, list], list[float]]]
 
 
 class RepeatSampler(Sampler):
-    """
-    Sampler that repeats the indices of a dataset in a structured manner.
-
-    Args:
-        data_source (`Sized`):
-            Dataset to sample from.
-        mini_repeat_count (`int`):
-            Number of times to repeat each index per batch.
-        batch_size (`int`, *optional*, defaults to `1`):
-            Number of unique indices per batch.
-        repeat_count (`int`, *optional*, defaults to `1`):
-            Number of times to repeat the full sampling process.
-        shuffle (`bool`, *optional*, defaults to `True`):
-            Whether to shuffle the dataset.
-        seed (`int` or `None`, *optional*, defaults to `None`):
-            Random seed for reproducibility (only affects this sampler).
-
-    Example:
-    ```python
-    >>> sampler = RepeatRandomSampler(["a", "b", "c", "d", "e", "f", "g"], mini_repeat_count=2, batch_size=3, repeat_count=4)
-    >>> list(sampler)
-    [4, 4, 3, 3, 0, 0,
-     4, 4, 3, 3, 0, 0,
-     4, 4, 3, 3, 0, 0,
-     4, 4, 3, 3, 0, 0,
-
-     1, 1, 2, 2, 6, 6,
-     1, 1, 2, 2, 6, 6,
-     1, 1, 2, 2, 6, 6,
-     1, 1, 2, 2, 6, 6]
-    ```
-
-    ```txt
-    mini_repeat_count = 3
-          -   -   -
-         [0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3,      |
-          4,  4,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,      |
-          8,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11, 11,      |
-                                                                repeat_count = 2
-          0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3,      |
-          4,  4,  4,  5,  5,  5,  6,  6,  6,  7,  7,  7,      |
-          8,  8,  8,  9,  9,  9, 10, 10, 10, 11, 11, 11, ...] |
-          ---------   ---------   ---------   ---------
-           ---------   ---------   ---------   ---------
-            ---------   ---------   ---------   ---------
-                         batch_size = 12
-    ```
-    """
-
     def __init__(
         self,
         data_source: Sized,
@@ -205,31 +135,10 @@ class RepeatRandomSampler(RepeatSampler):
         super().__init__(*args, **kwargs)
 
 
-class WatchdogCallback(TrainerCallback):
-    def __init__(self, watchdog):
-        self.watchdog = watchdog
-
-    def on_step_end(self, args, state, control, **kwargs):
-        """Hàm này tự động được HF Trainer gọi mỗi khi xong 1 step"""
-        self.watchdog.update()
-
 def split_tensor_dict(
     tensor_dict: dict[str, Optional[torch.Tensor]], num_chunks: int
 ) -> list[dict[str, Optional[torch.Tensor]]]:
-    """
-    Splits a dictionary of tensors along the first dimension into `num_chunks` equal parts.
 
-    Example:
-        >>> x = torch.arange(12).reshape(6, 2)
-        >>> y = torch.arange(6).reshape(6, 1)
-        >>> tensor_dict = {"x": x, "y": y}
-        >>> split_tensor_dict(tensor_dict, 3)
-        [
-            {"x": tensor([[0, 1], [2, 3]]), "y": tensor([[0], [1]])},
-            {"x": tensor([[4, 5], [6, 7]]), "y": tensor([[2], [3]])},
-            {"x": tensor([[ 8,  9], [10, 11]]), "y": tensor([[4], [5]])}
-        ]
-    """
     first_tensor = next(tensor for tensor in tensor_dict.values() if tensor is not None)
     chunk_size = first_tensor.shape[0] // num_chunks
     return [
@@ -379,14 +288,6 @@ class ClassroomGRPOTrainer(Trainer):
         # `_get_train_sampler` and `_prepare_inputs`.
         self._buffered_inputs = None
 
-        # The trainer estimates the number of FLOPs (floating-point operations) using the number of elements in the
-        # input tensor associated with the key "input_ids". However, in GRPO, the sampled data does not include the
-        # "input_ids" key. Instead, the available keys is "prompt". As a result, the trainer issues the warning:
-        # "Could not estimate the number of tokens of the input, floating-point operations will not be computed." To
-        # suppress this warning, we set the "estimate_tokens" key in the model's "warnings_issued" dictionary to True.
-        # This acts as a flag to indicate that the warning has already been issued.
-        # model.warnings_issued["estimate_tokens"] = True
-
         # Initialize the metrics
         self._metrics = {"train": defaultdict(list)}
 
@@ -442,7 +343,6 @@ class ClassroomGRPOTrainer(Trainer):
             self.ref_model = prepare_deepspeed(self.ref_model, self.accelerator)
 
         self.watchdog = TrainingWatchdog(self.accelerator, timeout_seconds=900)
-        self.add_callback(WatchdogCallback(self.watchdog))
 
     def _set_signature_columns_if_needed(self):
         if self._signature_columns is None:
@@ -678,11 +578,7 @@ class ClassroomGRPOTrainer(Trainer):
                 :, :-1, :
             ]  # (B, L-1, V), exclude the last logit: it corresponds to the next token pred
             input_ids_batch = input_ids_batch[:, -logits_to_keep:]
-            # For transformers<=4.48, logits_to_keep argument isn't supported, so here we drop logits ourselves.
-            # See https://github.com/huggingface/trl/issues/2770
             logits = logits[:, -logits_to_keep:]
-            # Divide logits by sampling temperature.
-            # See https://huggingface.co/blog/the_n_implementation_details_of_rlhf_with_ppo#policy-training-implementation-details
             logits = logits / self.temperature
             logps = selective_log_softmax(
                 logits, input_ids_batch
@@ -712,12 +608,7 @@ class ClassroomGRPOTrainer(Trainer):
         return inputs
 
     def _save_only_model(self, output_dir: str, max_keep: int = 10):
-        """
-        Save only the model, then delete any other checkpoint-* folders
-        under the same `policy` directory.
-        Rule 1: Only keep checkpoints where step is divisible by 10.
-        Rule 2: Keep at most the `max_keep` (10) latest checkpoints.
-        """
+
         CHECKPOINT_RE = re.compile(r"^checkpoint-(\d+)$")
         
         if self.accelerator.is_main_process:
@@ -737,7 +628,7 @@ class ClassroomGRPOTrainer(Trainer):
                         paths_to_delete.append(full_path)
                     else:
                         valid_checkpoints.append((step, full_path))
-                        
+
             valid_checkpoints.sort(key=lambda x: x[0])
             
             if len(valid_checkpoints) > max_keep:
@@ -807,8 +698,7 @@ class ClassroomGRPOTrainer(Trainer):
 
         torch.cuda.empty_cache()
         self.accelerator.wait_for_everyone()
-        # We also sometimes save the model every self.args.save_policy_to_disk_every_n_steps steps.
-        # We do this to avoid a bug with vllm when changing weights at tensor parallel=4.
+        
         if self.state.global_step % self.args.save_policy_to_disk_every_n_steps == 0:
             logger.info(f"Saving the model to {self.args.output_dir}")
             self._save_only_model(

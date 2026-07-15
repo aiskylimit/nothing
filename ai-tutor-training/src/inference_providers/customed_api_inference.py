@@ -46,18 +46,7 @@ class CustomedAPIInference:
 
     @staticmethod
     def _message_content_to_text(content: Any) -> str:
-        if content is None:
-            return ""
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            parts = []
-            for item in content:
-                if isinstance(item, dict):
-                    parts.append(str(item.get("text", "")))
-                else:
-                    parts.append(str(item))
-            return "".join(parts)
+
         return str(content)
 
     def run_batch(
@@ -66,77 +55,7 @@ class CustomedAPIInference:
         sampling_params: SamplingParams,
         meta=None,
     ) -> list[RequestOutput]:
-        def _execute_one(conversation):
-            max_retries = 3
-            backoff = 1.0
-            n = getattr(sampling_params, "n", 1) or 1
-
-            for attempt in range(1, max_retries + 1):
-                try:
-                    client = self.create_client()
-                    completion_outputs: list[CompletionOutput] = []
-
-                    for index in range(n):
-                        completion: ChatCompletion = client.chat.completions.create(
-                            model=self.model_name,
-                            messages=conversation,
-                            temperature=getattr(sampling_params, "temperature", None),
-                            max_tokens=getattr(sampling_params, "max_tokens", None),
-                            top_p=getattr(sampling_params, "top_p", None),
-                            reasoning_effort="low"
-                        )
-                        text = self._message_content_to_text(
-                            completion.choices[0].message.content
-                        )
-                        completion_outputs.append(
-                            CompletionOutput(
-                                index=index,
-                                text=text,
-                                token_ids=[],
-                                cumulative_logprob=0.0,
-                                logprobs=[],
-                            )
-                        )
-
-                    return RequestOutput(
-                        request_id="",
-                        prompt="",
-                        outputs=completion_outputs,
-                        prompt_token_ids=[],
-                        prompt_logprobs=[],
-                        finished=True,
-                    )
-                except Exception as exc:
-                    logger.warning(f"Attempt {attempt} failed: {exc}")
-                    if attempt == max_retries:
-                        logger.error("All custom API attempts failed.")
-                        return RequestOutput(
-                            request_id="",
-                            prompt="",
-                            outputs=[
-                                CompletionOutput(
-                                    index=index,
-                                    text="",
-                                    token_ids=[],
-                                    cumulative_logprob=0.0,
-                                    logprobs=[],
-                                )
-                                for index in range(n)
-                            ],
-                            prompt_token_ids=[],
-                            prompt_logprobs=[],
-                            finished=False,
-                        )
-
-                    time.sleep(backoff + random.uniform(0, 5))
-                    backoff = min(backoff * 2, 30)
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=80) as executor:
-            futures = [
-                executor.submit(_execute_one, conversation)
-                for conversation in conversations
-            ]
-            return [future.result() for future in futures]
+        pass
 
     def sleep(self):
         pass

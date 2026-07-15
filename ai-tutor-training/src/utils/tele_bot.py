@@ -1,14 +1,5 @@
 import time
 import threading
-import requests
-import traceback
-import os
-from dotenv import load_dotenv
-
-# load_dotenv()
-
-# TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-# TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram_alert(message):
     pass
@@ -24,7 +15,6 @@ class TrainingWatchdog:
         self.is_running = True
         self.alert_sent = False
         
-        # Tạo luồng chạy ngầm
         self.thread = threading.Thread(target=self._monitor, daemon=True)
 
     def start(self):
