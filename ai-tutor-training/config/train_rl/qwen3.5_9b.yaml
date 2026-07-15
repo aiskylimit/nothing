@@ -34,7 +34,7 @@ teacher_model:
     temperature: 1.0
     max_length: 12000
     max_num_seqs: 512
-    gpu_memory_utilization: 0.3
+    gpu_memory_utilization: 0.5
     number_of_gpus_per_instance: 8
     max_number_of_instances: -1
     load_and_unload: true
@@ -47,7 +47,7 @@ student_model:
     temperature: 0.6
     max_length: 12000
     max_num_seqs: 512
-    gpu_memory_utilization: 0.3
+    gpu_memory_utilization: 0.5
     number_of_gpus_per_instance: 8
     max_number_of_instances: -1
     use_v0: false
@@ -60,7 +60,7 @@ judge_model:
     temperature: 0.6
     max_length: 12000
     max_num_seqs: 512
-    gpu_memory_utilization: 0.3
+    gpu_memory_utilization: 0.5
     number_of_gpus_per_instance: 8
     max_number_of_instances: -1
     load_and_unload: false

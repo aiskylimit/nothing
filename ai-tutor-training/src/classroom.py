@@ -502,6 +502,8 @@ class Conversation:
         return average_rm_reward
 
     def get_thinking_reward(self):
+        return 0.0
+    
         if len(self.rewards) == 0:
             return 0.0
         penalty_for_missing_closing_think = 0.0

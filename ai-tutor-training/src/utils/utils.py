@@ -9,6 +9,8 @@ import logging
 import pynvml
 from accelerate.utils import is_peft_model
 from math_verify import parse, verify
+import traceback
+
 
 pynvml.nvmlInit()
 
@@ -169,6 +171,7 @@ def is_correct(trace, real_answer):
         else:
             res = verify(soln, parse(trace))
     except:
+        traceback.print_exc()
         print(f"Error parsing trace: {trace} and comparing with solution: {real_answer}")
         res = False
     return res
@@ -220,7 +223,7 @@ def construct_length_reward_func(server_port: 8000):
 #################################################################################
 import torch.nn as nn
 from typing import Any, Union, Optional
-# from: https://github.com/huggingface/trl/blob/main/trl/models/utils.py#L376
+
 class _ForwardRedirection:
     """Implements the `forward-redirection`.
 
