@@ -157,7 +157,7 @@ class TrainConfig:
 
     num_samples_per_problem: int = 8
     number_of_problems_per_batch: int = 16
-    per_device_train_batch_size: int = 2
+    per_device_train_batch_size: int = 4
 
     lr_scheduler_type: str = "constant"
     optimizer: str = "adamw_torch"

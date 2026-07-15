@@ -25,7 +25,7 @@ from config.train_rl_model import (
     GenerationConfig,
 )
 from src.vllm.data_parallel_vllm import ParallelvLLMInference, InferenceTask
-from src.utils.utils import check_equal, extract_answer, is_correct
+from src.utils.utils import check_equal, extract_answer, is_correct_with_timeout
 from src.inference_providers.open_router_inference import OpenRouterInference
 from src.inference_providers.gemini_api_inference import GeminiInference
 from src.inference_providers.customed_api_inference import CustomedAPIInference
@@ -786,13 +786,8 @@ class Classroom:
                 for output in responses
             ]
         elif self.reward_model_cfg.model_name_or_path == "Answer":
-            # extracted_answers = [extract_answer(prompt) for prompt in prompts]
-            # rewards = [
-            #     1.0 if check_equal(answer, extracted_answer) else 0.0
-            #     for answer, extracted_answer in zip(answers, extracted_answers)
-            # ]
             rewards = [
-                1.0 if is_correct(trace, answer) else 0.0
+                1.0 if is_correct_with_timeout(trace, answer) else 0.0
                 for answer, trace in zip(answers, prompts)
             ]
         elif self.reward_model_cfg.model_name_or_path == "None":

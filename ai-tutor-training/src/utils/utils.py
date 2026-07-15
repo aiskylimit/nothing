@@ -10,6 +10,7 @@ import pynvml
 from accelerate.utils import is_peft_model
 from math_verify import parse, verify
 import traceback
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 
 pynvml.nvmlInit()
@@ -154,25 +155,37 @@ def extract_answer(solution):
 
     return solution[start_index:end_index]
 
+
+def is_correct_with_timeout(trace, real_answer, timeout=10):
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        future = ex.submit(is_correct, trace, real_answer)
+        try:
+            return future.result(timeout=timeout)
+        except FutureTimeoutError:
+            print(f"Timeout khi verify trace: {trace[:100]}...")
+            return False
+
+
 def is_correct(trace, real_answer):
     try:
         match = re.match(r"^([A-D])\.\s*(.*)$", real_answer.strip())
         if match:
-            answer_label = match.group(1) 
+            answer_label = match.group(1)
             answer_content = match.group(2)
-            soln = parse(f"\\boxed{{{answer_label}}}") + parse(f"\\boxed{{{answer_content}}}")
+            soln = parse(f"\\boxed{{{answer_label}}}", parsing_timeout=None) + parse(
+                f"\\boxed{{{answer_content}}}", parsing_timeout=None
+            )
         else:
-            soln = parse(f"\\boxed{{{real_answer}}}")
+            soln = parse(f"\\boxed{{{real_answer}}}", parsing_timeout=None)
 
         if "\\boxed{" in trace:
             parts = trace.split("\\boxed{")
             alt_ans2 = "\\boxed{" + parts[-1]
-            res = verify(soln, parse(alt_ans2))
+            res = verify(soln, parse(alt_ans2, parsing_timeout=None))
         else:
-            res = verify(soln, parse(trace))
-    except:
+            res = verify(soln, parse(trace, parsing_timeout=None))
+    except Exception as e:
         traceback.print_exc()
-        print(f"Error parsing trace: {trace} and comparing with solution: {real_answer}")
         res = False
     return res
 
