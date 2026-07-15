@@ -6,7 +6,7 @@ set -euo pipefail
 #-----------------------------------------
 cleanup() {
   echo "[start_rl_training.sh] Caught signal, stopping VLLM server..."
-  ./stop_vllm_server.sh || true
+  bash ./stop_vllm_server.sh || true
   exit 130
 }
 trap cleanup INT TERM
@@ -73,9 +73,9 @@ fi
 # Start the VLLM server
 #-----------------------------------------
 echo "[start_rl_training.sh] Launching VLLM server..."
-./stop_vllm_server.sh || true
+bash ./stop_vllm_server.sh || true
 sleep 2
-./start_vllm_server.sh "${SERVER_ARGS[@]}" &
+bash ./start_vllm_server.sh "${SERVER_ARGS[@]}" &
 SERVER_PID=$!
 
 #-----------------------------------------
