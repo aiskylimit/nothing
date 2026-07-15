@@ -1,4 +1,4 @@
-#1
+#1 +5
 #main
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/Rebuttal_VLM2Vec_Matryoshka/MMEB_json_evaloutputs/ +a
@@ -12,8 +12,8 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-make CUDAPATH=/usr/local/cuda-13.0
-./gpu_burn 36000000000
+# make CUDAPATH=/usr/local/cuda-13.0
+# ./gpu_burn 36000000000
 
 # source ~/miniconda3/etc/profile.d/conda.sh
 # conda activate base
@@ -24,7 +24,7 @@ make CUDAPATH=/usr/local/cuda-13.0
 
 
 # screen -ls
-# nvidia-smi
+nvidia-smi
 
 # pkill -f gpu_burn 2>/dev/null || true
 #nvidia-smi
