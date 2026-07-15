@@ -1,4 +1,4 @@
-#1 +5
+#1 +10
 #main
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/ +a
