@@ -10,8 +10,9 @@ import pynvml
 from accelerate.utils import is_peft_model
 from math_verify import parse, verify
 import traceback
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from concurrent.futures import ProcessPoolExecutor, TimeoutError as FutureTimeoutError
 
+_executor = ProcessPoolExecutor(max_workers=4)
 
 pynvml.nvmlInit()
 
@@ -156,14 +157,13 @@ def extract_answer(solution):
     return solution[start_index:end_index]
 
 
-def is_correct_with_timeout(trace, real_answer, timeout=10):
-    with ThreadPoolExecutor(max_workers=1) as ex:
-        future = ex.submit(is_correct, trace, real_answer)
-        try:
-            return future.result(timeout=timeout)
-        except FutureTimeoutError:
-            print(f"Timeout khi verify trace: {trace[:100]}...")
-            return False
+def is_correct_with_timeout(trace, real_answer, timeout=30):
+    future = _executor.submit(is_correct, trace, real_answer)
+    try:
+        return future.result(timeout=timeout)
+    except FutureTimeoutError:
+        print(f"Timeout khi verify trace: {trace[:100]}...")
+        return False
 
 
 def is_correct(trace, real_answer):

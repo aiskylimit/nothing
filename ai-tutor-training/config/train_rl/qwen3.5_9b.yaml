@@ -55,12 +55,12 @@ student_model:
     load_and_unload: true
 
 judge_model:
-  model_name_or_path: Qwen/Qwen3-14B-AWQ
+  model_name_or_path: Qwen/Qwen3-14B-FP8
   vllm:
     temperature: 0.6
     max_length: 12000
     max_num_seqs: 512
-    gpu_memory_utilization: 0.3
+    gpu_memory_utilization: 0.4
     number_of_gpus_per_instance: 8
     max_number_of_instances: -1
     load_and_unload: false
@@ -87,7 +87,7 @@ generation:
   # force_thinking: true
 
   # This turns on the hard lambda.
-  extra_penalty_for_rejected_judges: 1.0 # This is the actual lambda we use.
+  extra_penalty_for_rejected_judges: 0.9 # This is the actual lambda we use.
   ignore_rejected_judge: false # If we set this to false we get the soft lambda runs.
 
   use_experimental_shared_memory: false
