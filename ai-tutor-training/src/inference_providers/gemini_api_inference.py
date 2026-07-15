@@ -15,14 +15,9 @@ logger = init_logger()
 
 class GeminiInference:
     def __init__(self, model_name: str):
-        load_dotenv()
-        self.model_name = model_name
-        primary_key = os.getenv("GEMINI_API_KEY")
-        if not primary_key:
-            raise ValueError("GEMINI_API_KEY is not set in the environment")
-        genai.configure(api_key=primary_key)
+        pass
 
-    def run_batch(self, conversations: list, sampling_params: SamplingParams, meta=None, max_retries=10000000):
+    def run_batch(self, conversations: list, sampling_params: SamplingParams, meta=None):
         pass
 
     def sleep(self):
