@@ -1,8 +1,5 @@
-#1
-#main
-
-ls
-df -h
+#1 +600
+#ai-tutor
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -17,17 +14,16 @@ df -h
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-# pkill -f gpu_burn 2>/dev/null || true
+pkill -f gpu_burn 2>/dev/null || true
 
 
 
-# source ~/miniconda3/etc/profile.d/conda.sh
-# conda activate base
-# export PATH=/usr/local/cuda/bin:$PATH
-# export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate base
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-
-# cd ai-tutor-training
-# bash install.sh
-# bash project_commands.sh
+cd ai-tutor-training
+bash install.sh
+bash project_commands.sh
