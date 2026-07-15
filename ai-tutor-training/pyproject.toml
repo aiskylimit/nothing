@@ -1,0 +1,57 @@
+[project]
+name = "ai-tutor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "readme.md"
+requires-python = "==3.11.*"
+
+dependencies = [
+    "datasets",
+    "peft==0.18.1",
+    "transformers==5.5.3",
+    "trl==0.21.0",
+    "typer>=0.15.2",
+    "yq>=3.4.3",
+    "deepspeed",
+    "nltk",
+    "numerize",
+    "torch==2.10.0",
+    "rouge-score",
+    "rich",
+    "setuptools",
+    "vllm==0.19.1",
+    "langdetect",
+    "immutabledict",
+    "celery",
+    "matplotlib",
+    "huggingface_hub",
+    "tqdm",
+    "ipywidgets",
+    "bitsandbytes",
+    "accelerate",
+    "hydra-core==1.3.2",
+    "evaluate",
+    "pydantic",
+    "cachetools",
+    "scikit-learn",
+    "jinja2",
+    "colorama",
+    "timeout_decorator",
+    "sympy",
+    "multiprocess",
+    "fastapi",
+    "uvicorn",
+    "PyYAML",
+    "polars",
+    "omegaconf==2.3.0",
+    "antlr4-python3-runtime==4.9.3",
+    "math-verify",
+    "google-generativeai",
+    "psutil",
+    "liger-kernel==0.5.8"
+]
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
+extra-index-url = ["https://download.pytorch.org/whl/cu128"]
+index-strategy = "unsafe-best-match"
