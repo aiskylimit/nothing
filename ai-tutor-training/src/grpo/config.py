@@ -135,7 +135,7 @@ class ClassroomGRPOConfig(TrainingArguments):
     )
 
     use_liger_loss: bool = field(
-        default=False,
+        default=True,
         metadata={
             "help": "Whether to use the Liger loss."
         },

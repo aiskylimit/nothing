@@ -101,7 +101,7 @@ class GenerationConfig:
 
     max_turns: int = 15  # Will actually be 16 turns.
     max_tokens_in_conversation: int = 8192
-    max_tokens_per_turn: int = 1024
+    max_tokens_per_turn: int = 1500
     max_tokens_per_student_attempt: int = 3900  # A small buffer for the reward model.
     max_tokens_per_judge_attempt: int = 2048
     tokenizer_to_use: str = "Qwen/Qwen2.5-7B-Instruct"
