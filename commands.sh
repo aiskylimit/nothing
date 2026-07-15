@@ -1,8 +1,8 @@
-#1 +5
+#1
 #ai-tutor
 #v1
 
-nvidia-smi
+# nvidia-smi
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -21,12 +21,12 @@ nvidia-smi
 
 
 
-# source ~/miniconda3/etc/profile.d/conda.sh
-# conda activate base
-# export PATH=/usr/local/cuda/bin:$PATH
-# export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate base
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd ai-tutor-training
-# bash install.sh
-# bash project_commands.sh
+cd ai-tutor-training
+bash install.sh
+bash project_commands.sh
