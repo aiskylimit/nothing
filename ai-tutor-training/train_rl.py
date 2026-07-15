@@ -141,7 +141,6 @@ def main(cfg: RLModelTrainingConfig):
             bf16=True,
             run_name=cfg.logging.log_run_name,
             model_init_kwargs=model_kwargs,
-            hub_model_id=cfg.huggingface.name,
             hub_private_repo=False,
             report_to=[],
             save_strategy="steps",
@@ -180,9 +179,6 @@ def main(cfg: RLModelTrainingConfig):
     trainer.model.config.use_cache = True
     trainer.save_model(logging_config.save_dir + "/model")
 
-    if cfg.huggingface.push_to_hub:
-        logger.info("Pushing to hub...")
-        trainer.push_to_hub()
 
 
 if __name__ == "__main__":
