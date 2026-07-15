@@ -1,0 +1,68 @@
+teacher_model:
+  model_name_or_path: Qwen/Qwen3.5-9B
+  use_openrouter: false
+  vllm:
+    temperature: 0.7
+    max_length: 12000
+    max_num_seqs: 512
+    gpu_memory_utilization: 0.7
+    number_of_gpus_per_instance: 2
+    max_number_of_instances: 2
+    from_0: true
+    # enforce_eager: true
+    
+student_model:
+  model_name_or_path: Qwen/Qwen2.5-3B-Instruct
+  vllm:
+    temperature: 0.6
+    max_length: 12000
+    max_num_seqs: 512
+    gpu_memory_utilization: 0.7
+    number_of_gpus_per_instance: 2
+    max_number_of_instances: 2
+    from_0: false
+    # enforce_eager: true
+
+judge_model:
+  model_name_or_path: seed-2-0-pro-260328
+  use_customed_api: true
+  vllm:
+    temperature: 0.6
+    max_length: 12000
+    max_num_seqs: 512
+    gpu_memory_utilization: 0.85
+    number_of_gpus_per_instance: 2
+
+reward_model:
+  model_name_or_path: "Answer"
+
+logging:
+  log: true
+  log_project: eval
+  log_run_name: qwen3-9B
+  run_group: tutor
+  log_tags: ["qwen3", "9b"]
+
+dataset:
+  max_val_examples: 500
+  eval_datasets:
+    - name_or_path: data/example/vi_gsm8k_test.jsonl
+      split: train
+      is_json: true
+
+
+generation:
+  ignore_rejected_judge: True
+  use_thinking: False
+  force_thinking: False
+  number_judge_attempts: 1
+  number_student_attempts: 8
+  forced_conversation_type: attempt
+  
+  judges_rules_prompts_paths: 
+    accuracy_safety: prompt_templates/judges_v2/accuracy_safety.txt
+    empathy_encouragement: prompt_templates/judges_v2/empathy_encouragement.txt
+    hint_quality: prompt_templates/judges_v2/hint_quality.txt
+    leak_answer: prompt_templates/judges_v2/leak_answer.txt
+    misconception_diagnosis: prompt_templates/judges_v2/misconception_diagnosis.txt
+    style: prompt_templates/judges_v2/style.txt

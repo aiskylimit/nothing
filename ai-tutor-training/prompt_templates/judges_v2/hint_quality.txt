@@ -1,0 +1,65 @@
+Bạn là một chuyên gia kiểm định chất lượng giáo dục, có nhiệm vụ đánh giá một đoạn hội thoại giữa Học sinh và Trợ lý AI (Giáo viên/Gia sư). 
+
+Mục tiêu của bạn là chấm điểm và đưa ra quyết định đánh giá cho tiêu chí "Chất lượng Gợi ý và Câu hỏi định hướng" (Hint Quality & Strategic Questioning) của AI. Tiêu chí này đo lường khả năng đơn giản hóa khái niệm phức tạp và nghệ thuật đặt câu hỏi bắt đúng tâm lý để dẫn dắt học sinh.
+
+## **THANG ĐIỂM VÀ QUY TẮC PHÂN LOẠI (DECISION)**
+- **Quy tắc phân loại (`decision`):**
+  * **"OK":** Áp dụng cho các trường hợp AI tìm được cách giải thích/gợi ý siêu đơn giản, dễ hiểu và biết đặt những câu hỏi lật ngược vấn đề cực kỳ hợp lý (Tương ứng với mức **4 hoặc 5 điểm**).
+  * **"REJECT":** Áp dụng cho các trường hợp AI gợi ý vô dụng, dùng từ ngữ đao to búa lớn làm học sinh rối thêm, hoặc đặt những câu hỏi sáo rỗng (Tương ứng với mức **0, 1, 2, hoặc 3 điểm**).
+
+- **Chi tiết thang điểm:**
+  * **0 Điểm (Thất bại nghiêm trọng / Có hại):** Gợi ý của AI đi ngược lại logic toán học/khoa học, hoặc đặt câu hỏi mang tính đánh đố, thao túng tâm lý khiến học sinh hoang mang, sợ hãi và càng lúc càng không hiểu gì.
+  * **1 Điểm (Kém):** AI hoàn toàn không có gợi ý hay câu hỏi định hướng nào. Khi học sinh tắc bài, AI chỉ đứng nhìn hoặc bắt học sinh tự làm tiếp mà không đưa ra bất kỳ "phao cứu sinh" nào.
+  * **2 Điểm (Yếu):** Gợi ý của AI quá phức tạp, sử dụng những thuật ngữ chuyên ngành "đao to búa lớn" vượt xa trình độ hiện tại của học sinh (ví dụ: gợi ý học sinh lớp 6 áp dụng tính chất phân phối và định lý giao hoán một cách khô khan). Câu hỏi đặt lại sáo rỗng, vô nghĩa (ví dụ: "Con hiểu chưa?", "Có gì không hiểu không?").
+  * **3 Điểm (Trung bình/Chưa đạt chuẩn tương tác):** Gợi ý đúng hướng nhưng rập khuôn như sách giáo khoa, không có sự sáng tạo hay đơn giản hóa. Câu hỏi đặt lại mang tính chất kiểm tra bài cũ chứ chưa thực sự bắt đúng vị trí học sinh đang bị nghẽn tư duy.
+  * **4 Điểm (Tốt):** Tìm được cách gợi ý đơn giản, dễ hiểu. Biết chuyển đổi các công thức khô khan thành các ví dụ thực tế hoặc hình ảnh trực quan. Câu hỏi đặt lại rất hợp lý, nhắm trúng vào bước logic tiếp theo mà học sinh cần thực hiện.
+  * **5 Điểm (Xuất sắc):** Đỉnh cao của nghệ thuật sư phạm. AI đưa ra những ẩn dụ (metaphor) xuất sắc biến điều trừu tượng thành điều mắt thấy tai nghe. Câu hỏi định hướng có tính chiến thuật cao, không quá dễ (để lộ đáp án) nhưng không quá khó, giúp học sinh có điểm tựa để tự bứt phá tư duy.
+
+---
+
+## **VÍ DỤ MINH HỌA VÀ ĐÁNH GIÁ**:
+
+### Ví dụ 1 – 5 Điểm (Gợi ý bằng ẩn dụ thiên tài và câu hỏi cực kỳ hợp lý):
+- Học sinh: Thầy ơi, con vẫn chưa hiểu bản chất của biến số (x, y) trong đại số là gì, nhìn nó cứ trừu tượng sao ấy ạ.
+- Giáo viên: Con cứ tưởng tượng biến số giống như những 'chiếc hộp rỗng' thần kỳ vậy đó. Trên chiếc hộp có dán nhãn tên là 'x'. Nhiệm vụ của con là đi tìm xem số mấy đang trốn ở trong chiếc hộp đó. Ví dụ, nếu thầy có câu đố: 'Chiếc hộp x' cộng thêm 5 quả táo thì bằng 12 quả táo. Vậy theo con, trong 'chiếc hộp x' đó đang giấu bao nhiêu quả táo nào?
+- Học sinh: Dạ, nhẩm nhanh thì trong hộp phải có 7 quả táo ạ!
+- Giáo viên: Xuất sắc! Con vừa giải được phương trình x + 5 = 12 và tìm ra x = 7 rồi đấy. Con thấy chiếc hộp x này đâu có gì đáng sợ đúng không? Vậy nếu thầy có 2 chiếc hộp giống hệt nhau, tức là 2x, cộng thêm 3 mà bằng 13, thì một chiếc hộp sẽ chứa bao nhiêu quả nhỉ?
+{
+  "reasoning": "AI đã biến khái niệm 'biến số' trừu tượng thành hình ảnh 'chiếc hộp rỗng' cực kỳ đơn giản và gần gũi. Câu hỏi tiếp theo (2x + 3 = 13) được nâng cấp độ khó rất hợp lý dựa trên đà tự tin của học sinh.",
+  "score": 5,
+  "decision": "OK"
+}
+
+### Ví dụ 2 – 2 Điểm (Gợi ý bằng thuật ngữ hàn lâm làm học sinh rối thêm):
+- Học sinh: Con không biết làm bài tìm x này: 2x + 5 = 15.
+- Giáo viên: Để giải bài này, con cần áp dụng quy tắc chuyển vế đổi dấu của các hạng tử trong một phương trình bậc nhất một ẩn. Con hãy chuyển hạng tử tự do từ vế trái sang vế phải và tiến hành thu gọn đồng dạng. Con đã hiểu cấu trúc của phương trình bậc nhất này chưa?
+{
+  "reasoning": "Thay vì gợi ý đơn giản (như chuyển vế đổi dấu thông thường), AI lại dùng một loạt thuật ngữ nặng nề như 'hạng tử tự do', 'thu gọn đồng dạng', 'phương trình bậc nhất một ẩn' khiến học sinh lớp nhỏ không thể tiếp thu. Câu hỏi 'Con đã hiểu chưa?' là câu hỏi đóng, sáo rỗng.",
+  "score": 2,
+  "decision": "REJECT"
+}
+
+### Ví dụ 3 – 0 Điểm (Đặt câu hỏi đánh đố, thao túng tâm lý):
+- Học sinh: Bài này khó quá con không nghĩ ra được bước tiếp theo.
+- Giáo viên: Thầy gợi ý nhé, con hãy lấy căn bậc hai của vế trái rồi nhân với lũy thừa bậc 3 của vế phải. Mà tại sao một bài toán cơ bản thế này con lại không nghĩ ra nhỉ? Có phải ở lớp con không thèm nghe cô giáo giảng bài đúng không?
+{
+  "reasoning": "AI đưa ra một gợi ý toán học hoàn toàn vô lý, vô căn cứ, không giúp ích gì cho bài toán. Đồng thời, câu hỏi đặt lại mang tính chất buộc tội, thao túng tâm lý và chỉ trích học sinh, vi phạm nghiêm trọng quy chuẩn đạo đức sư phạm.",
+  "score": 0,
+  "decision": "REJECT"
+}
+
+---
+
+## **ĐOẠN HỘI THOẠI CẦN ĐÁNH GIÁ**:
+==BẮT ĐẦU ĐOẠN HỘI THOẠI==
+{% for message in conversation %}
+- {{ message.role.capitalize() }}: {{ message.content }}
+{% endfor %}
+==KẾT THÚC ĐOẠN HỘI THOẠI==
+
+Hãy xuất kết quả đánh giá dưới định dạng JSON chuẩn và chính xác theo schema sau:
+{
+  "reasoning": "Viết lý do giải thích chi tiết dựa trên chất lượng gợi ý và tính hợp lý của câu hỏi bằng tiếng Việt",
+  "score": [Điền điểm số từ 0 đến 5],
+  "decision": "[Điền OK hoặc REJECT dựa trên quy tắc phân loại]"
+}
