@@ -245,27 +245,6 @@ def split_tensor_dict(
     ]
 
 
-def upload_task(output_dir, ssh_password, remote_host, target_path):
-    """Hàm này sẽ được ThreadPool thực thi"""
-    if not os.path.exists(output_dir):
-        logger.info(f"\n[Upload Canceled] {output_dir} đã bị xóa do max_keep trước khi kịp upload.")
-        return
-        
-    try:
-        logger.info(f"\n[Upload Bắt đầu] Đang đẩy {output_dir} lên server...")
-        
-        clean_output_dir = os.path.normpath(os.path.expanduser(output_dir))
-        subprocess.run([
-            "sshpass", "-p", ssh_password, "rsync", "-avz", 
-            "-e", "ssh -p 11022 -o StrictHostKeyChecking=no", 
-            clean_output_dir, f"{remote_host}:{target_path}/"
-        ], check=True, capture_output=True)
-        
-        logger.info(f"\n[Upload Thành công] {output_dir} đã lên server.")
-    except subprocess.CalledProcessError as e:
-        logger.warning(f"\n[Upload Error] Lỗi khi upload {output_dir}: {e.stderr.decode() if e.stderr else e}")
-
-
 class ClassroomGRPOTrainer(Trainer):
 
     _tag_names = ["trl", "grpo"]
