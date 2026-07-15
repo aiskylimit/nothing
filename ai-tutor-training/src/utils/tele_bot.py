@@ -11,18 +11,6 @@ from dotenv import load_dotenv
 # TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def send_telegram_alert(message):
-    # """Hàm gửi tin nhắn qua Telegram"""
-    # url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    # payload = {
-    #     "chat_id": TELEGRAM_CHAT_ID,
-    #     "text": message,
-    #     "parse_mode": "HTML" # Cho phép format chữ đậm, nghiêng
-    # }
-    # try:
-    #     requests.post(url, json=payload, timeout=5)
-    # except Exception as e:
-    #     print(f"Không thể gửi Telegram alert: {e}")
-
     pass
 
 class TrainingWatchdog:
@@ -59,17 +47,5 @@ class TrainingWatchdog:
         send_telegram_alert(message=mess)
 
     def _monitor(self):
-        # """Hàm này chạy ngầm liên tục để kiểm tra thời gian"""
-        # while self.is_running:
-        #     time.sleep(30) # Kiểm tra mỗi 10 giây
-        #     elapsed_time = time.time() - self.last_step_time
-            
-        #     # Nếu thời gian vượt mức cho phép và chưa gửi cảnh báo
-        #     if elapsed_time > self.timeout_seconds and not self.alert_sent:
-        #         msg = (f"⚠️ <b>CẢNH BÁO: TRAINING BỊ TREO!</b>\n"
-        #                f"Đã <code>{int(elapsed_time)}</code> giây trôi qua mà chưa xong 1 step.\n"
-        #                f"Vui lòng kiểm tra lại server/GPU ngay lập tức!")
-        #         send_telegram_alert(msg)
-        #         self.alert_sent = True
         pass
                 
