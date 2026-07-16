@@ -28,5 +28,6 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd ai-tutor-training
-bash install.sh
+# bash install.sh
+rm -rf checkpoints
 bash project_commands.sh
