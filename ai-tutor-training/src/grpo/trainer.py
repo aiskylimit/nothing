@@ -279,6 +279,7 @@ class ClassroomGRPOTrainer(Trainer):
         self.epsilon = args.epsilon
         self.use_liger_loss = args.use_liger_loss
         if self.use_liger_loss:
+            logger.info("Using Liger loss")
             self._forward_redirection = _ForwardRedirection()
 
         # Tracks the number of iterations (forward + backward passes), including those within a gradient accumulation cycle.
