@@ -478,10 +478,7 @@ class ClassroomGRPOTrainer(Trainer):
                     "Unsupported input_ids dimensions: expected 1D or 2D tensor."
                 )
         else:
-            # Get the special tokens.
-            start_token = self.processing_class.apply_chat_template(
-                [{"role": "system", "content": ""}, {"role": "user", "content": ""}]
-            )[0]
+            start_token = self.processing_class.convert_tokens_to_ids("<|im_start|>")
             system_token = self.processing_class.encode("system")[0]
             user_token = self.processing_class.encode("user")[0]
             assistant_token = self.processing_class.encode("assistant")[0]
@@ -867,7 +864,7 @@ class ClassroomGRPOTrainer(Trainer):
         )
         completions = completions_text
 
-        logger.info(f"Generated completions: {completions}")
+        # logger.info(f"Generated completions: {completions}")
 
         rewards_per_func = torch.zeros(
             len(prompts), len(self.reward_funcs), device=device
@@ -1091,7 +1088,8 @@ class ClassroomGRPOTrainer(Trainer):
 
         # We mask with assistant loss too.
         assistant_mask = self._compute_assistant_mask(completion_ids).int()
-        logger.info(f"assistant_mask sum: {assistant_mask.sum().item()} / total tokens: {assistant_mask.numel()}")
+        if self.accelerator.is_main_process:
+            logger.info(f"assistant_mask sum: {assistant_mask.sum().item()} / total tokens: {assistant_mask.numel()}")
 
         # get the last hidden state of the model
         last_hidden_state = self._get_last_hidden_state(
