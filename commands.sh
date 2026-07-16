@@ -1,6 +1,6 @@
 #2
 #ai-tutor
-#v1
+#v2
 
 # nvidia-smi
 
