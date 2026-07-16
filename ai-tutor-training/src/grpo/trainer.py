@@ -867,6 +867,8 @@ class ClassroomGRPOTrainer(Trainer):
         )
         completions = completions_text
 
+        logger.info(f"Generated completions: {completions}")
+
         rewards_per_func = torch.zeros(
             len(prompts), len(self.reward_funcs), device=device
         )
@@ -1089,6 +1091,7 @@ class ClassroomGRPOTrainer(Trainer):
 
         # We mask with assistant loss too.
         assistant_mask = self._compute_assistant_mask(completion_ids).int()
+        logger.info(f"assistant_mask sum: {assistant_mask.sum().item()} / total tokens: {assistant_mask.numel()}")
 
         # get the last hidden state of the model
         last_hidden_state = self._get_last_hidden_state(
