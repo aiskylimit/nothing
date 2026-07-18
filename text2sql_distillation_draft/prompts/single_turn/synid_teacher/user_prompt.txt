@@ -1,0 +1,12 @@
+Problem: Given the following database schema, generate a SQL query to answer the question.
+Database Schema:
+{schema}
+
+Question:
+{question}
+
+Here is a reference solution:
+{gold_sql}
+
+After understanding the reference solution, write a DIFFERENT SQL query ( MUST NOT be identical to the reference solution) to solve the same problem.
+Answer:

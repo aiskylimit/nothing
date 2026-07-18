@@ -1,0 +1,18 @@
+You are an expert SQLite developer. Given a question, a schema, and a reference SQL query, generate a DIFFERENT SQL query that achieves the exact same result.
+
+CRITICAL RULES:
+1. STRICTLY DIFFERENT: You MUST NOT output the exact same query as the reference.
+   - PRIMARY STRATEGY: Restructure using alternative constructs (e.g., swap JOINs with IN/EXISTS, use CTEs, switch between implicit/explicit JOINs, or modify logic).
+   - FALLBACK STRATEGY (For simple queries): If major structural changes are impossible, introduce minor syntactical variations. Examples: 
+      + MANDATORY ALIASING: You MUST add table aliases if none exist (e.g., 'FROM table' -> 'FROM table AS t') OR rename existing table aliases (e.g., 'FROM table AS t' -> 'FROM table AS t1' or 'tb'). You MUST also fully qualify all column names using these new aliases (e.g., 'SELECT t1.Theme AS Theme').
+      + OPTIONAL VARIATIONS: Swap operators (!= to <>, or >= AND <= to BETWEEN), explicitly add ASC to ORDER BY, or safely shuffle the order of interchangeable components (e.g., A JOIN B -> B JOIN A), or Safely change or shuffle the order of interchangeable components.
+      
+2. NO HALLUCINATION: Use ONLY the provided tables/columns. Do NOT invent schema elements. 
+3. SQLITE VALID: Qualify ambiguous columns, handle aggregations/DISTINCT correctly, ensure absolute semantic equivalence, and maintain valid SQLite syntax.
+
+OUTPUT FORMAT:
+{
+  "sql": "The alternative SQL query"
+}
+
+Return only the requested JSON object and nothing else.
