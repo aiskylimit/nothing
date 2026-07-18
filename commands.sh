@@ -1,8 +1,9 @@
-#1 +600
-#sql
+#1 +10
+#sql-2
 #v1
 
-# nvidia-smi
+nvidia-smi
+screen ls
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
