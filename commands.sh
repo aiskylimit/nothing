@@ -3,7 +3,7 @@
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_065707/jobs/ +a
-kill -9 $(pgrep -f "_draft/.venv/bin/python")
+# kill -9 $(pgrep -f "_draft/.venv/bin/python")
 nvidia-smi
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
@@ -21,7 +21,7 @@ nvidia-smi
 
 # pkill -f gpu_burn 2>/dev/null || true
 
-# pkill -f "_draft/.venv/bin/python"
+# kill -9 $(pgrep -f "_draft/.venv/bin/python")
 
 # source ~/miniconda3/etc/profile.d/conda.sh
 # conda activate base
