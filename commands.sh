@@ -3,6 +3,7 @@
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_150012/jobs/ +a
+screen -ls | awk '/\t/ {print $1}' | xargs -r -n1 screen -X -S quit
 nvidia-smi
 screen ls
 
