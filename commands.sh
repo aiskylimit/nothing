@@ -1,4 +1,4 @@
-#1
+#2
 #sql-main-log
 #v2
 
@@ -20,13 +20,13 @@
 
 # pkill -f gpu_burn 2>/dev/null || true
 
-kill -9 $(pgrep -f "/.venv/bin/python")
+# kill -9 $(pgrep -f "/.venv/bin/python")
 
-sleep 60
+# sleep 60
 
-kill -9 $(pgrep -f "/.venv/bin/python")
+# kill -9 $(pgrep -f "/.venv/bin/python")
 
-sleep 60
+# sleep 60
 
 nvidia-smi
 
@@ -36,5 +36,5 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
-bash ./project_commands.sh
+# cd text2sql_distillation_draft
+# bash ./project_commands.sh
