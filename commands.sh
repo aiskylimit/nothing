@@ -1,9 +1,8 @@
-#1 +200
+#1 +60
 #sql-main-log
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_150012/jobs/ +a
-screen -ls | awk '/Detached/{print $1}' | xargs -r -n1 screen -S {} -X quit
 nvidia-smi
 screen -ls
 
@@ -22,9 +21,9 @@ screen -ls
 
 pkill -f gpu_burn 2>/dev/null || true
 
-# kill -9 $(pgrep -f "/.venv/bin/python")
+kill -9 $(pgrep -f "/.venv/bin/python")
 
-sleep 90
+sleep 30
 
 nvidia-smi
 
