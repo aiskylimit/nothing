@@ -1,9 +1,10 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_065707/jobs/ +a
-#sql-main
+#1 +10
+#sql-main-log
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_065707/jobs/ +a
-# nvidia-smi
+kill -9 "draft/.venv/bin/python"
+nvidia-smi
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
