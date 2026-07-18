@@ -1,5 +1,5 @@
-#1 +10
-#sql-main-log
+#1 +300
+#sql-main
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_150012/jobs/ +a
@@ -30,5 +30,5 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
-# bash ./project_commands.sh
+cd text2sql_distillation_draft
+bash ./project_commands.sh
