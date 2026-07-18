@@ -1,4 +1,4 @@
-#1 +10
+#2
 #sql-main-log
 #v1
 
@@ -21,11 +21,11 @@ nvidia-smi
 # pkill -f gpu_burn 2>/dev/null || true
 
 
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate base
-export PATH=/usr/local/cuda/bin:$PATH
-export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+# source ~/miniconda3/etc/profile.d/conda.sh
+# conda activate base
+# export PATH=/usr/local/cuda/bin:$PATH
+# export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
-bash ./project_commands.sh
+# cd text2sql_distillation_draft
+# bash ./project_commands.sh
