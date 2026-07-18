@@ -1,4 +1,4 @@
-#1 +300
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_060513/jobs/ +a
 #sql-main
 #v1
 
