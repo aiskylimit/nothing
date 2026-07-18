@@ -1,9 +1,8 @@
 #1 +10
 #sql-2
-#v1
+#v2
 
 nvidia-smi
-screen ls
 cd text2sql_distillation_draft
 ls
 
