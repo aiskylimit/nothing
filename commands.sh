@@ -1,10 +1,9 @@
-#1 +60
+#1 +10
 #sql-main-log
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_150012/jobs/ +a
 nvidia-smi
-screen -ls
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
@@ -19,13 +18,11 @@ screen -ls
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-pkill -f gpu_burn 2>/dev/null || true
+# pkill -f gpu_burn 2>/dev/null || true
 
-kill -9 $(pgrep -f "/.venv/bin/python")
-
-sleep 30
-
-nvidia-smi
+# kill -9 $(pgrep -f "/.venv/bin/python")
+# sleep 20
+# nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
