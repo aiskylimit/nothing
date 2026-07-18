@@ -1,4 +1,4 @@
-#2
+#1 +10
 #ai-tutor
 #v7
 
@@ -27,7 +27,7 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd ai-tutor-training
-# bash install.sh
-rm -rf checkpoints
-bash project_commands.sh
+# cd ai-tutor-training
+
+bash ./ai-tutor-training/stop_vllm_server.sh
+nvidia-smi
