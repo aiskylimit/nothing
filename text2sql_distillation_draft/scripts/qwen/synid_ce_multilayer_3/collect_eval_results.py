@@ -12,8 +12,11 @@ from pathlib import Path
 from typing import Any
 
 
-ALPHAS = [0.3, 0.5, 0.7, 1]
 KD_RATIOS = [0.7, 0.6, 0.5, 0.8, 0.9]
+LAYER_CONFIGS = [
+    ("last3", "24,25,26", "32,33,34"),
+    ("near_last3", "23,24,25", "31,32,33"),
+]
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
 
 
@@ -23,14 +26,16 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         raise ValueError(f"invalid grid_id: {grid_id}")
     grid_num = int(match.group(1))
     index = grid_num - 1
-    if index < 0 or index >= len(ALPHAS) * len(KD_RATIOS):
+    if index < 0 or index >= len(LAYER_CONFIGS) * len(KD_RATIOS):
         raise ValueError(f"grid_id out of range: {grid_id}")
+    layer_name, student_layers, teacher_layers = LAYER_CONFIGS[index // len(KD_RATIOS)]
     return {
         "grid_id": grid_id,
         "k": 3,
-        "student_layers": "25,26,27",
-        "teacher_layers": "33,34,35",
-        "alpha": ALPHAS[index // len(KD_RATIOS)],
+        "layer_config": layer_name,
+        "student_layers": student_layers,
+        "teacher_layers": teacher_layers,
+        "alpha": 0.1,
         "kd_ratio": KD_RATIOS[index % len(KD_RATIOS)],
         "beta": 0.1,
         "contrastive_tau": 0.05,

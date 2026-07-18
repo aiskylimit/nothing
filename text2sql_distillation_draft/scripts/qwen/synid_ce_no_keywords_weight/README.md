@@ -6,6 +6,7 @@ up-weighting during semantic-anchor pooling.
 Fixed:
 
 - `SYNID_KD_LOSS=csd`
+- `SYNID_ALPHA=0.1`
 - `SYNID_BETA=0.1`
 - `SYNID_CONTRASTIVE_TAU=0.05`
 - `SYNID_POOLING=sc`
@@ -18,20 +19,17 @@ Fixed:
 
 Grid:
 
-| Script | ID | k | Student layers | Teacher layers | alpha | kd ratio |
-|---|---|---:|---|---|---:|---:|
-| `train_g01.sh` | G01 | 1 | `27` | `35` | 0.3 | 0.7 |
-| `train_g02.sh` | G02 | 1 | `27` | `35` | 0.3 | 0.6 |
-| `train_g03.sh` | G03 | 1 | `27` | `35` | 0.5 | 0.7 |
-| `train_g04.sh` | G04 | 1 | `27` | `35` | 0.5 | 0.6 |
-| `train_g05.sh` | G05 | 1 | `27` | `35` | 1 | 0.7 |
-| `train_g06.sh` | G06 | 1 | `27` | `35` | 1 | 0.6 |
-| `train_g07.sh` | G07 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.7 |
-| `train_g08.sh` | G08 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.6 |
-| `train_g09.sh` | G09 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.7 |
-| `train_g10.sh` | G10 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.6 |
-| `train_g11.sh` | G11 | 3 | `25,26,27` | `33,34,35` | 1 | 0.7 |
-| `train_g12.sh` | G12 | 3 | `25,26,27` | `33,34,35` | 1 | 0.6 |
+| Script | ID | config | Student layers | Teacher layers | alpha | beta | kd ratio |
+|---|---|---|---|---|---:|---:|---:|
+| `train_g01.sh` | G01 | last1 | `27` | `35` | 0.1 | 0.1 | 0.7 |
+| `train_g02.sh` | G02 | last1 | `27` | `35` | 0.1 | 0.1 | 0.6 |
+| `train_g03.sh` | G03 | last1 | `27` | `35` | 0.1 | 0.1 | 0.5 |
+| `train_g04.sh` | G04 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.7 |
+| `train_g05.sh` | G05 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.6 |
+| `train_g06.sh` | G06 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.5 |
+| `train_g07.sh` | G07 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.7 |
+| `train_g08.sh` | G08 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.6 |
+| `train_g09.sh` | G09 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.5 |
 
 Run full train, multi-seed infer, format, and eval:
 

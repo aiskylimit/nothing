@@ -459,6 +459,35 @@ def _project_if_needed(embeddings: torch.Tensor, projector: Optional[nn.Module])
     return projector(embeddings)
 
 
+def _select_layer_projectors(
+    student_projectors: Optional[nn.Module],
+    student_projector: Optional[nn.Module],
+    layer_idx: int,
+    num_layers: int,
+) -> tuple[Optional[nn.Module], Optional[nn.Module]]:
+    if student_projectors is None:
+        return student_projector, student_projector
+    if len(student_projectors) != num_layers:
+        raise ValueError(
+            "SynID projector layer count must match hidden-state layer count, "
+            f"got {len(student_projectors)} projectors and {num_layers} hidden layers."
+        )
+    layer_projectors = student_projectors[layer_idx]
+    if isinstance(layer_projectors, nn.Module) and not isinstance(layer_projectors, nn.ModuleDict):
+        return layer_projectors, layer_projectors
+    if isinstance(layer_projectors, (nn.ModuleDict, dict)):
+        try:
+            return layer_projectors["prompt"], layer_projectors["response"]
+        except KeyError as exc:
+            raise ValueError("SynID layer projector must contain 'prompt' and 'response' branches.") from exc
+    if isinstance(layer_projectors, (list, tuple)) and len(layer_projectors) == 2:
+        return layer_projectors[0], layer_projectors[1]
+    raise TypeError(
+        "SynID per-layer projectors must be a module, ModuleDict({'prompt', 'response'}), "
+        "or a pair of modules."
+    )
+
+
 def _as_hidden_state_list(hidden_states) -> list[torch.Tensor]:
     if isinstance(hidden_states, torch.Tensor):
         return [hidden_states]
@@ -480,8 +509,10 @@ def synid_loss(
     teacher_batch: Optional[dict[str, torch.Tensor]] = None,
     teacher_no_model_batch: Optional[dict[str, torch.Tensor]] = None,
     student_projector: Optional[nn.Module] = None,
+    student_projectors: Optional[nn.Module] = None,
     student_hidden_states: Optional[torch.Tensor] = None,
     teacher_hidden_states: Optional[torch.Tensor] = None,
+    detach_student_contrastive: bool = False,
 ) -> SynIDLossParts:
     if teacher_batch is None:
         teacher_batch = student_batch
@@ -551,7 +582,8 @@ def synid_loss(
 
     con1_losses = []
     con2_losses = []
-    for student_hidden, teacher_hidden in zip(student_hidden_layers, teacher_hidden_layers):
+    num_hidden_layers = len(student_hidden_layers)
+    for layer_idx, (student_hidden, teacher_hidden) in enumerate(zip(student_hidden_layers, teacher_hidden_layers)):
         # Teacher response is the positive solution representation. In phase 1 it is
         # from the same prompt as the student; later it can come from privileged input.
         teacher_response_embedding = _pool_hidden(
@@ -591,8 +623,18 @@ def synid_loss(
             student_syntax_weights,
         )
 
-        student_prompt_embedding = _project_if_needed(student_prompt_embedding, student_projector)
-        student_response_embedding = _project_if_needed(student_response_embedding, student_projector)
+        if detach_student_contrastive:
+            student_prompt_embedding = student_prompt_embedding.detach()
+            student_response_embedding = student_response_embedding.detach()
+
+        prompt_projector, response_projector = _select_layer_projectors(
+            student_projectors,
+            student_projector,
+            layer_idx,
+            num_hidden_layers,
+        )
+        student_prompt_embedding = _project_if_needed(student_prompt_embedding, prompt_projector)
+        student_response_embedding = _project_if_needed(student_response_embedding, response_projector)
 
         con1_losses.append(
             _zero_like(kd_loss)

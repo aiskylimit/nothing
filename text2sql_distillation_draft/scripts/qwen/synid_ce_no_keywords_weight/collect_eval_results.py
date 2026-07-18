@@ -12,9 +12,12 @@ from pathlib import Path
 from typing import Any
 
 
-K_VALUES = [1, 3]
-ALPHAS = [0.3, 0.5, 1]
-KD_RATIOS = [0.7, 0.6]
+KD_RATIOS = [0.7, 0.6, 0.5]
+LAYER_CONFIGS = [
+    ("last1", 1, "27", "35"),
+    ("last3", 3, "24,25,26", "32,33,34"),
+    ("near_last3", 3, "23,24,25", "31,32,33"),
+]
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
 
 
@@ -24,26 +27,17 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         raise ValueError(f"invalid grid_id: {grid_id}")
     grid_num = int(match.group(1))
     index = grid_num - 1
-    if index < 0 or index >= len(K_VALUES) * len(ALPHAS) * len(KD_RATIOS):
+    if index < 0 or index >= len(LAYER_CONFIGS) * len(KD_RATIOS):
         raise ValueError(f"grid_id out of range: {grid_id}")
     kd_index = index % len(KD_RATIOS)
-    alpha_index = (index // len(KD_RATIOS)) % len(ALPHAS)
-    k_index = index // (len(KD_RATIOS) * len(ALPHAS))
-    k = K_VALUES[k_index]
-    if k == 1:
-        student_layers = "27"
-        teacher_layers = "35"
-    elif k == 3:
-        student_layers = "25,26,27"
-        teacher_layers = "33,34,35"
-    else:
-        raise ValueError(f"unsupported k: {k}")
+    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[index // len(KD_RATIOS)]
     return {
         "grid_id": grid_id,
         "k": k,
+        "layer_config": layer_name,
         "student_layers": student_layers,
         "teacher_layers": teacher_layers,
-        "alpha": ALPHAS[alpha_index],
+        "alpha": 0.1,
         "kd_ratio": KD_RATIOS[kd_index],
         "beta": 0.1,
         "contrastive_tau": 0.05,

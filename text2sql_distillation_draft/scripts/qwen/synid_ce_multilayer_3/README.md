@@ -4,14 +4,15 @@ SynID-CE multilayer CSD sweep on Spider privileged data. Train entrypoints are
 named `train_g*.sh`, and the run wrapper filters only that prefix so utility
 scripts are not scheduled.
 
-This grid distills the final 3 consecutive decoder layers of both models:
+This grid distills two 3-layer consecutive decoder windows:
 
-- student `Qwen/Qwen3-0.6B`: `25,26,27`
-- teacher `Qwen/Qwen3-4B-Instruct-2507`: `33,34,35`
+- `last3`: student `24,25,26`, teacher `32,33,34`
+- `near_last3`: student `23,24,25`, teacher `31,32,33`
 
 Fixed:
 
 - `SYNID_KD_LOSS=csd`
+- `SYNID_ALPHA=0.1`
 - `SYNID_BETA=0.1`
 - `SYNID_CONTRASTIVE_TAU=0.05`
 - `SYNID_POOLING=sc`
@@ -22,30 +23,20 @@ Fixed:
 
 Grid:
 
-| Script | ID | k | Student layers | Teacher layers | alpha | kd ratio |
-|---|---|---:|---|---|---:|---:|
-| `train_g01.sh` | G01 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.7 |
-| `train_g02.sh` | G02 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.6 |
-| `train_g03.sh` | G03 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.5 |
-| `train_g04.sh` | G04 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.8 |
-| `train_g05.sh` | G05 | 3 | `25,26,27` | `33,34,35` | 0.3 | 0.9 |
-| `train_g06.sh` | G06 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.7 |
-| `train_g07.sh` | G07 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.6 |
-| `train_g08.sh` | G08 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.5 |
-| `train_g09.sh` | G09 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.8 |
-| `train_g10.sh` | G10 | 3 | `25,26,27` | `33,34,35` | 0.5 | 0.9 |
-| `train_g11.sh` | G11 | 3 | `25,26,27` | `33,34,35` | 0.7 | 0.7 |
-| `train_g12.sh` | G12 | 3 | `25,26,27` | `33,34,35` | 0.7 | 0.6 |
-| `train_g13.sh` | G13 | 3 | `25,26,27` | `33,34,35` | 0.7 | 0.5 |
-| `train_g14.sh` | G14 | 3 | `25,26,27` | `33,34,35` | 0.7 | 0.8 |
-| `train_g15.sh` | G15 | 3 | `25,26,27` | `33,34,35` | 0.7 | 0.9 |
-| `train_g16.sh` | G16 | 3 | `25,26,27` | `33,34,35` | 1 | 0.7 |
-| `train_g17.sh` | G17 | 3 | `25,26,27` | `33,34,35` | 1 | 0.6 |
-| `train_g18.sh` | G18 | 3 | `25,26,27` | `33,34,35` | 1 | 0.5 |
-| `train_g19.sh` | G19 | 3 | `25,26,27` | `33,34,35` | 1 | 0.8 |
-| `train_g20.sh` | G20 | 3 | `25,26,27` | `33,34,35` | 1 | 0.9 |
+| Script | ID | config | Student layers | Teacher layers | alpha | beta | kd ratio |
+|---|---|---|---|---|---:|---:|---:|
+| `train_g01.sh` | G01 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.7 |
+| `train_g02.sh` | G02 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.6 |
+| `train_g03.sh` | G03 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.5 |
+| `train_g04.sh` | G04 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.8 |
+| `train_g05.sh` | G05 | last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.9 |
+| `train_g06.sh` | G06 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.7 |
+| `train_g07.sh` | G07 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.6 |
+| `train_g08.sh` | G08 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.5 |
+| `train_g09.sh` | G09 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.8 |
+| `train_g10.sh` | G10 | near_last3 | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.9 |
 
-Run all 20 jobs sequentially on two GPUs, then infer 5 seeds on all 4 Spider
+Run all 10 jobs sequentially on two GPUs, then infer 5 seeds on all 4 Spider
 variants after each checkpoint:
 
 ```bash

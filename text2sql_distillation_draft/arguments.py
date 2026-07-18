@@ -251,6 +251,12 @@ def add_synid_sql_args(parser: argparse.ArgumentParser):
     group.add_argument("--synid-student-layers", type=str, default="-1")
     group.add_argument("--synid-teacher-layers", type=str, default="-1")
     group.add_argument(
+        "--synid-projector-warmup-epochs",
+        type=int,
+        default=1,
+        help="Number of initial epochs where contrastive losses train only SynID projectors.",
+    )
+    group.add_argument(
         "--synid-kd-loss",
         type=str,
         default="fkl",

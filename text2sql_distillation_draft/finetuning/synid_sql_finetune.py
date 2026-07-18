@@ -122,19 +122,33 @@ def attach_synid_projector(args, model, teacher_model, device):
 
     student_hidden_size = _hidden_size(model)
     teacher_hidden_size = _hidden_size(teacher_model)
-    if student_hidden_size == teacher_hidden_size:
-        model.synid_projector = nn.Identity()
-        print_rank(f"SynID projector: identity ({student_hidden_size})")
-        return model
-
+    student_layer_ids = parse_layer_ids(args.synid_student_layers)
+    teacher_layer_ids = parse_layer_ids(args.synid_teacher_layers)
+    if len(student_layer_ids) != len(teacher_layer_ids):
+        raise ValueError(
+            "SynID student and teacher layer lists must have equal length, "
+            f"got {student_layer_ids} and {teacher_layer_ids}."
+        )
+    num_layer_pairs = len(student_layer_ids)
     dtype = next(model.parameters()).dtype
-    model.synid_projector = nn.Linear(student_hidden_size, teacher_hidden_size, bias=False).to(
-        device=device,
-        dtype=dtype,
+
+    def make_projector():
+        if student_hidden_size == teacher_hidden_size:
+            return nn.Identity()
+        projector = nn.Linear(student_hidden_size, teacher_hidden_size, bias=False).to(
+            device=device,
+            dtype=dtype,
+        )
+        with torch.no_grad():
+            projector.weight.normal_(mean=0.0, std=1e-3)
+        return projector
+
+    model.synid_projectors = nn.ModuleList([make_projector() for _ in range(num_layer_pairs)])
+    print_rank(
+        "SynID projectors: "
+        f"{num_layer_pairs} layer-specific projectors "
+        f"({student_hidden_size} -> {teacher_hidden_size})"
     )
-    with torch.no_grad():
-        model.synid_projector.weight.normal_(mean=0.0, std=1e-3)
-    print_rank(f"SynID projector: {student_hidden_size} -> {teacher_hidden_size}")
     return model
 
 
@@ -392,11 +406,20 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     adaptive_threshold = args.init_threshold if "adaptive" in args.type else -1.0
     prev_avg_loss = evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device, adaptive_threshold)
     replay_buffer = ReplayBuffer(args)
+    if args.synid_projector_warmup_epochs < 0:
+        raise ValueError(
+            "SynID projector warmup epochs must be non-negative, "
+            f"got {args.synid_projector_warmup_epochs}."
+        )
     
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
 
         model.train()
+        detach_student_contrastive = teacher_model is not None and epoch < args.synid_projector_warmup_epochs
+        if teacher_model is not None:
+            contrastive_mode = "projector-only" if detach_student_contrastive else "model+projector"
+            print_rank(f"SynID contrastive mode: {contrastive_mode} (epoch {epoch + 1}/{args.epochs})")
         for it, (model_batch, no_model_batch, gen_data, t_model_data, t_no_model_data) in enumerate(train_dataloader):
             dataset["train"].move_to_device(model_batch, no_model_batch, gen_data, device)
             move_batch_to_device(t_model_data, device)
@@ -486,8 +509,10 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                     teacher_batch=teacher_batch,
                     teacher_no_model_batch=teacher_no_model_batch,
                     student_projector=getattr(model.module, "synid_projector", None),
+                    student_projectors=getattr(model.module, "synid_projectors", None),
                     student_hidden_states=student_hidden_states,
                     teacher_hidden_states=teacher_hidden_states,
+                    detach_student_contrastive=detach_student_contrastive,
                 )
                 distil_loss = loss_parts.kd
                 con1_loss = loss_parts.con1

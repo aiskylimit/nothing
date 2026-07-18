@@ -364,6 +364,133 @@ def test_synid_loss_with_external_last_hidden_states_backpropagates_projector():
     assert torch.isfinite(projector.weight.grad).all()
 
 
+def test_synid_loss_uses_separate_projector_per_layer_shared_by_contrastive_branches():
+    tokenizer = DummyTokenizer()
+    batch_size, seq_len, vocab_size = 2, 6, 13
+    student_size, teacher_size = 3, 5
+    labels = torch.tensor(
+        [
+            [-100, -100, 1, 2, 3, -100],
+            [-100, -100, 1, 2, 3, -100],
+        ]
+    )
+    batch = {
+        "input_ids": torch.tensor(
+            [
+                [1, 2, 3, 4, 5, 0],
+                [1, 2, 3, 6, 5, 0],
+            ]
+        ),
+        "attention_mask": torch.tensor(
+            [
+                [1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 0],
+            ]
+        ),
+    }
+    student_outputs = SimpleNamespace(
+        logits=torch.randn(batch_size, seq_len, vocab_size, requires_grad=True)
+    )
+    teacher_outputs = SimpleNamespace(
+        logits=torch.randn(batch_size, seq_len, vocab_size)
+    )
+    student_hidden_layers = [
+        torch.randn(batch_size, seq_len, student_size, requires_grad=True),
+        torch.randn(batch_size, seq_len, student_size, requires_grad=True),
+    ]
+    teacher_hidden_layers = [
+        torch.randn(batch_size, seq_len, teacher_size),
+        torch.randn(batch_size, seq_len, teacher_size),
+    ]
+    projectors = nn.ModuleList([nn.Linear(student_size, teacher_size, bias=False) for _ in range(2)])
+
+    parts = synid_loss(
+        args=make_args(),
+        tokenizer=tokenizer,
+        student_outputs=student_outputs,
+        teacher_outputs=teacher_outputs,
+        student_batch=batch,
+        student_no_model_batch={"label": labels},
+        student_projectors=projectors,
+        student_hidden_states=student_hidden_layers,
+        teacher_hidden_states=teacher_hidden_layers,
+    )
+    parts.total.backward()
+
+    assert all(torch.isfinite(value) for value in (parts.total, parts.kd, parts.con1, parts.con2))
+    assert projectors[0] is not projectors[1]
+    for projector in projectors:
+        assert projector.weight.grad is not None
+        assert torch.isfinite(projector.weight.grad).all()
+
+
+@pytest.mark.parametrize(
+    ("detach_student_contrastive", "expect_student_grad"),
+    [
+        (True, False),
+        (False, True),
+    ],
+)
+def test_synid_loss_can_warm_up_projector_without_contrastive_student_grad(
+    detach_student_contrastive,
+    expect_student_grad,
+):
+    tokenizer = DummyTokenizer()
+    batch_size, seq_len, vocab_size = 2, 6, 13
+    student_size, teacher_size = 3, 5
+    labels = torch.tensor(
+        [
+            [-100, -100, 1, 2, 3, -100],
+            [-100, -100, 1, 2, 3, -100],
+        ]
+    )
+    batch = {
+        "input_ids": torch.tensor(
+            [
+                [1, 2, 3, 4, 5, 0],
+                [1, 2, 3, 6, 5, 0],
+            ]
+        ),
+        "attention_mask": torch.tensor(
+            [
+                [1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 0],
+            ]
+        ),
+    }
+    student_outputs = SimpleNamespace(
+        logits=torch.randn(batch_size, seq_len, vocab_size, requires_grad=True)
+    )
+    teacher_outputs = SimpleNamespace(
+        logits=torch.randn(batch_size, seq_len, vocab_size)
+    )
+    student_hidden = torch.randn(batch_size, seq_len, student_size, requires_grad=True)
+    teacher_hidden = torch.randn(batch_size, seq_len, teacher_size)
+    projectors = nn.ModuleList([nn.Linear(student_size, teacher_size, bias=False)])
+
+    parts = synid_loss(
+        args=make_args(synid_pooling="mean"),
+        tokenizer=tokenizer,
+        student_outputs=student_outputs,
+        teacher_outputs=teacher_outputs,
+        student_batch=batch,
+        student_no_model_batch={"label": labels},
+        student_projectors=projectors,
+        student_hidden_states=[student_hidden],
+        teacher_hidden_states=[teacher_hidden],
+        detach_student_contrastive=detach_student_contrastive,
+    )
+    (parts.con1 + parts.con2).backward()
+
+    assert projectors[0].weight.grad is not None
+    assert torch.isfinite(projectors[0].weight.grad).all()
+    if expect_student_grad:
+        assert student_hidden.grad is not None
+        assert torch.isfinite(student_hidden.grad).all()
+    else:
+        assert student_hidden.grad is None
+
+
 def test_synid_loss_averages_duplicate_hidden_layers_like_single_layer():
     tokenizer = DummyTokenizer()
     batch_size, seq_len, vocab_size = 2, 6, 13
@@ -444,6 +571,31 @@ def test_synid_loss_rejects_mismatched_hidden_layer_lists():
             student_no_model_batch={"label": labels},
             student_hidden_states=[hidden, hidden],
             teacher_hidden_states=[hidden],
+        )
+
+
+def test_synid_loss_rejects_mismatched_projector_layer_count():
+    tokenizer = DummyTokenizer()
+    labels = torch.tensor([[-100, 1, 2], [-100, 1, 2]])
+    batch = {
+        "input_ids": torch.tensor([[1, 3, 4], [1, 3, 4]]),
+        "attention_mask": torch.ones(2, 3),
+    }
+    outputs = SimpleNamespace(logits=torch.randn(2, 3, 7))
+    hidden = torch.randn(2, 3, 4)
+    projectors = nn.ModuleList([nn.Identity()])
+
+    with pytest.raises(ValueError, match="projector layer count"):
+        synid_loss(
+            args=make_args(),
+            tokenizer=tokenizer,
+            student_outputs=outputs,
+            teacher_outputs=outputs,
+            student_batch=batch,
+            student_no_model_batch={"label": labels},
+            student_projectors=projectors,
+            student_hidden_states=[hidden, hidden],
+            teacher_hidden_states=[hidden, hidden],
         )
 
 
