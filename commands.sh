@@ -3,7 +3,7 @@
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_150012/jobs/ +a
-screen -ls | awk '/\t/ {print $1}' | xargs -r -n1 screen -X -S quit
+screen -ls | awk '/Detached/{print $1}' | xargs -r -n1 screen -S {} -X quit
 nvidia-smi
 screen -ls
 
@@ -22,11 +22,7 @@ screen -ls
 
 pkill -f gpu_burn 2>/dev/null || true
 
-kill -9 $(pgrep -f "/.venv/bin/python")
-
-sleep 90
-
-kill -9 $(pgrep -f "/.venv/bin/python")
+# kill -9 $(pgrep -f "/.venv/bin/python")
 
 sleep 90
 
