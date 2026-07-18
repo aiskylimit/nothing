@@ -1060,34 +1060,8 @@ if [[ "${failures}" -gt 0 ]]; then
   exit 1
 fi
 
-UPLOAD_SCRIPT="${ROOT_DIR}/upload_to_hf.py"
-if [[ "${SKIP_FINALIZE}" -eq 1 ]]; then
-  echo "[finalize-skip] Runner finalization hook skipped."
-  append_log "${RUN_LOG}" "FINALIZE_SKIP"
-else
-  case "${SKIP_HF_UPLOAD:-0}" in
-    1|true|TRUE|yes|YES)
-      echo "[upload-skip] SKIP_HF_UPLOAD=${SKIP_HF_UPLOAD}; not uploading results to Hugging Face."
-      append_log "${RUN_LOG}" "UPLOAD_SKIP skip_hf_upload=${SKIP_HF_UPLOAD}"
-      ;;
-    *)
-      if [[ "${DRY_RUN}" -eq 1 ]]; then
-        echo "[dry-run] would upload results with ${UPLOAD_SCRIPT}"
-        append_log "${RUN_LOG}" "DRY_RUN_UPLOAD script=${UPLOAD_SCRIPT}"
-      elif [[ -f "${UPLOAD_SCRIPT}" ]]; then
-        echo "[upload] Uploading results to Hugging Face..."
-        append_log "${RUN_LOG}" "UPLOAD_START script=${UPLOAD_SCRIPT}"
-        "${PYTHON_BIN}" "${UPLOAD_SCRIPT}"
-        append_log "${RUN_LOG}" "UPLOAD_DONE script=${UPLOAD_SCRIPT}"
-        echo "[upload-done] Results uploaded to Hugging Face."
-      else
-        echo "Upload script does not exist: ${UPLOAD_SCRIPT}" >&2
-        append_log "${RUN_LOG}" "UPLOAD_FAIL missing_script=${UPLOAD_SCRIPT}"
-        exit 1
-      fi
-      ;;
-  esac
-fi
+echo "[finalize-skip] Runner finalization hook skipped."
+append_log "${RUN_LOG}" "FINALIZE_SKIP"
 
 append_log "${RUN_LOG}" "All requested scripts finished successfully."
 echo "All requested scripts finished successfully."
