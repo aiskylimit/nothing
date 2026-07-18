@@ -6,7 +6,7 @@ source .venv/bin/activate
 #   --local-dir .
 # unzip benchmarks.zip
 # unzip data.zip
-python ./scripts/synid_augment/build_teacher_train_from_final_merged.py
+# python ./scripts/synid_augment/build_teacher_train_from_final_merged.py
 
 RUNNER_GPU_LIST=0,1,2,3,4,5,6,7 \
 GPUS_PER_JOB=4 \
