@@ -1,5 +1,5 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_062957/jobs/ +a
-#sql-main-log
+#1 +600
+#sql-main
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_062957/jobs/ +a
@@ -20,12 +20,13 @@
 
 # pkill -f gpu_burn 2>/dev/null || true
 
+pkill -f "_draft/.venv/bin/python"
 
-# source ~/miniconda3/etc/profile.d/conda.sh
-# conda activate base
-# export PATH=/usr/local/cuda/bin:$PATH
-# export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate base
+export PATH=/usr/local/cuda/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
-# bash ./project_commands.sh
+cd text2sql_distillation_draft
+bash ./project_commands.sh
