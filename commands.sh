@@ -1,4 +1,4 @@
-#1 +10
+#2
 #sql-2
 #v1
 
@@ -27,5 +27,5 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
-bash ./project_commands.sh
+# cd text2sql_distillation_draft
+# bash ./project_commands.sh
