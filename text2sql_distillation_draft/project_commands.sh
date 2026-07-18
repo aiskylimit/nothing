@@ -4,6 +4,7 @@ source .venv/bin/activate
 hf download Dream-AI-HUST/sql_benchmarks \
   --repo-type dataset \
   --local-dir .
+unzip benchmarks.zip
 unzip data.zip
 
 RUNNER_GPU_LIST=0,1,2,3,4,5,6,7 \
