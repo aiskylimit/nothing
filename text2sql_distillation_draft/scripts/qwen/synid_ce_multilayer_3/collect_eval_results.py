@@ -13,6 +13,7 @@ from typing import Any
 
 
 KD_RATIOS = [0.7, 0.6, 0.5, 0.8, 0.9]
+TARGET_KD_RATIOS = {0.7, 0.6}
 LAYER_CONFIGS = [
     ("last3", "24,25,26", "32,33,34"),
     ("near_last3", "23,24,25", "31,32,33"),
@@ -155,8 +156,12 @@ def build_result(
     pred_path = formatted_dir / f"{run_name}.pred.sql"
     gold_path = formatted_dir / f"{run_name}.gold.sql"
 
+    grid = grid_config(grid_id)
+    if grid["kd_ratio"] not in TARGET_KD_RATIOS:
+        return None
+
     result = {
-        "grid": grid_config(grid_id),
+        "grid": grid,
         "benchmark": benchmark,
         "seed": seed,
         "scores": parse_scores(log_path),

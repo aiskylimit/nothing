@@ -27,19 +27,28 @@ export INFER_SEEDS
 export FORMAT_AFTER_INFER
 export SKIP_EXISTING
 
-bash running.sh \
-  --mode "${RUN_MODE}" \
-  --gpus "${RUNNER_GPU_LIST}" \
-  --gpus-per-job "${GPUS_PER_JOB}" \
-  --skip-finalize \
-  --filter scripts/qwen/synid_ce_no_keywords_weight/train_g \
-  --infer-after-train \
-  --infer-script scripts/qwen/synid_ce_no_keywords_weight/infer_multiseed.py \
-  --infer-benchmarks "${INFER_BENCHMARKS}" \
-  --infer-split test \
-  --infer-db full \
-  --infer-batch-size "${INFER_BATCH_SIZE}" \
-  --infer-output-root "${INFER_OUTPUT_ROOT}" \
-  --infer-checkpoint-metric "${INFER_CHECKPOINT_METRIC}" \
-  --infer-extra-args "--flush-every ${INFER_FLUSH_EVERY}" \
-  "$@"
+TARGET_KD_GRID_FILTERS=(
+  scripts/qwen/synid_ce_no_keywords_weight/train_g01.sh
+  scripts/qwen/synid_ce_no_keywords_weight/train_g02.sh
+  scripts/qwen/synid_ce_no_keywords_weight/train_g04.sh
+  scripts/qwen/synid_ce_no_keywords_weight/train_g05.sh
+)
+
+for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do
+  bash running.sh \
+    --mode "${RUN_MODE}" \
+    --gpus "${RUNNER_GPU_LIST}" \
+    --gpus-per-job "${GPUS_PER_JOB}" \
+    --skip-finalize \
+    --filter "${grid_filter}" \
+    --infer-after-train \
+    --infer-script scripts/qwen/synid_ce_no_keywords_weight/infer_multiseed.py \
+    --infer-benchmarks "${INFER_BENCHMARKS}" \
+    --infer-split test \
+    --infer-db full \
+    --infer-batch-size "${INFER_BATCH_SIZE}" \
+    --infer-output-root "${INFER_OUTPUT_ROOT}" \
+    --infer-checkpoint-metric "${INFER_CHECKPOINT_METRIC}" \
+    --infer-extra-args "--flush-every ${INFER_FLUSH_EVERY}" \
+    "$@"
+done

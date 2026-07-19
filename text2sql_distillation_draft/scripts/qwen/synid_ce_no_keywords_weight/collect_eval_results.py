@@ -13,10 +13,10 @@ from typing import Any
 
 
 KD_RATIOS = [0.7, 0.6, 0.5]
+TARGET_KD_RATIOS = {0.7, 0.6}
 LAYER_CONFIGS = [
     ("last1", 1, "27", "35"),
-    ("last3", 3, "24,25,26", "32,33,34"),
-    ("near_last3", 3, "23,24,25", "31,32,33"),
+    ("last3", 3, "25,26,27", "33,34,35"),
 ]
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
 
@@ -160,8 +160,15 @@ def build_result(
     pred_path = formatted_dir / f"{run_name}.pred.sql"
     gold_path = formatted_dir / f"{run_name}.gold.sql"
 
+    try:
+        grid = grid_config(grid_id)
+    except ValueError:
+        return None
+    if grid["kd_ratio"] not in TARGET_KD_RATIOS:
+        return None
+
     result = {
-        "grid": grid_config(grid_id),
+        "grid": grid,
         "benchmark": benchmark,
         "seed": seed,
         "scores": parse_scores(log_path),

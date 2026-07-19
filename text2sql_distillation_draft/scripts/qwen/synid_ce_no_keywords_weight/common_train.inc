@@ -14,11 +14,11 @@ GRID_NUM="${GRID_ID#G}"
 GRID_NUM="$((10#${GRID_NUM}))"
 
 KD_RATIOS=(0.7 0.6 0.5)
-LAYER_CONFIGS=(last1 last3 near_last3)
+LAYER_CONFIGS=(last1 last3)
 GRID_TOTAL="$((${#LAYER_CONFIGS[@]} * ${#KD_RATIOS[@]}))"
 
 if (( GRID_NUM < 1 || GRID_NUM > GRID_TOTAL )); then
-  echo "Unknown GRID_ID=${GRID_ID}. Expected G01..G09." >&2
+  echo "Unknown GRID_ID=${GRID_ID}. Expected G01..G06." >&2
   exit 2
 fi
 
@@ -34,14 +34,9 @@ if [[ "${LAYER_CONFIG}" == "last1" ]]; then
   SYNID_LAYER_CONFIG="k1_last_s27_t35"
 elif [[ "${LAYER_CONFIG}" == "last3" ]]; then
   SYNID_K_LAYERS="3"
-  SYNID_STUDENT_LAYERS="24,25,26"
-  SYNID_TEACHER_LAYERS="32,33,34"
-  SYNID_LAYER_CONFIG="k3_last_s24_25_26_t32_33_34"
-elif [[ "${LAYER_CONFIG}" == "near_last3" ]]; then
-  SYNID_K_LAYERS="3"
-  SYNID_STUDENT_LAYERS="23,24,25"
-  SYNID_TEACHER_LAYERS="31,32,33"
-  SYNID_LAYER_CONFIG="k3_nearlast_s23_24_25_t31_32_33"
+  SYNID_STUDENT_LAYERS="25,26,27"
+  SYNID_TEACHER_LAYERS="33,34,35"
+  SYNID_LAYER_CONFIG="k3_last_s25_26_27_t33_34_35"
 else
   echo "Unsupported LAYER_CONFIG=${LAYER_CONFIG}" >&2
   exit 2
