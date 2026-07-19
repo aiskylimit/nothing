@@ -1,4 +1,4 @@
-#2
+#1 +30
 #sql-main
 #v3
 
@@ -18,10 +18,10 @@
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 
-# sleep 20
-# nvidia-smi
+sleep 20
+nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
