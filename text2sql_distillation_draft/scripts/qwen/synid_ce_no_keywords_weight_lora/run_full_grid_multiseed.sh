@@ -24,6 +24,7 @@ INFER_FLUSH_EVERY="${INFER_FLUSH_EVERY:-100}"
 INFER_CHECKPOINT_METRIC="${INFER_CHECKPOINT_METRIC:-exact_match}"
 SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged_lora}"
 DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/qwen}"
+TRAIN_SETUPS="${TRAIN_SETUPS:-train_g01.sh train_g03.sh}"
 
 export INFER_SEEDS
 export FORMAT_AFTER_INFER
@@ -32,20 +33,24 @@ export SYNID_DATASET_NAME
 export DATA_DIR
 
 echo "[dataset] ${SYNID_DATASET_NAME}: ${DATA_DIR}"
+echo "[setups] ${TRAIN_SETUPS}"
 
-bash running.sh \
-  --mode "${RUN_MODE}" \
-  --gpus "${RUNNER_GPU_LIST}" \
-  --gpus-per-job "${GPUS_PER_JOB}" \
-  --skip-finalize \
-  --filter scripts/qwen/synid_ce_no_keywords_weight_lora/train_g \
-  --infer-after-train \
-  --infer-script scripts/qwen/synid_ce_no_keywords_weight_lora/infer_multiseed.py \
-  --infer-benchmarks "${INFER_BENCHMARKS}" \
-  --infer-split test \
-  --infer-db full \
-  --infer-batch-size "${INFER_BATCH_SIZE}" \
-  --infer-output-root "${INFER_OUTPUT_ROOT}" \
-  --infer-checkpoint-metric "${INFER_CHECKPOINT_METRIC}" \
-  --infer-extra-args "--flush-every ${INFER_FLUSH_EVERY}" \
-  "$@"
+for train_setup in ${TRAIN_SETUPS}; do
+  echo "[setup] ${train_setup}"
+  bash running.sh \
+    --mode "${RUN_MODE}" \
+    --gpus "${RUNNER_GPU_LIST}" \
+    --gpus-per-job "${GPUS_PER_JOB}" \
+    --skip-finalize \
+    --filter "scripts/qwen/synid_ce_no_keywords_weight_lora/${train_setup}" \
+    --infer-after-train \
+    --infer-script scripts/qwen/synid_ce_no_keywords_weight_lora/infer_multiseed.py \
+    --infer-benchmarks "${INFER_BENCHMARKS}" \
+    --infer-split test \
+    --infer-db full \
+    --infer-batch-size "${INFER_BATCH_SIZE}" \
+    --infer-output-root "${INFER_OUTPUT_ROOT}" \
+    --infer-checkpoint-metric "${INFER_CHECKPOINT_METRIC}" \
+    --infer-extra-args "--flush-every ${INFER_FLUSH_EVERY}" \
+    "$@"
+done
