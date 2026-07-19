@@ -1,10 +1,10 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_multilayer_3/qwen/spider_data/seed42/ +a
+#1 +10
 #sql-main
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_160742/jobs/ +a
 nvidia-smi
-ls /home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_multilayer_3/qwen/spider_data
+ls /home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_multilayer_3/qwen/spider_data/seed42
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 # sudo dpkg -i cuda-keyring_1.1-1_all.deb
