@@ -1,4 +1,4 @@
-#2
+#1
 #sql-main
 #v3
 
@@ -31,5 +31,6 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd text2sql_distillation_draft
-# bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
+source .venv/bin/activate
+bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
 # bash ./project_commands.sh
