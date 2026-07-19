@@ -259,7 +259,7 @@ def write_seed_outputs(
     results: list[dict[str, Any]],
     required_benchmarks: list[str],
 ) -> None:
-    seed_out_dir = eval_output_root / f"seed{seed}"
+    seed_out_dir = eval_output_root / "collect" / f"seed{seed}"
     seed_out_dir.mkdir(parents=True, exist_ok=True)
     generated_at = datetime.now(timezone.utc).isoformat()
 
