@@ -1,4 +1,4 @@
-#1 +10
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_multilayer_3/qwen/spider_data/seed42/ +a
 #sql-main
 #v2
 
