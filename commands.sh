@@ -1,4 +1,4 @@
-#2
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_multilayer_3/qwen/spider_data/synid_ce_multilayer_3__train_g01__ckpt436__test__full_sql_result.json +a
 #sql-main
 #v2
 
