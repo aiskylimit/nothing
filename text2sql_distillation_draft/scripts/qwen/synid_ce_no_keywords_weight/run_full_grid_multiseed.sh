@@ -22,10 +22,16 @@ INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-100}"
 INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/synid_ce_no_keywords_weight}"
 INFER_FLUSH_EVERY="${INFER_FLUSH_EVERY:-100}"
 INFER_CHECKPOINT_METRIC="${INFER_CHECKPOINT_METRIC:-exact_match}"
+SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged}"
+DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/qwen}"
 
 export INFER_SEEDS
 export FORMAT_AFTER_INFER
 export SKIP_EXISTING
+export SYNID_DATASET_NAME
+export DATA_DIR
+
+echo "[dataset] ${SYNID_DATASET_NAME}: ${DATA_DIR}"
 
 bash running.sh \
   --mode "${RUN_MODE}" \

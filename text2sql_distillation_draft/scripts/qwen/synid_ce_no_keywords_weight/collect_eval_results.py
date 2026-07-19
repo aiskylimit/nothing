@@ -12,11 +12,12 @@ from pathlib import Path
 from typing import Any
 
 
-KD_RATIOS = [0.7, 0.6, 0.5]
+KD_RATIOS = [0.7, 0.6]
 LAYER_CONFIGS = [
     ("last1", 1, "27", "35"),
-    ("last3", 3, "24,25,26", "32,33,34"),
-    ("near_last3", 3, "23,24,25", "31,32,33"),
+    ("last3", 3, "25,26,27", "33,34,35"),
+    ("near_last3", 3, "24,25,26", "32,33,34"),
+    ("near_last3_prev", 3, "23,24,25", "31,32,33"),
 ]
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
 
