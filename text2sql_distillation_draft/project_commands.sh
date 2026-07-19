@@ -8,6 +8,8 @@ cd "${SCRIPT_DIR}"
 uv sync
 source .venv/bin/activate
 
+python -c "import nltk; nltk.download('punkt_tab')"
+
 hf download Dream-AI-HUST/sql_benchmarks \
   --repo-type dataset \
   --local-dir .
