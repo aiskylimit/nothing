@@ -21,8 +21,7 @@
 
 # pkill -f gpu_burn 2>/dev/null || true
 
-kill -9 $(pgrep -f "/.venv/bin/python")
-kill -9 3306348
+kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 sleep 20
 nvidia-smi
 
