@@ -1,6 +1,6 @@
 #2
 #sql-main
-#v1
+#v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_160742/jobs/ +a
 nvidia-smi
