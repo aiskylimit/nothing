@@ -1,6 +1,6 @@
 #1 +30
-#sql-main
-#v4
+#sql
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_160742/jobs/ +a
 # nvidia-smi
@@ -18,9 +18,9 @@
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 
-sleep 20
+# sleep 20
 nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -29,8 +29,8 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
-# bash ./project_commands.sh
+cd text2sql_distillation_draft
+bash ./project_commands.sh
 # source .venv/bin/activate
 # python -c "import nltk; nltk.download('punkt_tab')"
 # bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
