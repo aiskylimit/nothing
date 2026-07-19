@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_multilayer_3/qwen/spider_data/ +a
+#1
 #sql-main
 #v3
 
@@ -30,5 +30,6 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
+cd text2sql_distillation_draft
+bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
 # bash ./project_commands.sh
