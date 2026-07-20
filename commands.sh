@@ -1,4 +1,4 @@
-#12 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen/collect/ +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen/collect/ +a
 #sql
 #v2
 
