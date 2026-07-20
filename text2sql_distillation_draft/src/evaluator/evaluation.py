@@ -683,6 +683,9 @@ def evaluate(
                     turn_scores['exec'].append(1)
                 else:
                     turn_scores['exec'].append(0)
+                    log("exec_score 0:{} pred: {}".format(hardness, p_str))
+                    log("exec_score 0:{} gold: {}".format(hardness, g_str))
+
 
             if etype in ["all", "match"]:
                 # rebuild sql for value evaluation
