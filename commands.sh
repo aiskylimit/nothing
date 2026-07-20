@@ -1,8 +1,9 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_multilayer_3/qwen/collect/ +a
+#1 +10
 #sql
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260718_160742/jobs/ +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_multilayer_3/qwen/collect/ +a
 # nvidia-smi
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
@@ -28,7 +29,7 @@ conda activate base
 export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
-# ls text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen
+ls text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen -R
 # cd text2sql_distillation_draft
 # bash ./project_commands.sh
 # source .venv/bin/activate
