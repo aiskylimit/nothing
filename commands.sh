@@ -1,6 +1,6 @@
-#1 +60
+#1 +90
 #sql
-#v2
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260720_151133/jobs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_multilayer_3/qwen/collect/ +a
