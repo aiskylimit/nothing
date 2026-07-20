@@ -71,6 +71,13 @@ def _copy_if_exists(source: Path, target: Path) -> bool:
     return True
 
 
+def _row_aug_sql(row: dict[str, Any]) -> str:
+    sql = row.get("aug_sql") or row.get("candidate_sql")
+    if not sql:
+        raise ValueError(f"Missing aug_sql/candidate_sql for row id={row.get('id')}")
+    return str(sql).strip()
+
+
 def build_spider_aug_jsonl(args: argparse.Namespace) -> None:
     accepted = read_jsonl(args.accepted)
     samples_by_id = _load_spider_samples_by_id(args.root)
@@ -81,7 +88,7 @@ def build_spider_aug_jsonl(args: argparse.Namespace) -> None:
     teacher_rows = []
     for row in accepted:
         sample = dict(samples_by_id[int(row["id"])])
-        aug_sql = str(row["aug_sql"]).strip()
+        aug_sql = _row_aug_sql(row)
         sample["query"] = aug_sql
         student_rows.append(make_spider_student_record(sample, schema_lookup))
 
@@ -132,7 +139,7 @@ def build_bird_aug_jsonl(args: argparse.Namespace) -> None:
     teacher_rows = []
     for row in accepted:
         sample = dict(samples_by_id[int(row["id"])])
-        aug_sql = str(row["aug_sql"]).strip()
+        aug_sql = _row_aug_sql(row)
         sample["SQL"] = aug_sql
         student_rows.append(make_bird_student_record(sample, schema_lookup, student_system_prompt, student_user_template))
 
