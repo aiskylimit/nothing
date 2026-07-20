@@ -3,6 +3,10 @@ source .venv/bin/activate
 
 python -c "import nltk; nltk.download('punkt_tab')"
 
+rm -rf benchmarks.zip
+rm -rf data.zip
+rm -rf .cache
+
 hf download Dream-AI-HUST/sql_benchmarks \
   --repo-type dataset \
   --local-dir .
