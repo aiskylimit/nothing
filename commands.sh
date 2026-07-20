@@ -1,4 +1,4 @@
-#1 +10
+#12 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen/collect/ +a
 #sql
 #v2
 
@@ -28,7 +28,7 @@ conda activate base
 export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
-ls text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen
+# ls text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight/qwen
 # cd text2sql_distillation_draft
 # bash ./project_commands.sh
 # source .venv/bin/activate
