@@ -28,7 +28,7 @@ conda activate base
 export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
-
+ls text2sql_distillation_draft/results/eval
 # cd text2sql_distillation_draft
 # bash ./project_commands.sh
 # source .venv/bin/activate
