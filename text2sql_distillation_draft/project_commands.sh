@@ -10,11 +10,11 @@ source .venv/bin/activate
 
 python -c "import nltk; nltk.download('punkt_tab')"
 
-hf download Dream-AI-HUST/sql_benchmarks \
-  --repo-type dataset \
-  --local-dir .
-unzip benchmarks.zip
-unzip data.zip
+# hf download Dream-AI-HUST/sql_benchmarks \
+#   --repo-type dataset \
+#   --local-dir .
+# unzip benchmarks.zip
+# unzip data.zip
 # python ./scripts/synid_augment/build_teacher_train_from_final_merged.py
 
 run_qwen_updated_pipeline() {
