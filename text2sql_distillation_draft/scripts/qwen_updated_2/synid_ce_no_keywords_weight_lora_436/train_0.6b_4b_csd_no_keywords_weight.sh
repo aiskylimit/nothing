@@ -32,7 +32,7 @@ CKPT_NAME="${CKPT_NAME:-qwen3-0.6B}"
 CKPT="${CKPT:-Qwen/Qwen3-0.6B}"
 TEACHER_CKPT_NAME="${TEACHER_CKPT_NAME:-qwen3-4B}"
 TEACHER_CKPT="${TEACHER_CKPT:-Qwen/Qwen3-4B-Instruct-2507}"
-TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090}"
+TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/436}"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"
 LR="${LR:-0.0001}"
