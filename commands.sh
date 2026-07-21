@@ -23,6 +23,8 @@
 
 # sleep 20
 nvidia-smi
+rm -rf /home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs
+rm -rf /home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
