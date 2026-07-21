@@ -32,6 +32,10 @@ TARGET_KD_GRID_FILTERS=(
   scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g02.sh
   scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g03.sh
   scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g04.sh
+  scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g05.sh
+  scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g06.sh
+  scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g07.sh
+  scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/train_g08.sh
 )
 
 for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do

@@ -18,6 +18,8 @@ LAYER_CONFIGS = [
     ("last1", 1, "27", "35"),
     ("last3", 3, "25,26,27", "33,34,35"),
 ]
+SYNID_CONTRASTIVE_TAUS = [0.05, 0.01]
+SYNID_ALPHA_BETAS = [0.01, 0.05]
 DATA_TAG = "lora218"
 DATA_DIR = "processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen"
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
@@ -29,9 +31,15 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         raise ValueError(f"invalid grid_id: {grid_id}")
     grid_num = int(match.group(1))
     index = grid_num - 1
-    if index < 0 or index >= len(LAYER_CONFIGS) * len(KD_RATIOS):
+    grid_total = len(LAYER_CONFIGS) * len(KD_RATIOS) * len(SYNID_CONTRASTIVE_TAUS) * len(SYNID_ALPHA_BETAS)
+    if index < 0 or index >= grid_total:
         raise ValueError(f"grid_id out of range: {grid_id}")
-    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[index // len(KD_RATIOS)]
+    kd_index = index % len(KD_RATIOS)
+    layer_index = (index // len(KD_RATIOS)) % len(LAYER_CONFIGS)
+    tau_index = (index // (len(KD_RATIOS) * len(LAYER_CONFIGS))) % len(SYNID_CONTRASTIVE_TAUS)
+    alpha_beta_index = index // (len(KD_RATIOS) * len(LAYER_CONFIGS) * len(SYNID_CONTRASTIVE_TAUS))
+    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[layer_index]
+    alpha_beta = SYNID_ALPHA_BETAS[alpha_beta_index]
     return {
         "grid_id": grid_id,
         "data_tag": DATA_TAG,
@@ -40,10 +48,10 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         "layer_config": layer_name,
         "student_layers": student_layers,
         "teacher_layers": teacher_layers,
-        "alpha": 0.3,
-        "kd_ratio": KD_RATIOS[index % len(KD_RATIOS)],
-        "beta": 0.3,
-        "contrastive_tau": 0.05,
+        "alpha": alpha_beta,
+        "kd_ratio": KD_RATIOS[kd_index],
+        "beta": alpha_beta,
+        "contrastive_tau": SYNID_CONTRASTIVE_TAUS[tau_index],
         "pooling": "sc",
         "pool_tau": 5.0,
         "use_syntax_weights": True,
