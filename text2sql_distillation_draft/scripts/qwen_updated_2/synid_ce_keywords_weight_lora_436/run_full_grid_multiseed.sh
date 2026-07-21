@@ -28,8 +28,8 @@ export FORMAT_AFTER_INFER
 export SKIP_EXISTING
 
 TARGET_KD_GRID_FILTERS=(
-  scripts/qwen_updated/synid_ce_keywords_weight_lora_436/train_g01.sh
-  scripts/qwen_updated/synid_ce_keywords_weight_lora_436/train_g02.sh
+  scripts/qwen_updated_2/synid_ce_keywords_weight_lora_436/train_g01.sh
+  scripts/qwen_updated_2/synid_ce_keywords_weight_lora_436/train_g02.sh
 )
 
 for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do
@@ -40,7 +40,7 @@ for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do
     --skip-finalize \
     --filter "${grid_filter}" \
     --infer-after-train \
-    --infer-script scripts/qwen_updated/synid_ce_keywords_weight_lora_436/infer_multiseed.py \
+    --infer-script scripts/qwen_updated_2/synid_ce_keywords_weight_lora_436/infer_multiseed.py \
     --infer-benchmarks "${INFER_BENCHMARKS}" \
     --infer-split test \
     --infer-db full \
