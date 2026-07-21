@@ -30,6 +30,8 @@ export SKIP_EXISTING
 TARGET_KD_GRID_FILTERS=(
   scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/train_g01.sh
   scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/train_g02.sh
+  scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/train_g03.sh
+  scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/train_g04.sh
 )
 
 for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do

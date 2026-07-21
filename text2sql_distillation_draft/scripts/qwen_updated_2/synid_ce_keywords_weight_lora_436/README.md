@@ -19,12 +19,14 @@ Defaults:
 
 Grid:
 
-| Script | ID | Config | Student layers | Teacher layers | KD ratio |
-|---|---|---|---|---|---:|
-| `train_g01.sh` | G01 | last1 | `27` | `35` | 0.7 |
-| `train_g02.sh` | G02 | last3 | `25,26,27` | `33,34,35` | 0.7 |
+| Script | ID | Config | Student layers | Teacher layers | KD ratio | Contrastive tau |
+|---|---|---|---|---|---:|---:|
+| `train_g01.sh` | G01 | last1 | `27` | `35` | 0.7 | 0.05 |
+| `train_g02.sh` | G02 | last3 | `25,26,27` | `33,34,35` | 0.7 | 0.05 |
+| `train_g03.sh` | G03 | last1 | `27` | `35` | 0.7 | 0.01 |
+| `train_g04.sh` | G04 | last3 | `25,26,27` | `33,34,35` | 0.7 | 0.01 |
 
-The default wrapper runs G01 and G02.
+The default wrapper runs G01 through G04.
 
 ```bash
 bash scripts/qwen_updated_2/synid_ce_keywords_weight_lora_436/run_full_pipeline.sh
