@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer/synid_ce_keywords_weight_lora_218/qwen_updated_2/spider_data/
+#2 -1
 #sql-main-log
 #v2
 
