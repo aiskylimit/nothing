@@ -27,5 +27,5 @@ Grid:
 The default wrapper runs G01 and G02.
 
 ```bash
-bash scripts/qwen_updated/synid_ce_keywords_weight_lora_218/run_full_pipeline.sh
+bash scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/run_full_pipeline.sh
 ```
