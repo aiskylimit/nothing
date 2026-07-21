@@ -20,12 +20,12 @@ unzip data.zip
 run_qwen_updated_pipeline() {
   local pipeline_script="$1"
 
-  RUNNER_GPU_LIST="${RUNNER_GPU_LIST:-0,1,2,3}" \
-  GPUS_PER_JOB="${GPUS_PER_JOB:-4}" \
+  RUNNER_GPU_LIST="${RUNNER_GPU_LIST:-0,1}" \
+  GPUS_PER_JOB="${GPUS_PER_JOB:-2}" \
   RUN_MODE="${RUN_MODE:-parallel}" \
   SKIP_EXISTING="${SKIP_EXISTING:-false}" \
   INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
-  EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-32}" \
+  EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-8}" \
   INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-128}" \
   bash "${pipeline_script}"
 }

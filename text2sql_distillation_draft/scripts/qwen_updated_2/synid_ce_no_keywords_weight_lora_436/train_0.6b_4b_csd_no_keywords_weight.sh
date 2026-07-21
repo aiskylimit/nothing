@@ -34,7 +34,7 @@ TEACHER_CKPT_NAME="${TEACHER_CKPT_NAME:-qwen3-4B}"
 TEACHER_CKPT="${TEACHER_CKPT:-Qwen/Qwen3-4B-Instruct-2507}"
 TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090}"
 
-BATCH_SIZE="${BATCH_SIZE:-8}"
+BATCH_SIZE="${BATCH_SIZE:-4}"
 LR="${LR:-0.0001}"
 GRAD_ACC="${GRAD_ACC:-1}"
 EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-8}"
