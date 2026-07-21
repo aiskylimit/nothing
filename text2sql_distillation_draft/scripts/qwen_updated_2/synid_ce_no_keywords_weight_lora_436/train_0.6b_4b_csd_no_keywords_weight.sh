@@ -56,9 +56,9 @@ SYNID_BETA="${SYNID_BETA:-0.1}"
 SYNID_KD_LOSS="${SYNID_KD_LOSS:-csd}"
 SYNID_POOL_TAU="${SYNID_POOL_TAU:-5}"
 SYNID_CONTRASTIVE_TAU="${SYNID_CONTRASTIVE_TAU:-0.05}"
-SYNID_SYNTAX_LAMBDA="${SYNID_SYNTAX_LAMBDA:-2.0}"
+SYNID_SYNTAX_LAMBDA="${SYNID_SYNTAX_LAMBDA:-1.0}"
 SYNID_POOLING="${SYNID_POOLING:-sc}"
-SYNID_USE_SYNTAX_WEIGHTS="${SYNID_USE_SYNTAX_WEIGHTS:-true}"
+SYNID_USE_SYNTAX_WEIGHTS="${SYNID_USE_SYNTAX_WEIGHTS:-false}"
 SYNID_USE_CON1="${SYNID_USE_CON1:-true}"
 SYNID_USE_CON2="${SYNID_USE_CON2:-true}"
 
@@ -78,9 +78,9 @@ OPTS+=" --model-path ${CKPT}"
 OPTS+=" --teacher-model-path ${TEACHER_CKPT}"
 OPTS+=" --ckpt-name ${CKPT_NAME}"
 OPTS+=" --teacher-ckpt-name ${TEACHER_CKPT_NAME}"
-# if [[ -n "${TEACHER_PEFT_PATH}" ]]; then
-#   OPTS+=" --teacher-peft-path ${TEACHER_PEFT_PATH}"
-# fi
+if [[ -n "${TEACHER_PEFT_PATH}" ]]; then
+  OPTS+=" --teacher-peft-path ${TEACHER_PEFT_PATH}"
+fi
 OPTS+=" --model-type qwen"
 OPTS+=" --n-gpu ${GPUS_PER_NODE}"
 OPTS+=" --n-nodes ${NNODES}"
