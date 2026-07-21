@@ -30,9 +30,9 @@ run_qwen_updated_pipeline() {
   bash "${pipeline_script}"
 }
 
-run_qwen_updated_pipeline scripts/qwen_updated/synid_ce_keywords_weight_lora_218/run_full_pipeline.sh
-run_qwen_updated_pipeline scripts/qwen_updated/synid_ce_keywords_weight_lora_436/run_full_pipeline.sh
-run_qwen_updated_pipeline scripts/qwen_updated/synid_ce_no_keywords_weight_lora_218/run_full_pipeline.sh
-run_qwen_updated_pipeline scripts/qwen_updated/synid_ce_no_keywords_weight_lora_436/run_full_pipeline.sh
+run_qwen_updated_pipeline scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/run_full_pipeline.sh
+run_qwen_updated_pipeline scripts/qwen_updated_2/synid_ce_keywords_weight_lora_436/run_full_pipeline.sh
+run_qwen_updated_pipeline scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/run_full_pipeline.sh
+run_qwen_updated_pipeline scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_436/run_full_pipeline.sh
 
-bash scripts/qwen_updated/upload_to_hf.sh
+bash scripts/qwen_updated_2/upload_to_hf.sh
