@@ -18,6 +18,7 @@ LAYER_CONFIGS = [
     ("last1", 1, "27", "35"),
     ("last3", 3, "25,26,27", "33,34,35"),
 ]
+CONTRASTIVE_TAUS = [0.05, 0.01]
 DATA_TAG = "lora436"
 DATA_DIR = "processed_data/benchmarks/spider_data/synid_privileged_lora_436/qwen"
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
@@ -29,10 +30,12 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         raise ValueError(f"invalid grid_id: {grid_id}")
     grid_num = int(match.group(1))
     index = grid_num - 1
-    if index < 0 or index >= len(LAYER_CONFIGS) * len(KD_RATIOS):
+    grids_per_tau = len(LAYER_CONFIGS) * len(KD_RATIOS)
+    if index < 0 or index >= grids_per_tau * len(CONTRASTIVE_TAUS):
         raise ValueError(f"grid_id out of range: {grid_id}")
-    kd_index = index % len(KD_RATIOS)
-    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[index // len(KD_RATIOS)]
+    tau_index, base_index = divmod(index, grids_per_tau)
+    kd_index = base_index % len(KD_RATIOS)
+    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[base_index // len(KD_RATIOS)]
     return {
         "grid_id": grid_id,
         "data_tag": DATA_TAG,
@@ -44,7 +47,7 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         "alpha": 0.1,
         "kd_ratio": KD_RATIOS[kd_index],
         "beta": 0.1,
-        "contrastive_tau": 0.05,
+        "contrastive_tau": CONTRASTIVE_TAUS[tau_index],
         "pooling": "sc",
         "pool_tau": 5.0,
         "use_syntax_weights": False,
