@@ -530,29 +530,39 @@ def parse_metric_rows(log_path: Path, wanted_metric: str):
     eval_index = 0
     metric_pattern = re.compile(r"\{[^{}]*['\"]" + re.escape(wanted_metric) + r"['\"][^{}]*\}")
     with log_path.open("r", encoding="utf-8", errors="replace") as fin:
-        for line_no, line in enumerate(fin, start=1):
-            if "dev |" not in line or wanted_metric not in line:
-                continue
-            match = metric_pattern.search(line)
-            if not match:
-                continue
-            try:
-                metrics = ast.literal_eval(match.group(0))
-            except Exception:
-                continue
-            if wanted_metric not in metrics:
-                continue
-            eval_index += 1
-            rows.append(
-                {
-                    "line_no": line_no,
-                    "eval_index": eval_index,
-                    "metric": wanted_metric,
-                    "metric_value": float(metrics[wanted_metric]),
-                    "metrics": metrics,
-                    "line": line.strip(),
-                }
-            )
+        numbered_lines = list(enumerate(fin, start=1))
+
+    block_start_line = 1
+    for line_no, line in numbered_lines:
+        if "EXP at" in line:
+            block_start_line = line_no + 1
+
+    for line_no, line in numbered_lines:
+        if line_no < block_start_line:
+            continue
+        if "dev |" not in line or wanted_metric not in line:
+            continue
+        match = metric_pattern.search(line)
+        if not match:
+            continue
+        try:
+            metrics = ast.literal_eval(match.group(0))
+        except Exception:
+            continue
+        if wanted_metric not in metrics:
+            continue
+        eval_index += 1
+        rows.append(
+            {
+                "line_no": line_no,
+                "eval_index": eval_index,
+                "metric": wanted_metric,
+                "metric_value": float(metrics[wanted_metric]),
+                "metrics": metrics,
+                "line": line.strip(),
+                "block_start_line": block_start_line,
+            }
+        )
     return rows
 
 
