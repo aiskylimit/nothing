@@ -19,7 +19,7 @@ EVAL_BATCH_SIZE=32 \
 INFER_BATCH_SIZE=128 \
 bash scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/run_full_pipeline.sh
 
-RUNNER_GPU_LIST=4,5,6,7 \
+RUNNER_GPU_LIST=0,1,2,3 \
 GPUS_PER_JOB=4 \
 RUN_MODE=parallel \
 SKIP_EXISTING=false \
@@ -37,7 +37,7 @@ EVAL_BATCH_SIZE=32 \
 INFER_BATCH_SIZE=128 \
 bash scripts/qwen_updated_2/synid_ce_no_keywords_weight_lora_218/run_full_pipeline.sh
 
-RUNNER_GPU_LIST=4,5,6,7 \
+RUNNER_GPU_LIST=0,1,2,3 \
 GPUS_PER_JOB=4 \
 RUN_MODE=parallel \
 SKIP_EXISTING=false \
