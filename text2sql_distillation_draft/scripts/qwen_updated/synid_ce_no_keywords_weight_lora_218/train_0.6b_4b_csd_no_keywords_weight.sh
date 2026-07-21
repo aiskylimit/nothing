@@ -78,9 +78,9 @@ OPTS+=" --model-path ${CKPT}"
 OPTS+=" --teacher-model-path ${TEACHER_CKPT}"
 OPTS+=" --ckpt-name ${CKPT_NAME}"
 OPTS+=" --teacher-ckpt-name ${TEACHER_CKPT_NAME}"
-# if [[ -n "${TEACHER_PEFT_PATH}" ]]; then
-#   OPTS+=" --teacher-peft-path ${TEACHER_PEFT_PATH}"
-# fi
+if [[ -n "${TEACHER_PEFT_PATH}" ]]; then
+  OPTS+=" --teacher-peft-path ${TEACHER_PEFT_PATH}"
+fi
 OPTS+=" --model-type qwen"
 OPTS+=" --n-gpu ${GPUS_PER_NODE}"
 OPTS+=" --n-nodes ${NNODES}"
