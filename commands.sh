@@ -23,8 +23,6 @@
 
 # sleep 20
 nvidia-smi
-rm -rf /home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs
-rm -rf /home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate base
@@ -37,3 +35,6 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # source .venv/bin/activate
 # python -c "import nltk; nltk.download('punkt_tab')"
 # bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
+
+cd ark
+bash ./project_commands.sh
