@@ -38,5 +38,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # python -c "import nltk; nltk.download('punkt_tab')"
 # bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
 
-cd ark
-bash ./project_commands.sh
+# cd ark
+# bash ./project_commands.sh
