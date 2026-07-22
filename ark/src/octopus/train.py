@@ -151,7 +151,7 @@ def regularize_sink_portion_scores(portion_scores: torch.Tensor, is_sink_token: 
     
     # 2 parts: score minimization and entropy/gini
     # entropy only on non-sink tokens
-    minimization_term = portion_scores.clone().to(dtype=torch.float32)
+    minimization_term = portion_scores.clone().to(dtype=torch.float32).exp()
     
     # gini_term = 0.0
     # numel = 0
@@ -265,7 +265,6 @@ def train(
                 labels=labels,
                 output_attentions=True,
                 return_dict=True,
-                sequence_ids=batch.get("sequence_ids", None)
             )
             lm_loss = outputs.loss
             
@@ -294,13 +293,12 @@ def train(
                     attn_distill_loss = attention_distillation_loss(redist_attn_output, base_attn_output)
                 
                 # compute distillation loss; need to shift positions to manually compute loss
-                logits = outputs.logits[:, :-1, :].contiguous()
-                teacher_logits = teacher_outputs.logits[:, :-1, :].contiguous()
-                kd_loss = kl_func(logits, teacher_logits, labels[:, 1:].contiguous()) # forward or reverse
+                # logits = outputs.logits[:, :-1, :].contiguous()
+                # teacher_logits = teacher_outputs.logits[:, :-1, :].contiguous()
+                # kd_loss = kl_func(logits, teacher_logits, labels[:, 1:].contiguous()) # forward or reverse
+                kd_loss = torch.tensor(0.0, device=device, dtype=outputs.logits.dtype)
                 
-                total_loss = (1 - kd_ratio) * lm_loss\
-                    + kd_ratio * kd_loss\
-                    + attn_loss_weight * attn_distill_loss\
+                total_loss = attn_loss_weight * attn_distill_loss\
                     + regularization_weight * reg_loss # include kd_ratio
             else:
                 # Phase 2: full language modeling
@@ -343,7 +341,7 @@ def train(
                         f"attn_loss={attn_loss_val.item():.4f} | reg_loss={reg_loss_val.item():.4f} | "
                         f"lr={lr:.6f} | progress={progress:.2f}%"
                     )
-
+            
             if (step + 1) % gradient_accumulation_steps == 0:
                 global_step += 1
 
@@ -356,8 +354,8 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--grad-accum", type=int, default=4)
     parser.add_argument("--num-epochs", type=int, default=2)
-    parser.add_argument("--phase1-epochs", type=int, default=2)
-    parser.add_argument("--kd-ratio", type=float, default=0.9)
+    parser.add_argument("--phase1-epochs", type=int, default=1)
+    parser.add_argument("--kd-ratio", type=float, default=0.5)
     parser.add_argument("--regularization-weight", type=float, default=0.5)
     parser.add_argument("--regularization-variance-weight", type=float, default=1.0)
     parser.add_argument("--attn-loss-weight", type=float, default=1)

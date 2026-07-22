@@ -55,7 +55,6 @@ def build_dataset(
 def collate_fn(features):
     batch = {}
     batch["input_ids"] = torch.tensor([f["input_ids"] for f in features], dtype=torch.long)
-    batch["sequence_ids"] = torch.tensor([f["sequence_ids"] for f in features], dtype=torch.long)
     return batch
 
 def tokenize_batch(examples, tokenizer: PreTrainedTokenizerBase):
@@ -171,15 +170,11 @@ def tokenize_alpaca(examples, tokenizer: PreTrainedTokenizerBase):
             {"role": "user", "content": input_prompt},
             {"role": "assistant", "content": output},
         ])
-
-    input_ids = []
-    sequence_ids = []  # <-- NEW
-    for seq_id, conv in enumerate(conversations):
-        ids = tokenizer.apply_chat_template(conv, tokenize=True)["input_ids"]
-        input_ids.append(ids)
-        sequence_ids.append([seq_id] * len(ids))  # <-- tag every token with its sample index
-
-    return {"input_ids": input_ids, "sequence_ids": sequence_ids}
+    input_ids = [
+        tokenizer.apply_chat_template(conv, tokenize=True)["input_ids"] 
+        for conv in conversations
+    ]
+    return {"input_ids": input_ids}
 
 class AlpacaCleanedDataset(Dataset):
     def __init__(

@@ -66,23 +66,6 @@ def apply_attention_mask(
     ).to(dtype=attention_weights.dtype, device=attention_weights.device)
     return attention_weights.nan_to_num(neginf=torch.finfo(attention_weights.dtype).min)
 
-def build_packed_attention_mask(sequence_ids: torch.Tensor) -> torch.Tensor:
-    """
-    Args:
-        sequence_ids: (B, L) integer tensor from the batch
-    Returns:
-        mask: (B, L, L) bool tensor — True where attention is allowed
-              (same sequence AND causal order)
-    """
-    # Same-sequence mask: token i can attend to token j iff they share a sequence id
-    same_seq = sequence_ids.unsqueeze(2) == sequence_ids.unsqueeze(1)  # (B, L, L)
-
-    # Causal mask: token i can only attend to positions j <= i
-    L = sequence_ids.size(1)
-    causal = torch.ones(L, L, dtype=torch.bool, device=sequence_ids.device).tril()  # (L, L)
-
-    return (same_seq & causal).unsqueeze(1)  # (B, 1, L, L)
-
 def get_model_size(model: torch.nn.Module):
     model_size = sum(p.numel() * p.element_size() for p in model.parameters())
     return human_readable_size(model_size)

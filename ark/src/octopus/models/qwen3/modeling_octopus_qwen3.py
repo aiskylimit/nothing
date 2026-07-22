@@ -22,7 +22,7 @@ from octopus.cache_utils import OctopusDynamicCache
 from .configuration_octopus_qwen3 import OctopusQwen3Config
 # from .attention import compiled_flex_octopus_attention, uncompiled_flex_octopus_attention, flash_attention_2, get_q_start_pos
 from ...var import identify_sink_tokens
-from ...utils import apply_attention_mask, repeat_kv, repeat_is_sink_token, build_packed_attention_mask
+from ...utils import apply_attention_mask, repeat_kv, repeat_is_sink_token
 
 
 class OctopusQwen3Attention(Qwen3Attention):
@@ -84,12 +84,13 @@ class OctopusQwen3Attention(Qwen3Attention):
             gated_states_non_sink = torch.sigmoid(gated_states_non_sink.float()).to(dtype=key_states.dtype)
         else:
             gated_states_sink = self.gated_layer(hidden_states).transpose(1, 2)
-            gated_states_sink = torch.sigmoid(gated_states_sink.float()).to(dtype=key_states.dtype)
+            gated_states_sink = nn.functional.logsigmoid(gated_states_sink.float()).to(dtype=key_states.dtype)
             gated_states_non_sink = gated_states_sink.clone()
         
         is_sink_token = identify_sink_tokens(hidden_states, self.config.sink_token_value_threshold) # (batch_size, seq_len)
-        _is_sink_token = is_sink_token.clone()
-        
+        # _is_sink_token = is_sink_token.clone()
+        _is_sink_token = torch.zeros_like(is_sink_token)
+                
         # extend is_sink_token to store sink token information per KV head
         # since each KV head keeps different tokens, corresponding is_sink_token must also be kept accordingly
         is_sink_token = is_sink_token.unsqueeze(1).repeat(1, key_states.shape[1], 1)
@@ -148,6 +149,10 @@ class OctopusQwen3Attention(Qwen3Attention):
         # gated_states_non_sink = repeat_is_sink_token(gated_states_non_sink, self.num_key_value_groups)
         
         attention_weights = torch.matmul(query_states, key_states.transpose(2, 3)) * self.scaling
+        use_base_attention = kwargs.get("use_base_attention", False)
+        if not use_base_attention:
+            gated_states = gated_states[:, :, None, :].repeat(1, 1, seq_len, 1)
+            attention_weights = attention_weights + gated_states
 
         if attention_weights.size() != (batch_size, self.config.num_attention_heads, seq_len, kv_seq_len):
             raise ValueError(
@@ -170,63 +175,62 @@ class OctopusQwen3Attention(Qwen3Attention):
         # attention redistribution
         attn_redistributed = False
         reduce_sink, increase_non_sink = None, None
-        use_base_attention = kwargs.get("use_base_attention", False)
-        if not use_base_attention:
-            if is_sink_token.size() != (batch_size, self.config.num_attention_heads, kv_seq_len):
-                raise ValueError(
-                    f"is_sink_token should be of size {(batch_size, self.config.num_attention_heads, kv_seq_len)}, but is {is_sink_token.size()}"
-                )
+        # use_base_attention = kwargs.get("use_base_attention", False)
+        # if not use_base_attention:
+            # if is_sink_token.size() != (batch_size, self.config.num_attention_heads, kv_seq_len):
+            #     raise ValueError(
+            #         f"is_sink_token should be of size {(batch_size, self.config.num_attention_heads, kv_seq_len)}, but is {is_sink_token.size()}"
+            #     )
             
-            gated_states = gated_states[:, :, None, :].repeat(1, 1, seq_len, 1)
+            # gated_states = gated_states[:, :, None, :].repeat(1, 1, seq_len, 1)
             
-            if attention_mask is not None:
-                # apply causal mask onto gating scores
-                causal_mask = attention_mask[:, :, :, :kv_seq_len]
-                gated_states = torch.where(
-                    causal_mask == 0,
-                    gated_states,
-                    0.0
-                ).to(dtype=gated_states.dtype, device=gated_states.device)
+            # if attention_mask is not None:
+            #     # apply causal mask onto gating scores
+            #     causal_mask = attention_mask[:, :, :, :kv_seq_len]
+            #     gated_states = torch.where(
+            #         causal_mask == 0,
+            #         gated_states,
+            #         0.0
+            #     ).to(dtype=gated_states.dtype, device=gated_states.device)
             
             # compute in float32 for higher precision
-            gated_attention_weights = attention_weights.float() * gated_states.float()
-            attention_budget = (attention_weights.float() - gated_attention_weights).sum(dim=-1, keepdim=True)
-            portion_scores = gated_attention_weights.clone()
+            # gated_attention_weights = attention_weights.float() * gated_states.float()
+            # attention_budget = (attention_weights.float() - gated_attention_weights).sum(dim=-1, keepdim=True)
+            # portion_scores = gated_attention_weights.clone()
                         
-            # portion_scores = gated_states.clone().float()
-            sequence_ids = kwargs.get("sequence_ids", None)
-            if sequence_ids is not None:
-                # build and apply packed seq attn mask on gated states to compute portion scores
-                packed_attention_mask = build_packed_attention_mask(sequence_ids)[:, :, :, :kv_seq_len]
-                portion_scores = torch.where(
-                    packed_attention_mask,
-                    portion_scores,
-                    0.0
-                ).to(dtype=portion_scores.dtype, device=portion_scores.device)
+            # # portion_scores = gated_states.clone().float()
+            # sequence_ids = kwargs.get("sequence_ids", None)
+            # if sequence_ids is not None:
+            #     # build and apply packed seq attn mask on gated states to compute portion scores
+            #     packed_attention_mask = build_packed_attention_mask(sequence_ids)[:, :, :, :kv_seq_len]
+            #     portion_scores = torch.where(
+            #         packed_attention_mask,
+            #         portion_scores,
+            #         0.0
+            #     ).to(dtype=portion_scores.dtype, device=portion_scores.device)
             
             # only redist. to non-sink tokens; after applying packed sequence attn mask
-            is_sink_token = is_sink_token.unsqueeze(-2)
-            _portion_scores = torch.where(
-                is_sink_token,
-                0.0,
-                portion_scores
-            ).to(dtype=portion_scores.dtype, device=portion_scores.device) # filter portion scores of sink tokens
+            # is_sink_token = is_sink_token.unsqueeze(-2)
+            # _portion_scores = torch.where(
+            #     is_sink_token,
+            #     0.0,
+            #     portion_scores
+            # ).to(dtype=portion_scores.dtype, device=portion_scores.device) # filter portion scores of sink tokens
             # recover rows of original portion_scores where all 0 after filtering (i.e. all sink tokens)
-            all_sink_tokens = torch.all(_portion_scores == 0, dim=-1, keepdim=True)
-            del _portion_scores
-            portion_scores = torch.where(
-                is_sink_token & (~all_sink_tokens),
-                0.0,
-                portion_scores
-            ).to(dtype=portion_scores.dtype, device=portion_scores.device)
+            # all_sink_tokens = torch.all(_portion_scores == 0, dim=-1, keepdim=True)
+            # portion_scores = torch.where(
+            #     all_sink_tokens,
+            #     portion_scores,
+            #     _portion_scores
+            # )
+            # del _portion_scores
             
-            portion_scores = portion_scores / (portion_scores.sum(dim=-1, keepdim=True) 
-                                                     + torch.tensor(1e-9, dtype=torch.float32, device=attention_weights.device))
+            # portion_scores = portion_scores / (portion_scores.sum(dim=-1, keepdim=True) 
+            #                                          + torch.tensor(1e-9, dtype=torch.float32, device=attention_weights.device))
             # portion_scores = nn.functional.softmax(portion_scores, dim=-1, dtype=torch.float32)
             # redistributed_weights = attention_budget * portion_scores
             # complete redist. and downcast
-            del attention_weights
-            attention_weights = (gated_attention_weights + attention_budget * portion_scores).to(dtype=query_states.dtype)
+            # attention_weights = (gated_attention_weights + attention_budget * portion_scores).to(dtype=attention_weights.dtype)
             
             # sink_portions = torch.where(
             #     is_sink_token,
