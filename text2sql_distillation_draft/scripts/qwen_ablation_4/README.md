@@ -1,6 +1,7 @@
 # Qwen Ablation 4
 
 Computational-overhead runs for the dual-contrastive representation loss.
+Each run defaults to 1 epoch and reports time per step.
 
 Methods:
 

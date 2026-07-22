@@ -38,7 +38,7 @@ TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://distillation-sql/baselines/qwen3/sf
 
 LR="${LR:-0.0001}"
 EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-16}"
-EPOCHS="${EPOCHS:-5}"
+EPOCHS="${EPOCHS:-1}"
 KD_RATIO="${KD_RATIO:-0.7}"
 KD_TYPE="${KD_TYPE:-synid}"
 
@@ -174,6 +174,7 @@ echo "  data dir: ${DATA_DIR}"
 echo "  save tag: ${SAVE_TAG}"
 echo "  train type: ${TRAIN_TYPE}"
 echo "  synid kd loss: ${SYNID_KD_LOSS}"
+echo "  epochs: ${EPOCHS}"
 echo "  batch size: ${BATCH_SIZE}"
 echo "  grad acc: ${GRAD_ACC}"
 echo "  max length: ${MAX_LENGTH}"
