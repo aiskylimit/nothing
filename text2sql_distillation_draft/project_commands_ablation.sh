@@ -10,7 +10,7 @@ source .venv/bin/activate
 
 python -c "import nltk; nltk.download('punkt_tab')"
 
-RUNNER_GPU_LIST="${RUNNER_GPU_LIST:-0,1}" \
+RUNNER_GPU_LIST="${RUNNER_GPU_LIST:-0}" \
 GPUS_PER_JOB="${GPUS_PER_JOB:-1}" \
 RUN_MODE="${RUN_MODE:-sequential}" \
 SKIP_EXISTING="${SKIP_EXISTING:-false}" \
