@@ -1,4 +1,4 @@
-#1 +60
+#2
 #sql-main
 #v1
 
@@ -30,8 +30,8 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
-bash ./project_commands_ablation.sh
+# cd text2sql_distillation_draft
+# bash ./project_commands_ablation.sh
 # ls text2sql_distillation_draft/results/eval
 # source .venv/bin/activate
 # bash ./eval.sh
