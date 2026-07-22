@@ -248,6 +248,12 @@ def add_synid_sql_args(parser: argparse.ArgumentParser):
     group.add_argument("--synid-use-syntax-weights", type=str2bool, default=True)
     group.add_argument("--synid-use-con1", type=str2bool, default=True)
     group.add_argument("--synid-use-con2", type=str2bool, default=True)
+    group.add_argument(
+        "--synid-use-privileged-teacher-input",
+        type=str2bool,
+        default=True,
+        help="Use processed teacher_train_0 inputs for SynID teacher forward passes when available.",
+    )
     group.add_argument("--synid-student-layers", type=str, default="-1")
     group.add_argument("--synid-teacher-layers", type=str, default="-1")
     group.add_argument(
