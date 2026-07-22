@@ -77,9 +77,9 @@ def add_runtime_args(parser: argparse.ArgumentParser):
     group.add_argument("--save-additional-suffix", type=str, default="")
     group.add_argument("--save-rollout", action="store_true")
     group.add_argument("--eb-sample-times", type=int, default=3)
+    group.add_argument("--log-overhead-metrics", action="store_true")
+    group.add_argument("--overhead-method-name", type=str, default=None)
     return parser
-
-
 def add_data_args(parser: argparse.ArgumentParser):
     group = parser.add_argument_group('data', 'data configurations')
     group.add_argument("--split", type=str, default=None,
@@ -104,13 +104,13 @@ def add_data_args(parser: argparse.ArgumentParser):
     group.add_argument("--json-data", action="store_true")
     group.add_argument("--bin-data", action="store_true")
     group.add_argument("--txt-data", action="store_true")
-    
+
     group.add_argument("--prompt-data-dir", type=str)
     group.add_argument("--lm-data-dir", type=str)
     group.add_argument("--eval-ppl", action="store_true")
     group.add_argument("--eval-rw", action="store_true")
     group.add_argument("--eval-gen", action="store_true")
-    
+
     group.add_argument("--only-prompt", action="store_true")
     group.add_argument("--slice-data", action="store_true",
                        help="Use a small sliced train/dev subset for quick debugging.")
@@ -207,7 +207,7 @@ def add_distillm_args(parser: argparse.ArgumentParser):
     group.add_argument("--student-gen", action="store_true")
     group.add_argument("--gen-top-p", type=float, default=1.0)
     group.add_argument("--gen-num-beams", type=int, default=2)
-    
+
     # adaptive threshold
     group.add_argument("--mixed-alpha", type=float, default=0.5)
     group.add_argument("--loss-eps", type=float, default=0.1)
@@ -221,7 +221,7 @@ def add_distillm_args(parser: argparse.ArgumentParser):
 
     # FDD
     group.add_argument("--fdd-weight", type=float, default=None)
-    
+
     # off-policy
     group.add_argument("--capacity", type=int, default=1000)
     group.add_argument("--replay-ratio", type=str, default="decreasing")
@@ -248,6 +248,12 @@ def add_synid_sql_args(parser: argparse.ArgumentParser):
     group.add_argument("--synid-use-syntax-weights", type=str2bool, default=True)
     group.add_argument("--synid-use-con1", type=str2bool, default=True)
     group.add_argument("--synid-use-con2", type=str2bool, default=True)
+    group.add_argument(
+        "--synid-use-privileged-teacher-input",
+        type=str2bool,
+        default=True,
+        help="Use processed teacher_train_0 inputs for SynID teacher forward passes when available.",
+    )
     group.add_argument("--synid-student-layers", type=str, default="-1")
     group.add_argument("--synid-teacher-layers", type=str, default="-1")
     group.add_argument(

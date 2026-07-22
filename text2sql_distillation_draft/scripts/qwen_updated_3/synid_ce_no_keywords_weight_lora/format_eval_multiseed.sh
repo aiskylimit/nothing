@@ -15,8 +15,8 @@ PYTHON_BIN="${PYTHON:-python}"
 FORMAT_SCRIPT="${FORMAT_SCRIPT:-scripts/format_spider_infer_results.py}"
 EVAL_SCRIPT="${EVAL_SCRIPT:-src/evaluator/run_benchmark.py}"
 COLLECT_SCRIPT="${COLLECT_SCRIPT:-scripts/qwen_updated_3/synid_ce_no_keywords_weight_lora/collect_eval_results.py}"
-INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/synid_ce_no_keywords_weight_lora/qwen}"
-EVAL_OUTPUT_ROOT="${EVAL_OUTPUT_ROOT:-results/eval/synid_ce_no_keywords_weight_lora/qwen}"
+INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/synid_ce_no_keywords_weight_lora/qwen_updated_3}"
+EVAL_OUTPUT_ROOT="${EVAL_OUTPUT_ROOT:-results/eval/synid_ce_no_keywords_weight_lora/qwen_updated_3}"
 ETYPE="${ETYPE:-all}"
 EXEC_TIMEOUT="${EXEC_TIMEOUT:-60}"
 PROGRESS_BAR="${PROGRESS_BAR:-1}"
@@ -36,14 +36,14 @@ usage() {
 Usage: bash scripts/qwen_updated_3/synid_ce_no_keywords_weight_lora/format_eval_multiseed.sh [benchmark ...]
 
 Formats and evaluates multi-seed inference outputs under:
-  results/infer/synid_ce_no_keywords_weight_lora/qwen/<benchmark>/seed*/
+  results/infer/synid_ce_no_keywords_weight_lora/qwen_updated_3/<benchmark>/seed*/
 
 Benchmark args, if provided, must be one or more of:
   spider_data spider_syn spider_realistic spider_dk
 
 Environment overrides:
-  INFER_OUTPUT_ROOT     Default: results/infer/synid_ce_no_keywords_weight_lora/qwen
-  EVAL_OUTPUT_ROOT      Default: results/eval/synid_ce_no_keywords_weight_lora/qwen
+  INFER_OUTPUT_ROOT     Default: results/infer/synid_ce_no_keywords_weight_lora/qwen_updated_3
+  EVAL_OUTPUT_ROOT      Default: results/eval/synid_ce_no_keywords_weight_lora/qwen_updated_3
   ETYPE                 Default: all
   EXEC_TIMEOUT          Default: 60
   PROGRESS_BAR=0        Disable per-datapoint progress bar

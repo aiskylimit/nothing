@@ -15,8 +15,8 @@ INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}"
 FORMAT_AFTER_INFER="${FORMAT_AFTER_INFER:-true}"
 SKIP_EXISTING="${SKIP_EXISTING:-true}"
 RUN_MODE="${RUN_MODE:-sequential}"
-RUNNER_GPU_LIST="${RUNNER_GPU_LIST:-0}"
-GPUS_PER_JOB="${GPUS_PER_JOB:-1}"
+RUNNER_GPU_LIST="${RUNNER_GPU_LIST:-0,1}"
+GPUS_PER_JOB="${GPUS_PER_JOB:-2}"
 INFER_BENCHMARKS="${INFER_BENCHMARKS:-spider_data,spider_syn,spider_realistic,spider_dk}"
 INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-100}"
 INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/synid_ce_keywords_weight_lora}"
@@ -30,24 +30,6 @@ export SKIP_EXISTING
 TARGET_KD_GRID_FILTERS=(
   scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g01.sh
   scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g02.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g03.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g04.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g05.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g06.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g07.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g08.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g09.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g10.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g11.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g12.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g13.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g14.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g15.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g16.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g17.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g18.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g19.sh
-  scripts/qwen_updated_3/synid_ce_keywords_weight_lora/train_g20.sh
 )
 
 for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do

@@ -12,11 +12,12 @@ from pathlib import Path
 from typing import Any
 
 
-KD_RATIOS = [0.7, 0.6, 0.5]
-TARGET_KD_RATIOS = {0.7, 0.6}
+KD_RATIOS = [0.7, 0.6]
 LAYER_CONFIGS = [
     ("last1", 1, "27", "35"),
     ("last3", 3, "25,26,27", "33,34,35"),
+    ("near_last3", 3, "24,25,26", "32,33,34"),
+    ("near_last3_prev", 3, "23,24,25", "31,32,33"),
 ]
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
 
@@ -160,15 +161,8 @@ def build_result(
     pred_path = formatted_dir / f"{run_name}.pred.sql"
     gold_path = formatted_dir / f"{run_name}.gold.sql"
 
-    try:
-        grid = grid_config(grid_id)
-    except ValueError:
-        return None
-    if grid["kd_ratio"] not in TARGET_KD_RATIOS:
-        return None
-
     result = {
-        "grid": grid,
+        "grid": grid_config(grid_id),
         "benchmark": benchmark,
         "seed": seed,
         "scores": parse_scores(log_path),
@@ -266,7 +260,7 @@ def write_seed_outputs(
     results: list[dict[str, Any]],
     required_benchmarks: list[str],
 ) -> None:
-    seed_out_dir = eval_output_root / "collect" / f"seed{seed}"
+    seed_out_dir = eval_output_root / f"seed{seed}"
     seed_out_dir.mkdir(parents=True, exist_ok=True)
     generated_at = datetime.now(timezone.utc).isoformat()
 

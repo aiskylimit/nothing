@@ -1,4 +1,5 @@
 from functools import lru_cache
+import json
 import numpy as np
 import os
 import time
@@ -47,6 +48,93 @@ def save_rank(log_str, save_path, rank=0):
 def print_rank(*args, rank=0, **kwargs):
     if not dist.is_initialized() or dist.get_rank() == rank:
         print(*args, **kwargs)
+
+
+class OverheadTracker:
+    def __init__(self, enabled=False, method_name=None, save_path=None, device=None):
+        self.enabled = bool(enabled)
+        self.method_name = method_name or ""
+        self.save_path = save_path
+        self.device = device
+        self.epoch_time = 0.0
+        self.alloc_sum_gb = 0.0
+        self.alloc_count = 0
+        self.peak_alloc_gb = 0.0
+
+    def start_epoch(self, epoch):
+        if not self.enabled:
+            return
+        self.epoch_time = 0.0
+        self.alloc_sum_gb = 0.0
+        self.alloc_count = 0
+        self.peak_alloc_gb = 0.0
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats(self.device)
+            torch.cuda.synchronize()
+
+    def record_step(self, elapsed_time):
+        if not self.enabled:
+            return
+        self.epoch_time += float(elapsed_time)
+        if torch.cuda.is_available():
+            allocated_gb = torch.cuda.memory_allocated(self.device) / (1024 ** 3)
+            peak_gb = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)
+        else:
+            allocated_gb = 0.0
+            peak_gb = 0.0
+        self.alloc_sum_gb += float(allocated_gb)
+        self.alloc_count += 1
+        self.peak_alloc_gb = max(self.peak_alloc_gb, float(peak_gb))
+
+    def finish_epoch(self, epoch):
+        if not self.enabled:
+            return None
+
+        if torch.cuda.is_available():
+            device = torch.device("cuda", self.device) if isinstance(self.device, int) else self.device
+        else:
+            device = torch.device("cpu")
+        stats = torch.tensor(
+            [self.epoch_time, self.alloc_sum_gb, float(self.alloc_count), self.peak_alloc_gb],
+            dtype=torch.float64,
+            device=device,
+        )
+        if dist.is_initialized():
+            time_value = stats[0].clone()
+            alloc_values = stats[1:3].clone()
+            peak_value = stats[3].clone()
+            dist.all_reduce(time_value, op=dist.ReduceOp.MAX)
+            dist.all_reduce(alloc_values, op=dist.ReduceOp.SUM)
+            dist.all_reduce(peak_value, op=dist.ReduceOp.MAX)
+            time_epoch_s = float(time_value.item())
+            alloc_sum_gb = float(alloc_values[0].item())
+            alloc_count = int(alloc_values[1].item())
+            peak_alloc_gb = float(peak_value.item())
+        else:
+            time_epoch_s = self.epoch_time
+            alloc_sum_gb = self.alloc_sum_gb
+            alloc_count = self.alloc_count
+            peak_alloc_gb = self.peak_alloc_gb
+
+        avg_alloc_gb = alloc_sum_gb / alloc_count if alloc_count > 0 else 0.0
+        record = {
+            "method": self.method_name,
+            "epoch": int(epoch),
+            "time_epoch_s": time_epoch_s,
+            "avg_alloc_gb": avg_alloc_gb,
+            "peak_alloc_gb": peak_alloc_gb,
+            "num_memory_samples": alloc_count,
+        }
+        log_line = (
+            "overhead | method: {method} | epoch: {epoch} | time_epoch_s: {time_epoch_s:.3f} "
+            "| avg_alloc_gb: {avg_alloc_gb:.3f} | peak_alloc_gb: {peak_alloc_gb:.3f}"
+        ).format(**record)
+        print_rank(log_line)
+        if self.save_path:
+            os.makedirs(self.save_path, exist_ok=True)
+            save_rank(log_line, os.path.join(self.save_path, "log.txt"))
+            save_rank(json.dumps(record, sort_keys=True), os.path.join(self.save_path, "overhead_metrics.jsonl"))
+        return record
 
 
 # Distributed

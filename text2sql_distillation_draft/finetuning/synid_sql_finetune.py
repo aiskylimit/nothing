@@ -42,7 +42,7 @@ from arguments import get_args
 
 from data_utils.lm_datasets import LMTrainDataset
 from utils import get_optimizer_params, get_optimizer_params_peft, print_args, initialize
-from utils import print_rank, get_rank
+from utils import print_rank, get_rank, OverheadTracker
 from utils import save_rank
 from utils import all_gather
 from utils import get_tokenizer, get_model, resolve_hf_path
@@ -370,13 +370,18 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     train_dataloader = DataLoader(
         dataset['train'], sampler=sampler, batch_size=args.batch_size, num_workers=args.num_workers, collate_fn=dataset["train"].collate)
     if teacher_model is not None and args.type == "synid":
-        if getattr(dataset["train"], "t_lm_ctx", None) is None:
+        has_privileged_teacher_inputs = getattr(dataset["train"], "t_lm_ctx", None) is not None
+        if args.synid_use_privileged_teacher_input and not has_privileged_teacher_inputs:
             raise ValueError(
                 "SynID privileged teacher training requires processed "
                 "teacher_train_0.bin/teacher_train_0.idx in --data-dir. "
-                "Run process_data.py on a data_dir that contains teacher_train.jsonl."
+                "Run process_data.py on a data_dir that contains teacher_train.jsonl, "
+                "or pass --synid-use-privileged-teacher-input false."
             )
-        print_rank("Using privileged teacher_train_0 dataset for SynID teacher inputs.")
+        if args.synid_use_privileged_teacher_input and has_privileged_teacher_inputs:
+            print_rank("Using privileged teacher_train_0 dataset for SynID teacher inputs.")
+        else:
+            print_rank("Using student train_0 dataset for SynID teacher inputs.")
     
     if "pt_train" in dataset:
         pt_sampler = DistributedSampler(dataset["pt_train"], shuffle=True, drop_last=True, rank=dp_rank, num_replicas=dp_world_size)
@@ -412,8 +417,16 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             f"got {args.synid_projector_warmup_epochs}."
         )
     
+    overhead_tracker = OverheadTracker(
+        enabled=args.log_overhead_metrics,
+        method_name=args.overhead_method_name or args.type,
+        save_path=args.save,
+        device=device,
+    )
+
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
+        overhead_tracker.start_epoch(epoch)
 
         model.train()
         detach_student_contrastive = teacher_model is not None and epoch < args.synid_projector_warmup_epochs
@@ -487,8 +500,13 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 lm_loss = loss_func(logits.float().view(-1, logits.shape[-1]), no_model_batch["label"].view(-1))
             
             if teacher_model is not None:
-                teacher_batch = t_model_data if t_model_data is not None else model_batch
-                teacher_no_model_batch = t_no_model_data if t_no_model_data is not None else no_model_batch
+                use_privileged_teacher_batch = (
+                    args.synid_use_privileged_teacher_input
+                    and t_model_data is not None
+                    and t_no_model_data is not None
+                )
+                teacher_batch = t_model_data if use_privileged_teacher_batch else model_batch
+                teacher_no_model_batch = t_no_model_data if use_privileged_teacher_batch else no_model_batch
                 with torch.no_grad():
                     teacher_model.eval()
                     teacher_hidden_capture.clear()
@@ -566,6 +584,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
 
             total_loss += global_loss
             total_time += elapsed_time
+            overhead_tracker.record_step(elapsed_time)
 
             # Logging
             def get_log(log_loss, log_ce_loss, log_distil_loss, log_con1_loss, log_con2_loss, log_time):
@@ -639,6 +658,8 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             
             if global_step > args.total_iters:
                 break
+
+        overhead_tracker.finish_epoch(epoch)
             
     if student_hidden_capture is not None:
         student_hidden_capture.close()

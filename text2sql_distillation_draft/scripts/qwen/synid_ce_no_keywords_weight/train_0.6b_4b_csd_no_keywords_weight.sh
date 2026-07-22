@@ -26,13 +26,14 @@ BASE_PATH="${BASE_PATH:-.}"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 SCRIPT_GROUP="$(basename "$(dirname "${BASH_SOURCE[0]}")")"
 
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/synid_privileged/qwen}"
+SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged}"
+DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/qwen}"
 
 CKPT_NAME="${CKPT_NAME:-qwen3-0.6B}"
 CKPT="${CKPT:-Qwen/Qwen3-0.6B}"
 TEACHER_CKPT_NAME="${TEACHER_CKPT_NAME:-qwen3-4B}"
 TEACHER_CKPT="${TEACHER_CKPT:-Qwen/Qwen3-4B-Instruct-2507}"
-TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090}"
+TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-}"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"
 LR="${LR:-0.0001}"
@@ -41,6 +42,7 @@ EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-8}"
 EPOCHS="${EPOCHS:-5}"
 KD_RATIO="${KD_RATIO:-0.7}"
 KD_TYPE="${KD_TYPE:-synid}"
+EVAL_GEN="${EVAL_GEN:-auto}"
 
 MAX_LENGTH="${MAX_LENGTH:-2048}"
 MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-1536}"
@@ -66,8 +68,44 @@ SYNID_STUDENT_LAYERS="${SYNID_STUDENT_LAYERS:-27}"
 SYNID_TEACHER_LAYERS="${SYNID_TEACHER_LAYERS:-35}"
 SYNID_LAYER_CONFIG="${SYNID_LAYER_CONFIG:-k1_last_s27_t35}"
 
+check_indexed_dataset() {
+  local data_dir="${1%/}"
+  local missing=0
+  local required_files=(
+    "train_0.bin"
+    "train_0.idx"
+    "teacher_train_0.bin"
+    "teacher_train_0.idx"
+    "valid_0.bin"
+    "valid_0.idx"
+  )
+
+  for file in "${required_files[@]}"; do
+    if [[ ! -s "${data_dir}/${file}" ]]; then
+      echo "[data-check] missing or empty: ${data_dir}/${file}" >&2
+      missing=1
+    fi
+  done
+
+  if [[ "${missing}" -ne 0 ]]; then
+    echo "[data-check] expected processed SynID privileged indexed data under: ${data_dir}" >&2
+    echo "[data-check] JSONL files are not required for training; teacher_train_0.bin/.idx is required." >&2
+    exit 2
+  fi
+}
+
+check_indexed_dataset "${DATA_DIR}"
+
+if [[ "${EVAL_GEN}" == "auto" ]]; then
+  if [[ -s "${DATA_DIR%/}/valid.jsonl" ]]; then
+    EVAL_GEN="true"
+  else
+    EVAL_GEN="false"
+  fi
+fi
+
 LAYER_TAG="sl${SYNID_STUDENT_LAYERS//,/_}-tl${SYNID_TEACHER_LAYERS//,/_}"
-RUN_TAG="e${EPOCHS}-bs${BATCH_SIZE}-lr${LR}-G${GRAD_ACC}-N${GPUS_PER_NODE}-NN${NNODES}-kd${KD_RATIO}-${SYNID_KD_LOSS}-tau${SYNID_CONTRASTIVE_TAU}-a${SYNID_ALPHA}-b${SYNID_BETA}-${SYNID_LAYER_CONFIG}-${LAYER_TAG}-pool${SYNID_POOLING}-lora-${PEFT_LORA_R}-${PEFT_LORA_ALPHA}-${PEFT_LORA_DROPOUT}"
+RUN_TAG="e${EPOCHS}-bs${BATCH_SIZE}-lr${LR}-G${GRAD_ACC}-N${GPUS_PER_NODE}-NN${NNODES}-${SYNID_DATASET_NAME}-kd${KD_RATIO}-${SYNID_KD_LOSS}-tau${SYNID_CONTRASTIVE_TAU}-a${SYNID_ALPHA}-b${SYNID_BETA}-${SYNID_LAYER_CONFIG}-${LAYER_TAG}-pool${SYNID_POOLING}-lora-${PEFT_LORA_R}-${PEFT_LORA_ALPHA}-${PEFT_LORA_DROPOUT}"
 SAVE_TAG="${SAVE_TAG:-${SCRIPT_GROUP}_${SCRIPT_NAME}_spider_${KD_TYPE}_${RUN_TAG}}"
 SAVE_PATH="${SAVE_PATH:-${BASE_PATH}/results/qwen3/${SAVE_TAG}}"
 SEED="${SEED:-42}"
@@ -78,9 +116,9 @@ OPTS+=" --model-path ${CKPT}"
 OPTS+=" --teacher-model-path ${TEACHER_CKPT}"
 OPTS+=" --ckpt-name ${CKPT_NAME}"
 OPTS+=" --teacher-ckpt-name ${TEACHER_CKPT_NAME}"
-# if [[ -n "${TEACHER_PEFT_PATH}" ]]; then
-#   OPTS+=" --teacher-peft-path ${TEACHER_PEFT_PATH}"
-# fi
+if [[ -n "${TEACHER_PEFT_PATH}" ]]; then
+  OPTS+=" --teacher-peft-path ${TEACHER_PEFT_PATH}"
+fi
 OPTS+=" --model-type qwen"
 OPTS+=" --n-gpu ${GPUS_PER_NODE}"
 OPTS+=" --n-nodes ${NNODES}"
@@ -105,7 +143,9 @@ OPTS+=" --t-max-length ${T_MAX_LENGTH}"
 OPTS+=" --t-max-prompt-length ${T_MAX_PROMPT_LENGTH}"
 OPTS+=" --do-train"
 OPTS+=" --do-valid"
-OPTS+=" --eval-gen"
+if [[ "${EVAL_GEN}" =~ ^(1|true|yes|y)$ ]]; then
+  OPTS+=" --eval-gen"
+fi
 OPTS+=" --save-interval -1"
 OPTS+=" --eval-interval -1"
 OPTS+=" --log-interval 20"
@@ -145,6 +185,10 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetuning/synid_sql_finetune.py 
 
 echo "${CMD}"
 echo "PYTHONPATH=${PYTHONPATH}"
+echo "Dataset:"
+echo "  name: ${SYNID_DATASET_NAME}"
+echo "  data dir: ${DATA_DIR}"
+echo "  eval gen: ${EVAL_GEN}"
 echo "SynID layer config: ${SYNID_LAYER_CONFIG}"
 echo "  student layers: ${SYNID_STUDENT_LAYERS}"
 echo "  teacher layers: ${SYNID_TEACHER_LAYERS}"

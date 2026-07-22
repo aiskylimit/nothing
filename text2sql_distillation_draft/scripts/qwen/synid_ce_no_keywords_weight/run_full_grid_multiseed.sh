@@ -22,25 +22,27 @@ INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-100}"
 INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/synid_ce_no_keywords_weight}"
 INFER_FLUSH_EVERY="${INFER_FLUSH_EVERY:-100}"
 INFER_CHECKPOINT_METRIC="${INFER_CHECKPOINT_METRIC:-exact_match}"
+SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged}"
+DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/qwen}"
+TRAIN_SETUPS="${TRAIN_SETUPS:-train_g01.sh train_g03.sh}"
 
 export INFER_SEEDS
 export FORMAT_AFTER_INFER
 export SKIP_EXISTING
+export SYNID_DATASET_NAME
+export DATA_DIR
 
-TARGET_KD_GRID_FILTERS=(
-  scripts/qwen/synid_ce_no_keywords_weight/train_g01.sh
-  scripts/qwen/synid_ce_no_keywords_weight/train_g02.sh
-  scripts/qwen/synid_ce_no_keywords_weight/train_g04.sh
-  scripts/qwen/synid_ce_no_keywords_weight/train_g05.sh
-)
+echo "[dataset] ${SYNID_DATASET_NAME}: ${DATA_DIR}"
+echo "[setups] ${TRAIN_SETUPS}"
 
-for grid_filter in "${TARGET_KD_GRID_FILTERS[@]}"; do
+for train_setup in ${TRAIN_SETUPS}; do
+  echo "[setup] ${train_setup}"
   bash running.sh \
     --mode "${RUN_MODE}" \
     --gpus "${RUNNER_GPU_LIST}" \
     --gpus-per-job "${GPUS_PER_JOB}" \
     --skip-finalize \
-    --filter "${grid_filter}" \
+    --filter "scripts/qwen/synid_ce_no_keywords_weight/${train_setup}" \
     --infer-after-train \
     --infer-script scripts/qwen/synid_ce_no_keywords_weight/infer_multiseed.py \
     --infer-benchmarks "${INFER_BENCHMARKS}" \

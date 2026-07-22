@@ -7,18 +7,22 @@ SCRIPT_DIR="$(cd "$(dirname "${ENTRY_SCRIPT}")" && pwd)"
 SCRIPT_GROUP="$(basename "${SCRIPT_DIR}")"
 SCRIPT_NAME="$(basename "${ENTRY_SCRIPT}" .sh)"
 BASE_TRAIN_SCRIPT="${SCRIPT_DIR}/train_0.6b_4b_csd_no_keywords_weight.sh"
+SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged}"
+DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/qwen}"
+export SYNID_DATASET_NAME
+export DATA_DIR
 
 GRID_ID="${GRID_ID:-${SCRIPT_NAME#train_}}"
 GRID_ID="${GRID_ID^^}"
 GRID_NUM="${GRID_ID#G}"
 GRID_NUM="$((10#${GRID_NUM}))"
 
-KD_RATIOS=(0.7 0.6 0.5)
-LAYER_CONFIGS=(last1 last3)
+KD_RATIOS=(0.7 0.6)
+LAYER_CONFIGS=(last1 last3 near_last3 near_last3_prev)
 GRID_TOTAL="$((${#LAYER_CONFIGS[@]} * ${#KD_RATIOS[@]}))"
 
 if (( GRID_NUM < 1 || GRID_NUM > GRID_TOTAL )); then
-  echo "Unknown GRID_ID=${GRID_ID}. Expected G01..G06." >&2
+  echo "Unknown GRID_ID=${GRID_ID}. Expected G01..G08." >&2
   exit 2
 fi
 
@@ -37,6 +41,16 @@ elif [[ "${LAYER_CONFIG}" == "last3" ]]; then
   SYNID_STUDENT_LAYERS="25,26,27"
   SYNID_TEACHER_LAYERS="33,34,35"
   SYNID_LAYER_CONFIG="k3_last_s25_26_27_t33_34_35"
+elif [[ "${LAYER_CONFIG}" == "near_last3" ]]; then
+  SYNID_K_LAYERS="3"
+  SYNID_STUDENT_LAYERS="24,25,26"
+  SYNID_TEACHER_LAYERS="32,33,34"
+  SYNID_LAYER_CONFIG="k3_nearlast_s24_25_26_t32_33_34"
+elif [[ "${LAYER_CONFIG}" == "near_last3_prev" ]]; then
+  SYNID_K_LAYERS="3"
+  SYNID_STUDENT_LAYERS="23,24,25"
+  SYNID_TEACHER_LAYERS="31,32,33"
+  SYNID_LAYER_CONFIG="k3_nearlast_prev_s23_24_25_t31_32_33"
 else
   echo "Unsupported LAYER_CONFIG=${LAYER_CONFIG}" >&2
   exit 2
@@ -73,6 +87,7 @@ echo "  beta: ${SYNID_BETA}"
 echo "  contrastive tau: ${SYNID_CONTRASTIVE_TAU}"
 echo "  use syntax weights: ${SYNID_USE_SYNTAX_WEIGHTS}"
 echo "  syntax lambda: ${SYNID_SYNTAX_LAMBDA}"
+echo "  data dir: ${DATA_DIR}"
 echo "  save tag: ${SAVE_TAG}"
 
 bash "${BASE_TRAIN_SCRIPT}" "$@"

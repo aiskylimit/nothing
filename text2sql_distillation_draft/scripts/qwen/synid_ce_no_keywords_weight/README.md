@@ -3,6 +3,16 @@
 SynID-CE CSD sweep on Spider privileged data without SQL keyword/schema token
 up-weighting during semantic-anchor pooling.
 
+Default dataset:
+
+```text
+processed_data/benchmarks/spider_data/synid_privileged/qwen
+```
+
+Training uses `train_0.bin/.idx`, `teacher_train_0.bin/.idx`, and
+`valid_0.bin/.idx` directly. JSONL files are optional at train time; when
+`valid.jsonl` is absent, `EVAL_GEN=auto` disables `--eval-gen`.
+
 Fixed:
 
 - `SYNID_KD_LOSS=csd`
@@ -16,6 +26,8 @@ Fixed:
 - `MAX_PROMPT_LENGTH=1536`
 - `T_MAX_LENGTH=2048`
 - `T_MAX_PROMPT_LENGTH=1800`
+- `DATA_DIR=processed_data/benchmarks/spider_data/synid_privileged/qwen`
+- `EVAL_GEN=auto`
 
 Grid:
 
@@ -23,10 +35,12 @@ Grid:
 |---|---|---|---|---|---:|---:|---:|
 | `train_g01.sh` | G01 | last1 | `27` | `35` | 0.1 | 0.1 | 0.7 |
 | `train_g02.sh` | G02 | last1 | `27` | `35` | 0.1 | 0.1 | 0.6 |
-| `train_g03.sh` | G03 | last1 | `27` | `35` | 0.1 | 0.1 | 0.5 |
-| `train_g04.sh` | G04 | last3 | `25,26,27` | `33,34,35` | 0.1 | 0.1 | 0.7 |
-| `train_g05.sh` | G05 | last3 | `25,26,27` | `33,34,35` | 0.1 | 0.1 | 0.6 |
-| `train_g06.sh` | G06 | last3 | `25,26,27` | `33,34,35` | 0.1 | 0.1 | 0.5 |
+| `train_g03.sh` | G03 | last3 | `25,26,27` | `33,34,35` | 0.1 | 0.1 | 0.7 |
+| `train_g04.sh` | G04 | last3 | `25,26,27` | `33,34,35` | 0.1 | 0.1 | 0.6 |
+| `train_g05.sh` | G05 | near_last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.7 |
+| `train_g06.sh` | G06 | near_last3 | `24,25,26` | `32,33,34` | 0.1 | 0.1 | 0.6 |
+| `train_g07.sh` | G07 | near_last3_prev | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.7 |
+| `train_g08.sh` | G08 | near_last3_prev | `23,24,25` | `31,32,33` | 0.1 | 0.1 | 0.6 |
 
 Run full train, multi-seed infer, format, and eval:
 

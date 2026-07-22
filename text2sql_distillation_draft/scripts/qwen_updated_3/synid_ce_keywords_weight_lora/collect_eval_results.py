@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect SynID keywords-weight alpha/beta grid eval logs into per-seed JSON summaries."""
+"""Collect SynID keywords-weight LoRA-data grid eval logs into per-seed JSON summaries."""
 
 from __future__ import annotations
 
@@ -12,14 +12,13 @@ from pathlib import Path
 from typing import Any
 
 
-KD_RATIO = 0.7
-SYNID_VALUES = [0.1, 0.2, 0.3, 0.4, 0.5]
+KD_RATIOS = [0.7]
+TARGET_KD_RATIOS = {0.7}
 LAYER_CONFIGS = [
     ("last1", 1, "27", "35"),
     ("last3", 3, "25,26,27", "33,34,35"),
 ]
-CONTRASTIVE_TAUS = [0.05, 0.01]
-DATA_TAG = "lora1090"
+DATA_TAG = "lora"
 DATA_DIR = "processed_data/benchmarks/spider_data/synid_privileged_lora/qwen"
 DEFAULT_BENCHMARKS = ["spider_data", "spider_syn", "spider_realistic", "spider_dk"]
 
@@ -30,13 +29,9 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         raise ValueError(f"invalid grid_id: {grid_id}")
     grid_num = int(match.group(1))
     index = grid_num - 1
-    grids_per_tau = len(SYNID_VALUES) * len(LAYER_CONFIGS)
-    if index < 0 or index >= grids_per_tau * len(CONTRASTIVE_TAUS):
+    if index < 0 or index >= len(LAYER_CONFIGS) * len(KD_RATIOS):
         raise ValueError(f"grid_id out of range: {grid_id}")
-    tau_index, base_index = divmod(index, grids_per_tau)
-    layer_index, value_index = divmod(base_index, len(SYNID_VALUES))
-    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[layer_index]
-    synid_value = SYNID_VALUES[value_index]
+    layer_name, k, student_layers, teacher_layers = LAYER_CONFIGS[index // len(KD_RATIOS)]
     return {
         "grid_id": grid_id,
         "data_tag": DATA_TAG,
@@ -45,10 +40,10 @@ def grid_config(grid_id: str) -> dict[str, Any]:
         "layer_config": layer_name,
         "student_layers": student_layers,
         "teacher_layers": teacher_layers,
-        "alpha": synid_value,
-        "kd_ratio": KD_RATIO,
-        "beta": synid_value,
-        "contrastive_tau": CONTRASTIVE_TAUS[tau_index],
+        "alpha": 0.3,
+        "kd_ratio": KD_RATIOS[index % len(KD_RATIOS)],
+        "beta": 0.3,
+        "contrastive_tau": 0.05,
         "pooling": "sc",
         "pool_tau": 5.0,
         "use_syntax_weights": True,
@@ -170,6 +165,8 @@ def build_result(
     gold_path = formatted_dir / f"{run_name}.gold.sql"
 
     grid = grid_config(grid_id)
+    if grid["kd_ratio"] not in TARGET_KD_RATIOS:
+        return None
 
     result = {
         "grid": grid,
@@ -361,12 +358,12 @@ def main() -> int:
     parser.add_argument(
         "--infer-output-root",
         type=Path,
-        default=Path("results/infer/synid_ce_keywords_weight_lora/qwen"),
+        default=Path("results/infer/synid_ce_keywords_weight_lora/qwen_updated_3"),
     )
     parser.add_argument(
         "--eval-output-root",
         type=Path,
-        default=Path("results/eval/synid_ce_keywords_weight_lora/qwen"),
+        default=Path("results/eval/synid_ce_keywords_weight_lora/qwen_updated_3"),
     )
     parser.add_argument(
         "--required-benchmarks",
