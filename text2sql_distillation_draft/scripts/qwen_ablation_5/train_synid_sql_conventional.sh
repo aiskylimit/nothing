@@ -25,6 +25,7 @@ DISTRIBUTED_ARGS="--nproc_per_node ${GPUS_PER_NODE} \
 BASE_PATH="${BASE_PATH:-.}"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 SCRIPT_GROUP="$(basename "$(dirname "${BASH_SOURCE[0]}")")"
+GRID_ID="${GRID_ID:-manual}"
 
 DATA_DIR="${DATA_DIR:-orig_processed_data/benchmarks/spider_data/qwen}"
 
@@ -109,7 +110,7 @@ if [[ "${EVAL_GEN}" == "auto" ]]; then
 fi
 
 LAYER_TAG="sl${SYNID_STUDENT_LAYERS//,/_}-tl${SYNID_TEACHER_LAYERS//,/_}"
-RUN_TAG="conventional-train-e${EPOCHS}-bs${BATCH_SIZE}-lr${LR}-G${GRAD_ACC}-N${GPUS_PER_NODE}-NN${NNODES}-kd${KD_RATIO}-${SYNID_KD_LOSS}-tau${SYNID_CONTRASTIVE_TAU}-a${SYNID_ALPHA}-b${SYNID_BETA}-${SYNID_LAYER_CONFIG}-${LAYER_TAG}-pool${SYNID_POOLING}-keywords-lambda${SYNID_SYNTAX_LAMBDA}-same-teacher-input-lora-${PEFT_LORA_R}-${PEFT_LORA_ALPHA}-${PEFT_LORA_DROPOUT}"
+RUN_TAG="${GRID_ID}-conventional-train-e${EPOCHS}-bs${BATCH_SIZE}-lr${LR}-G${GRAD_ACC}-N${GPUS_PER_NODE}-NN${NNODES}-kd${KD_RATIO}-${SYNID_KD_LOSS}-tau${SYNID_CONTRASTIVE_TAU}-a${SYNID_ALPHA}-b${SYNID_BETA}-${SYNID_LAYER_CONFIG}-${LAYER_TAG}-pool${SYNID_POOLING}-keywords-lambda${SYNID_SYNTAX_LAMBDA}-same-teacher-input-lora-${PEFT_LORA_R}-${PEFT_LORA_ALPHA}-${PEFT_LORA_DROPOUT}"
 SAVE_TAG="${SAVE_TAG:-${SCRIPT_GROUP}_${SCRIPT_NAME}_spider_${KD_TYPE}_${RUN_TAG}}"
 SAVE_PATH="${SAVE_PATH:-${BASE_PATH}/results/qwen3/${SAVE_TAG}}"
 SEED="${SEED:-42}"
@@ -191,6 +192,8 @@ CMD="torchrun ${DISTRIBUTED_ARGS} ${BASE_PATH}/finetuning/synid_sql_finetune.py 
 echo "${CMD}"
 echo "PYTHONPATH=${PYTHONPATH}"
 echo "Qwen ablation 5: SynID-SQL conventional training flow"
+echo "Grid:"
+echo "  grid id: ${GRID_ID}"
 echo "Dataset:"
 echo "  data dir: ${DATA_DIR}"
 echo "  eval gen: ${EVAL_GEN}"

@@ -16,14 +16,20 @@ for arg in "$@"; do
   fi
 done
 
-ABLATION_SET="${ABLATION_SET:-synid_sql}"
+ABLATION_SET="${ABLATION_SET:-g1,g2,g3}"
 INFER_OUTPUT_ROOT_BASE="${INFER_OUTPUT_ROOT:-results/infer/qwen_ablation_5}"
 EVAL_OUTPUT_ROOT_BASE="${EVAL_OUTPUT_ROOT:-results/eval/qwen_ablation_5}"
 
 canonical_variant() {
   case "$1" in
-    synid_sql|synid)
-      echo "synid_sql"
+    g1|g01)
+      echo "g1"
+      ;;
+    g2|g02)
+      echo "g2"
+      ;;
+    g3|g03|synid_sql|synid)
+      echo "g3"
       ;;
     *)
       echo "$1"

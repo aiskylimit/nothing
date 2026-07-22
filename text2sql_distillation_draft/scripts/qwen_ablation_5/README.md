@@ -19,7 +19,13 @@ This ablation intentionally does not prepare or copy generated/privileged
 training data. If `SYNID_USE_PRIVILEGED_TEACHER_INPUT=true` is passed, the train
 script requires `teacher_train_0.bin/.idx` to exist in the same data directory.
 
-Train:
+Grid settings:
+
+- `g1`: `SYNID_ALPHA=0.1`, `SYNID_BETA=0.1`
+- `g2`: `SYNID_ALPHA=0.2`, `SYNID_BETA=0.2`
+- `g3`: `SYNID_ALPHA=0.3`, `SYNID_BETA=0.3`
+
+Train all grids:
 
 ```bash
 bash scripts/qwen_ablation_5/run_all.sh
@@ -29,6 +35,12 @@ Train + infer + format/eval:
 
 ```bash
 bash scripts/qwen_ablation_5/run_full_pipeline.sh
+```
+
+Run one grid:
+
+```bash
+ABLATION_SET=g1 bash scripts/qwen_ablation_5/run_all.sh
 ```
 
 Dry-run:
@@ -44,7 +56,7 @@ Main setting:
 - teacher LoRA: `hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090`
 - KD ratio: `0.7`
 - SynID KD loss: `csd`
-- SynID alpha/beta: `0.3/0.3`
+- SynID alpha/beta: `0.1/0.1`, `0.2/0.2`, `0.3/0.3`
 - SynID contrastive tau: `0.05`
 - SynID pooling: `sc`
 - SynID syntax weights: `true`

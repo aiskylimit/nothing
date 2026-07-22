@@ -22,7 +22,7 @@ INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-100}"
 INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/qwen_ablation_5}"
 INFER_FLUSH_EVERY="${INFER_FLUSH_EVERY:-100}"
 INFER_CHECKPOINT_METRIC="${INFER_CHECKPOINT_METRIC:-exact_match}"
-ABLATION_SET="${ABLATION_SET:-synid_sql}"
+ABLATION_SET="${ABLATION_SET:-g1,g2,g3}"
 
 export INFER_SEEDS
 export FORMAT_AFTER_INFER
@@ -30,12 +30,18 @@ export SKIP_EXISTING
 
 script_for_variant() {
   case "$1" in
-    synid_sql|synid)
-      echo "scripts/qwen_ablation_5/train_synid_sql_conventional.sh"
+    g1|g01)
+      echo "scripts/qwen_ablation_5/train_g01.sh"
+      ;;
+    g2|g02)
+      echo "scripts/qwen_ablation_5/train_g02.sh"
+      ;;
+    g3|g03|synid_sql|synid)
+      echo "scripts/qwen_ablation_5/train_g03.sh"
       ;;
     *)
       echo "Unknown ablation variant: $1" >&2
-      echo "Supported variants: synid_sql" >&2
+      echo "Supported variants: g1, g2, g3" >&2
       exit 2
       ;;
   esac
@@ -43,8 +49,14 @@ script_for_variant() {
 
 canonical_variant() {
   case "$1" in
-    synid_sql|synid)
-      echo "synid_sql"
+    g1|g01)
+      echo "g1"
+      ;;
+    g2|g02)
+      echo "g2"
+      ;;
+    g3|g03|synid_sql|synid)
+      echo "g3"
       ;;
     *)
       echo "$1"
