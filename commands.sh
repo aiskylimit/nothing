@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260722_113330/jobs/scripts__qwen_updated_3__synid_ce_keywords_weight_lora__train_g01.attempt1.log +a
+#2
 #sql-main
 #v1
 
@@ -31,8 +31,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd text2sql_distillation_draft
-mv results results_old
-bash ./project_commands_new.sh
+# mv results results_old
+# bash ./project_commands_new.sh
 # ls text2sql_distillation_draft/results/eval
 # source .venv/bin/activate
 # bash ./eval.sh
