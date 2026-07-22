@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/results/ark/ +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/ark/results/ +a
 #sql-main-log
 #v2
 
