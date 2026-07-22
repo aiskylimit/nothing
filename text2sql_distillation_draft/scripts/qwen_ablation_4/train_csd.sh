@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/qwen}"
+DATA_DIR="${DATA_DIR:-orig_processed_data/benchmarks/spider_data/qwen}"
 SAVE_TAG="${SAVE_TAG:-qwen_ablation_4_csd}"
 EPOCHS="${EPOCHS:-1}"
 MAX_LENGTH="${MAX_LENGTH:-2048}"

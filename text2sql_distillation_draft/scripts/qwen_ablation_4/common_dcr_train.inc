@@ -28,7 +28,7 @@ DISTRIBUTED_ARGS="--nproc_per_node ${GPUS_PER_NODE} \
                   --master_port ${MASTER_PORT}"
 
 BASE_PATH="${BASE_PATH:-.}"
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/qwen}"
+DATA_DIR="${DATA_DIR:-orig_processed_data/benchmarks/spider_data/qwen}"
 
 CKPT_NAME="${CKPT_NAME:-qwen3-0.6B}"
 CKPT="${CKPT:-Qwen/Qwen3-0.6B}"
