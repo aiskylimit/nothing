@@ -1,4 +1,4 @@
-#1 +60
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260722_113330/jobs/scripts__qwen_updated_3__synid_ce_keywords_weight_lora__train_g01.attempt1.log +a
 #sql-main
 #v1
 
