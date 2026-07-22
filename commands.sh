@@ -1,4 +1,4 @@
-#2
+#1 +60
 #sql-main
 #v1
 
@@ -30,13 +30,13 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
+# cd text2sql_distillation_draft
 # bash ./project_commands_new.sh
 # ls text2sql_distillation_draft/results/infer -R
-source .venv/bin/activate
-bash ./eval.sh
+# source .venv/bin/activate
+# bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
 # bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
 
-# cd ark
-# bash ./project_commands.sh
+cd ark
+bash ./project_commands.sh
