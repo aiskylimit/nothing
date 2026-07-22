@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_no_keywords_weight_lora_218/qwen_updated/collect/ +a
+#1 +60
 #sql-main
 #v1
 
@@ -30,8 +30,9 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
-# bash ./project_commands_new.sh
+cd text2sql_distillation_draft
+mv results results_old
+bash ./project_commands_new.sh
 # ls text2sql_distillation_draft/results/eval
 # source .venv/bin/activate
 # bash ./eval.sh
