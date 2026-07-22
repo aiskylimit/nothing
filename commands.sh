@@ -1,9 +1,9 @@
-#1 +60
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_keywords_weight_lora_436/qwen_updated/collect/ +a
 #sql-main
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260721_083929/jobs/ +a
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_multilayer_3/qwen/collect/ +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_keywords_weight_lora_436/qwen_updated/collect/ +a
 # nvidia-smi
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
@@ -32,7 +32,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 # cd text2sql_distillation_draft
 # bash ./project_commands_new.sh
-ls text2sql_distillation_draft/results/eval
+# ls text2sql_distillation_draft/results/eval
 # source .venv/bin/activate
 # bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
