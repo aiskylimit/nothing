@@ -19,6 +19,7 @@ export INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-128}"
 
 ABLATION_1_GPU_LIST="${ABLATION_1_GPU_LIST:-0}"
 ABLATION_2_GPU_LIST="${ABLATION_2_GPU_LIST:-1}"
+ABLATION_3_GPU_LIST="${ABLATION_3_GPU_LIST:-2}"
 
 echo "[ablation] launching ablation 1 on GPU(s): ${ABLATION_1_GPU_LIST}"
 RUNNER_GPU_LIST="${ABLATION_1_GPU_LIST}" bash scripts/qwen_ablation_1/run_full_pipeline.sh &
@@ -28,6 +29,10 @@ echo "[ablation] launching ablation 2 on GPU(s): ${ABLATION_2_GPU_LIST}"
 RUNNER_GPU_LIST="${ABLATION_2_GPU_LIST}" bash scripts/qwen_ablation_2/run_full_pipeline.sh &
 ABLATION_2_PID="$!"
 
+echo "[ablation] launching ablation 3 on GPU(s): ${ABLATION_3_GPU_LIST}"
+RUNNER_GPU_LIST="${ABLATION_3_GPU_LIST}" bash scripts/qwen_ablation_3/run_full_pipeline.sh &
+ABLATION_3_PID="$!"
+
 STATUS=0
 if ! wait "${ABLATION_1_PID}"; then
   echo "[ablation] ablation 1 failed" >&2
@@ -35,6 +40,10 @@ if ! wait "${ABLATION_1_PID}"; then
 fi
 if ! wait "${ABLATION_2_PID}"; then
   echo "[ablation] ablation 2 failed" >&2
+  STATUS=1
+fi
+if ! wait "${ABLATION_3_PID}"; then
+  echo "[ablation] ablation 3 failed" >&2
   STATUS=1
 fi
 
