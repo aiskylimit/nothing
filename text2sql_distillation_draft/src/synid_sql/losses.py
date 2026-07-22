@@ -584,8 +584,9 @@ def synid_loss(
     con2_losses = []
     num_hidden_layers = len(student_hidden_layers)
     for layer_idx, (student_hidden, teacher_hidden) in enumerate(zip(student_hidden_layers, teacher_hidden_layers)):
-        # Teacher response is the positive solution representation. In phase 1 it is
-        # from the same prompt as the student; later it can come from privileged input.
+        # Teacher response is the default positive solution representation. In
+        # the prompt-vs-student-response ablation, con1 uses the student's own
+        # response representation instead and con2 is disabled below.
         teacher_response_embedding = _pool_hidden(
             teacher_hidden,
             teacher_batch["input_ids"],
@@ -635,15 +636,21 @@ def synid_loss(
         )
         student_prompt_embedding = _project_if_needed(student_prompt_embedding, prompt_projector)
         student_response_embedding = _project_if_needed(student_response_embedding, response_projector)
+        if args.synid_con1_positive_source == "teacher_response":
+            con1_positive_embedding = teacher_response_embedding
+        elif args.synid_con1_positive_source == "student_response":
+            con1_positive_embedding = student_response_embedding
+        else:
+            raise ValueError(f"Unsupported SynID con1 positive source: {args.synid_con1_positive_source}")
 
         con1_losses.append(
             _zero_like(kd_loss)
             if not args.synid_use_con1
-            else _info_nce(student_prompt_embedding, teacher_response_embedding, args.synid_contrastive_tau)
+            else _info_nce(student_prompt_embedding, con1_positive_embedding, args.synid_contrastive_tau)
         )
         con2_losses.append(
             _zero_like(kd_loss)
-            if not args.synid_use_con2
+            if not args.synid_use_con2 or args.synid_con1_positive_source == "student_response"
             else _info_nce(student_response_embedding, teacher_response_embedding, args.synid_contrastive_tau)
         )
 

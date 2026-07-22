@@ -249,6 +249,13 @@ def add_synid_sql_args(parser: argparse.ArgumentParser):
     group.add_argument("--synid-use-con1", type=str2bool, default=True)
     group.add_argument("--synid-use-con2", type=str2bool, default=True)
     group.add_argument(
+        "--synid-con1-positive-source",
+        type=str,
+        default="teacher_response",
+        choices=["teacher_response", "student_response"],
+        help="Positive embedding source for l_con1. student_response mode disables l_con2.",
+    )
+    group.add_argument(
         "--synid-use-privileged-teacher-input",
         type=str2bool,
         default=True,
