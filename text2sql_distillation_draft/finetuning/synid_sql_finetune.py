@@ -42,7 +42,7 @@ from arguments import get_args
 
 from data_utils.lm_datasets import LMTrainDataset
 from utils import get_optimizer_params, get_optimizer_params_peft, print_args, initialize
-from utils import print_rank, get_rank
+from utils import print_rank, get_rank, OverheadTracker
 from utils import save_rank
 from utils import all_gather
 from utils import get_tokenizer, get_model, resolve_hf_path
@@ -417,8 +417,16 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             f"got {args.synid_projector_warmup_epochs}."
         )
     
+    overhead_tracker = OverheadTracker(
+        enabled=args.log_overhead_metrics,
+        method_name=args.overhead_method_name or args.type,
+        save_path=args.save,
+        device=device,
+    )
+
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
+        overhead_tracker.start_epoch(epoch)
 
         model.train()
         detach_student_contrastive = teacher_model is not None and epoch < args.synid_projector_warmup_epochs
@@ -576,6 +584,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
 
             total_loss += global_loss
             total_time += elapsed_time
+            overhead_tracker.record_step(elapsed_time)
 
             # Logging
             def get_log(log_loss, log_ce_loss, log_distil_loss, log_con1_loss, log_con2_loss, log_time):
@@ -649,6 +658,8 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             
             if global_step > args.total_iters:
                 break
+
+        overhead_tracker.finish_epoch(epoch)
             
     if student_hidden_capture is not None:
         student_hidden_capture.close()

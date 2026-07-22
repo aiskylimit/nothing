@@ -1,0 +1,12 @@
+#! /usr/bin/env bash
+
+BATCH_SIZE="${BATCH_SIZE:-2}"
+GRAD_ACC="${GRAD_ACC:-8}"
+TRAIN_TYPE="${TRAIN_TYPE:-csd}"
+SYNID_KD_LOSS="${SYNID_KD_LOSS:-csd}"
+OVERHEAD_METHOD_NAME="${OVERHEAD_METHOD_NAME:-csd_dcr}"
+SAVE_TAG="${SAVE_TAG:-qwen_ablation_4_csd_dcr}"
+
+export BATCH_SIZE GRAD_ACC TRAIN_TYPE SYNID_KD_LOSS OVERHEAD_METHOD_NAME SAVE_TAG
+
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common_dcr_train.inc"
