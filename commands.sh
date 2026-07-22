@@ -1,6 +1,6 @@
-#1 +10
-#sql-main-log
-#v2
+#1 +30
+#sql-main
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260721_083929/jobs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_multilayer_3/qwen/collect/ +a
@@ -30,8 +30,9 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
-# bash ./project_commands.sh
+cd text2sql_distillation_draft
+bash ./eval.sh
+# bash ./project_commands_new.sh
 # ls text2sql_distillation_draft/results/infer -R
 # source .venv/bin/activate
 # python -c "import nltk; nltk.download('punkt_tab')"
