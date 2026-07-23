@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import sys
 from pathlib import Path
 
@@ -46,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execution-timeout", type=float, default=30.0)
     parser.add_argument("--no-refine-empty-result", action="store_true")
     parser.add_argument("--value-examples", type=int, default=5)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--max-new-tokens",
         default="auto",
@@ -55,6 +57,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--top-k", type=int, default=0)
     return parser.parse_args()
+
+
+def set_seed(seed: int | None) -> None:
+    if seed is None:
+        return
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    try:
+        import numpy as np
+
+        np.random.seed(seed)
+    except Exception:
+        pass
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except Exception:
+        pass
+    try:
+        from transformers import set_seed as transformers_set_seed
+
+        transformers_set_seed(seed)
+    except Exception:
+        pass
 
 
 def resolve_max_new_tokens(value: str, benchmark: str, split: str) -> int:
@@ -107,6 +136,7 @@ def build_registry(args: argparse.Namespace):
 
 def main() -> None:
     args = parse_args()
+    set_seed(args.seed)
     from src.macsql.agents import DecomposerAgent, GenerationConfig, RefinerAgent, SelectorAgent
     from src.macsql.prompts import load_prompt_set
     from src.macsql.runner import MacSqlConfig, MacSqlPipeline, run_pipeline

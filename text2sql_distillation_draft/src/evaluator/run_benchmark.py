@@ -18,17 +18,17 @@ BENCHMARKS = {
     "spider_syn_test": {
         "gold": None,
         "db": "benchmarks/spider_data/database",
-        "table": "benchmarks_2/spider_data/tables.json",
+        "table": "benchmarks/spider_data/tables.json",
     },
     "spider_realistic_test": {
         "gold": None,
         "db": "benchmarks/spider_data/database",
-        "table": "benchmarks_2/spider_data/tables.json",
+        "table": "benchmarks/spider_data/tables.json",
     },
     "spider_dk_test": {
         "gold": None,
         "db": "benchmarks/spider_dk/database",
-        "table": "benchmarks_2/spider_dk/tables.json",
+        "table": "benchmarks/spider_dk/tables.json",
     },
     "bird_dev": {
         "gold": "benchmarks_2/bird/dev/dev.sql",

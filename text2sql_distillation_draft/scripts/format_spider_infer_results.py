@@ -27,14 +27,13 @@ FIELD_ALIASES = {
     "pred_sql": ("pred_sql", "prediction", "pred", "sql"),
 }
 BENCHMARK_SPLIT_FILES = {
-    ("spider_data", "train"): Path("benchmarks_2/spider_data/train_spider.json"),
-    ("spider_data", "dev"): Path("benchmarks_2/spider_data/dev.json"),
-    ("spider_data", "test"): Path("benchmarks_2/spider_data/test.json"),
-    ("spider_dk", "test"): Path("benchmarks_2/spider_dk/test.json"),
-    ("spider_realistic", "test"): Path("benchmarks_2/spider_realistic/test.json"),
-    ("spider_syn", "train"): Path("benchmarks_2/spider_syn/train_spider.json"),
-    ("spider_syn", "test"): Path("benchmarks_2/spider_syn/test.json"),
-    ("bird", "dev"): Path("benchmarks_2/bird/dev/dev.json"),
+    ("spider_data", "train"): Path("benchmarks/spider_data/train_spider.json"),
+    ("spider_data", "dev"): Path("benchmarks/spider_data/dev.json"),
+    ("spider_data", "test"): Path("benchmarks/spider_data/test.json"),
+    ("spider_dk", "test"): Path("benchmarks/spider_dk/test.json"),
+    ("spider_realistic", "test"): Path("benchmarks/spider_realistic/test.json"),
+    ("spider_syn", "train"): Path("benchmarks/spider_syn/train_spider.json"),
+    ("spider_syn", "test"): Path("benchmarks/spider_syn/test.json"),
 }
 
 
