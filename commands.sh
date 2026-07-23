@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/qwen_ablation_3/ +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/qwen_ablation_1/ +a
 #sql-main
 #v2
 
