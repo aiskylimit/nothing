@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/qwen_ablation_1/ +a
+#1 +10
 #sql-main
 #v2
 
@@ -32,7 +32,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 # cd text2sql_distillation_draft
 # bash ./project_commands_new.sh
-ls text2sql_distillation_draft/results/eval -R
+ls text2sql_distillation_draft/results/infer
 # source .venv/bin/activate
 # bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
