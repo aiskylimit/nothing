@@ -29,4 +29,5 @@ bash scripts/kd_2/distillm/train_0.6b_4b.sh \
   --overhead-method-name distillm \
   --epochs "${EPOCHS}" \
   --eval-batch-size "${EVAL_BATCH_SIZE}" \
+  --eval-interval 0 \
   "$@"

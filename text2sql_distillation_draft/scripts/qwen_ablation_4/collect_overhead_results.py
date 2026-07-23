@@ -31,8 +31,7 @@ def summarize(rows: list[dict], last_epoch_only: bool) -> dict | None:
     if not rows:
         return None
     if last_epoch_only:
-        max_epoch = max(int(row["epoch"]) for row in rows)
-        rows = [row for row in rows if int(row["epoch"]) == max_epoch]
+        rows = [rows[-1]]
     return {
         "epochs": [int(row["epoch"]) for row in rows],
         "time_step_s": mean(step_time(row) for row in rows),

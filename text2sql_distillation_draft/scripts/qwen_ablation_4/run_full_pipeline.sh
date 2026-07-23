@@ -16,6 +16,6 @@ for arg in "$@"; do
   fi
 done
 
-python scripts/qwen_ablation_4/collect_overhead_results.py
+python scripts/qwen_ablation_4/collect_overhead_results.py --last-epoch-only
 
 echo "[pipeline-done]"
