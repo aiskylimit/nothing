@@ -30,7 +30,7 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
+cd text2sql_distillation_draft/results
 # bash ./project_commands_new.sh
 # ls text2sql_distillation_draft/results/eval -R
 zip -r eval_infer.zip eval infer
