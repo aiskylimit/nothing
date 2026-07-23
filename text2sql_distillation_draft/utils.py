@@ -61,23 +61,98 @@ class OverheadTracker:
         self.alloc_count = 0
         self.step_count = 0
         self.peak_alloc_gb = 0.0
+        self.step_time = 0.0
+        self.step_alloc_sum_gb = 0.0
+        self.step_alloc_count = 0
+        self.step_peak_alloc_gb = 0.0
 
     def start_epoch(self, epoch):
         if not self.enabled:
             return
+        if int(epoch) == 0 and self.save_path:
+            if not dist.is_initialized() or dist.get_rank() == 0:
+                os.makedirs(self.save_path, exist_ok=True)
+                open(os.path.join(self.save_path, "overhead_metrics.jsonl"), "w").close()
+            if dist.is_initialized():
+                dist.barrier()
         self.epoch_time = 0.0
         self.alloc_sum_gb = 0.0
         self.alloc_count = 0
         self.step_count = 0
         self.peak_alloc_gb = 0.0
+        self._reset_step_stats()
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats(self.device)
             torch.cuda.synchronize()
 
-    def record_step(self, elapsed_time, is_optimizer_step=True):
+    def _reset_step_stats(self):
+        self.step_time = 0.0
+        self.step_alloc_sum_gb = 0.0
+        self.step_alloc_count = 0
+        self.step_peak_alloc_gb = 0.0
+
+    def _metric_device(self):
+        if torch.cuda.is_available():
+            return torch.device("cuda", self.device) if isinstance(self.device, int) else self.device
+        return torch.device("cpu")
+
+    def _write_record(self, record, prefix):
+        log_line = (
+            "{prefix} | method: {method} | epoch: {epoch} | time_step_s: {time_step_s:.3f} "
+            "| num_steps: {num_steps} "
+            "| avg_alloc_gb: {avg_alloc_gb:.3f} | peak_alloc_gb: {peak_alloc_gb:.3f}"
+        ).format(prefix=prefix, **record)
+        print_rank(log_line)
+        if self.save_path:
+            os.makedirs(self.save_path, exist_ok=True)
+            save_rank(log_line, os.path.join(self.save_path, "log.txt"))
+            save_rank(json.dumps(record, sort_keys=True), os.path.join(self.save_path, "overhead_metrics.jsonl"))
+
+    def _distributed_step_record(self, epoch):
+        stats = torch.tensor(
+            [
+                self.step_time,
+                self.step_alloc_sum_gb,
+                float(self.step_alloc_count),
+                self.step_peak_alloc_gb,
+            ],
+            dtype=torch.float64,
+            device=self._metric_device(),
+        )
+        if dist.is_initialized():
+            time_value = stats[0].clone()
+            alloc_values = stats[1:3].clone()
+            peak_value = stats[3].clone()
+            dist.all_reduce(time_value, op=dist.ReduceOp.MAX)
+            dist.all_reduce(alloc_values, op=dist.ReduceOp.SUM)
+            dist.all_reduce(peak_value, op=dist.ReduceOp.MAX)
+            time_step_s = float(time_value.item())
+            alloc_sum_gb = float(alloc_values[0].item())
+            alloc_count = int(alloc_values[1].item())
+            peak_alloc_gb = float(peak_value.item())
+        else:
+            time_step_s = self.step_time
+            alloc_sum_gb = self.step_alloc_sum_gb
+            alloc_count = self.step_alloc_count
+            peak_alloc_gb = self.step_peak_alloc_gb
+
+        return {
+            "scope": "step",
+            "method": self.method_name,
+            "epoch": int(epoch),
+            "step": self.step_count,
+            "time_step_s": time_step_s,
+            "avg_alloc_gb": alloc_sum_gb / alloc_count if alloc_count > 0 else 0.0,
+            "peak_alloc_gb": peak_alloc_gb,
+            "num_steps": 1,
+            "num_memory_samples": alloc_count,
+        }
+
+    def record_step(self, elapsed_time, is_optimizer_step=True, epoch=None):
         if not self.enabled:
             return
         self.epoch_time += float(elapsed_time)
+        self.step_time += float(elapsed_time)
         if torch.cuda.is_available():
             allocated_gb = torch.cuda.memory_allocated(self.device) / (1024 ** 3)
             peak_gb = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)
@@ -86,18 +161,26 @@ class OverheadTracker:
             peak_gb = 0.0
         self.alloc_sum_gb += float(allocated_gb)
         self.alloc_count += 1
+        self.step_alloc_sum_gb += float(allocated_gb)
+        self.step_alloc_count += 1
+        self.step_peak_alloc_gb = max(self.step_peak_alloc_gb, float(peak_gb))
         if is_optimizer_step:
             self.step_count += 1
         self.peak_alloc_gb = max(self.peak_alloc_gb, float(peak_gb))
+        if is_optimizer_step:
+            if epoch is not None:
+                self._write_record(self._distributed_step_record(epoch), "overhead_step")
+            self._reset_step_stats()
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats(self.device)
+
+    def num_optimizer_steps(self):
+        return self.step_count
 
     def finish_epoch(self, epoch):
         if not self.enabled:
             return None
 
-        if torch.cuda.is_available():
-            device = torch.device("cuda", self.device) if isinstance(self.device, int) else self.device
-        else:
-            device = torch.device("cpu")
         stats = torch.tensor(
             [
                 self.epoch_time,
@@ -107,7 +190,7 @@ class OverheadTracker:
                 float(self.step_count),
             ],
             dtype=torch.float64,
-            device=device,
+            device=self._metric_device(),
         )
         if dist.is_initialized():
             time_value = stats[0].clone()
@@ -133,6 +216,7 @@ class OverheadTracker:
         avg_alloc_gb = alloc_sum_gb / alloc_count if alloc_count > 0 else 0.0
         time_step_s = time_epoch_s / step_count if step_count > 0 else 0.0
         record = {
+            "scope": "summary",
             "method": self.method_name,
             "epoch": int(epoch),
             "time_epoch_s": time_epoch_s,
@@ -142,16 +226,7 @@ class OverheadTracker:
             "num_steps": step_count,
             "num_memory_samples": alloc_count,
         }
-        log_line = (
-            "overhead | method: {method} | epoch: {epoch} | time_step_s: {time_step_s:.3f} "
-            "| num_steps: {num_steps} "
-            "| avg_alloc_gb: {avg_alloc_gb:.3f} | peak_alloc_gb: {peak_alloc_gb:.3f}"
-        ).format(**record)
-        print_rank(log_line)
-        if self.save_path:
-            os.makedirs(self.save_path, exist_ok=True)
-            save_rank(log_line, os.path.join(self.save_path, "log.txt"))
-            save_rank(json.dumps(record, sort_keys=True), os.path.join(self.save_path, "overhead_metrics.jsonl"))
+        self._write_record(record, "overhead")
         return record
 
 

@@ -335,6 +335,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
         device=device,
     )
 
+    stop_training = False
     for epoch in range(args.epochs):
         sampler.set_epoch(epoch)
         overhead_tracker.start_epoch(epoch)
@@ -429,9 +430,11 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
 
             total_loss += global_loss
             total_time += elapsed_time
+            is_optimizer_step = step % args.gradient_accumulation_steps == 0
             overhead_tracker.record_step(
                 elapsed_time,
-                is_optimizer_step=(step % args.gradient_accumulation_steps == 0),
+                is_optimizer_step=is_optimizer_step,
+                epoch=epoch,
             )
 
             # Logging
@@ -498,10 +501,22 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
             if step % args.gradient_accumulation_steps == 0:
                 global_step += 1
             
+            if (
+                args.log_overhead_metrics
+                and args.overhead_max_steps > 0
+                and is_optimizer_step
+                and overhead_tracker.num_optimizer_steps() >= args.overhead_max_steps
+            ):
+                print_rank(f"overhead max steps reached: {args.overhead_max_steps}")
+                stop_training = True
+                break
+
             if global_step > args.total_iters:
                 break
 
         overhead_tracker.finish_epoch(epoch)
+        if stop_training:
+            break
 
     return model
 

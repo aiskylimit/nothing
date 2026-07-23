@@ -30,6 +30,16 @@ def read_jsonl(path: Path) -> list[dict]:
 def summarize(rows: list[dict], last_epoch_only: bool) -> dict | None:
     if not rows:
         return None
+    step_rows = [row for row in rows if row.get("scope") == "step"]
+    if step_rows:
+        return {
+            "steps": [int(row["step"]) for row in step_rows],
+            "num_step_records": len(step_rows),
+            "time_step_s": mean(step_time(row) for row in step_rows),
+            "avg_alloc_gb": mean(float(row["avg_alloc_gb"]) for row in step_rows),
+            "peak_alloc_gb": mean(float(row["peak_alloc_gb"]) for row in step_rows),
+            "max_peak_alloc_gb": max(float(row["peak_alloc_gb"]) for row in step_rows),
+        }
     if last_epoch_only:
         rows = [rows[-1]]
     return {
