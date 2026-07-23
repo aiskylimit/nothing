@@ -1,4 +1,4 @@
-#1 +60
+#2 -f-/home/ubuntu/aiskylimit_nothing/run_logs/llama_synid_sql/20260723_140017/jobs/ +a
 #sql-main
 #v1
 
