@@ -28,6 +28,7 @@ class MacSqlConfig:
     execution_timeout: float = 30.0
     refine_empty_result: bool = True
     value_examples: int = 5
+    agent_batch_size: int = 1
 
 
 class MacSqlPipeline:
@@ -45,39 +46,81 @@ class MacSqlPipeline:
         self.config = config
 
     def run_record(self, record: MacSqlRecord) -> dict[str, Any]:
-        row = record.row
-        selected_schema: dict[str, Any] | None = None
-        selector_raw = ""
-        schema_text = record.full_schema
-        fk_text = ""
-        schema_for_selector = record.full_schema
+        initial = self.generate_initial([record])[0]
+        return self.finish_record(record, initial)
 
-        if self.selector and estimate_tokens(schema_for_selector) > self.config.selector_threshold_tokens:
-            selected_schema, selector_raw = self.selector.select(
-                db_id=row["db_id"],
-                question=row["question"],
-                schema=schema_for_selector,
-            )
-            schema_text, fk_text = build_schema_strings(
-                record.schema_entry,
-                db_path=record.db_path,
-                selected_schema=selected_schema,
-                value_examples=self.config.value_examples,
-            )
-        else:
-            schema_text, fk_text = build_schema_strings(
-                record.schema_entry,
-                db_path=record.db_path,
-                selected_schema=None,
-                value_examples=self.config.value_examples,
-            )
+    def generate_initial(self, records: list[MacSqlRecord]) -> list[dict[str, Any]]:
+        initial_rows = [self._prepare_record(record) for record in records]
+        selector_items = [
+            (idx, item)
+            for idx, item in enumerate(initial_rows)
+            if self.selector and estimate_tokens(item["schema_for_selector"]) > self.config.selector_threshold_tokens
+        ]
+        if selector_items and self.selector is not None:
+            selector_batch = [
+                {
+                    "db_id": item["record"].row["db_id"],
+                    "question": item["record"].row["question"],
+                    "schema": item["schema_for_selector"],
+                }
+                for _, item in selector_items
+            ]
+            for (idx, item), (selected_schema, selector_raw) in zip(selector_items, self.selector.select_many(selector_batch)):
+                item["selected_schema"] = selected_schema
+                item["selector_raw"] = selector_raw
+                item["schema_text"], item["fk_text"] = build_schema_strings(
+                    item["record"].schema_entry,
+                    db_path=item["record"].db_path,
+                    selected_schema=selected_schema,
+                    value_examples=self.config.value_examples,
+                )
 
-        pred_sql_initial, decomposition, decomposer_raw = self.decomposer.decompose(
-            db_id=row["db_id"],
-            question=row["question"],
-            schema=schema_text,
-            fk_str=fk_text,
+        decomposer_batch = [
+            {
+                "db_id": item["record"].row["db_id"],
+                "question": item["record"].row["question"],
+                "schema": item["schema_text"],
+                "fk_str": item["fk_text"],
+            }
+            for item in initial_rows
+        ]
+        for item, (pred_sql_initial, decomposition, decomposer_raw) in zip(
+            initial_rows,
+            self.decomposer.decompose_many(decomposer_batch),
+        ):
+            item["pred_sql_initial"] = pred_sql_initial
+            item["decomposition"] = decomposition
+            item["decomposer_raw"] = decomposer_raw
+        return initial_rows
+
+    def _prepare_record(self, record: MacSqlRecord) -> dict[str, Any]:
+        schema_text, fk_text = build_schema_strings(
+            record.schema_entry,
+            db_path=record.db_path,
+            selected_schema=None,
+            value_examples=self.config.value_examples,
         )
+        return {
+            "record": record,
+            "selected_schema": None,
+            "selector_raw": "",
+            "schema_text": schema_text,
+            "fk_text": fk_text,
+            "schema_for_selector": record.full_schema,
+            "pred_sql_initial": "",
+            "decomposition": [],
+            "decomposer_raw": "",
+        }
+
+    def finish_record(self, record: MacSqlRecord, initial: dict[str, Any]) -> dict[str, Any]:
+        row = record.row
+        selected_schema = initial["selected_schema"]
+        selector_raw = initial["selector_raw"]
+        schema_text = initial["schema_text"]
+        fk_text = initial["fk_text"]
+        pred_sql_initial = initial["pred_sql_initial"]
+        decomposition = initial["decomposition"]
+        decomposer_raw = initial["decomposer_raw"]
         pred_sql = pred_sql_initial
         refine_rounds: list[dict[str, Any]] = []
         execution = self._execute(record, pred_sql)
@@ -194,22 +237,80 @@ def run_pipeline(
     flush_every: int | None,
 ) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
-    for index, record in enumerate(tqdm(records, desc="Running MAC-SQL"), start=1):
+    batch_size = max(1, int(pipeline.config.agent_batch_size))
+    total_batches = max(1, (len(records) + batch_size - 1) // batch_size)
+    success_count = 0
+    failed_count = 0
+    progress = tqdm(
+        total=len(records),
+        desc="Running MAC-SQL",
+        unit="record",
+        dynamic_ncols=True,
+        leave=True,
+    )
+    for start in range(0, len(records), batch_size):
+        batch = records[start : start + batch_size]
+        batch_index = start // batch_size + 1
+        progress.set_postfix(
+            {
+                "stage": "generate",
+                "batch": f"{batch_index}/{total_batches}",
+                "ok": success_count,
+                "fail": failed_count,
+            },
+            refresh=True,
+        )
+        initial_rows: list[dict[str, Any] | None]
         try:
-            result = pipeline.run_record(record)
+            initial_rows = pipeline.generate_initial(batch)
         except Exception as exc:
-            result = {
-                **record.row,
-                "pred_sql_initial": "",
-                "refine_rounds": [],
-                "pred_sql": None,
-                "execution": {"ok": False, "error": str(exc), "exception_class": exc.__class__.__name__},
-                "success": False,
-                "error": str(exc),
-            }
-        results.append(result)
-        if flush_every and index % flush_every == 0:
-            write_results(results, output_path)
+            initial_rows = [None] * len(batch)
+            batch_error = exc
+        else:
+            batch_error = None
+
+        for offset, record in enumerate(batch):
+            progress.set_postfix(
+                {
+                    "stage": "refine",
+                    "batch": f"{batch_index}/{total_batches}",
+                    "ok": success_count,
+                    "fail": failed_count,
+                },
+                refresh=True,
+            )
+            try:
+                if initial_rows[offset] is None:
+                    raise batch_error or RuntimeError("failed to generate initial SQL")
+                result = pipeline.finish_record(record, initial_rows[offset])
+            except Exception as exc:
+                result = {
+                    **record.row,
+                    "pred_sql_initial": "",
+                    "refine_rounds": [],
+                    "pred_sql": None,
+                    "execution": {"ok": False, "error": str(exc), "exception_class": exc.__class__.__name__},
+                    "success": False,
+                    "error": str(exc),
+                }
+            results.append(result)
+            if result.get("success"):
+                success_count += 1
+            else:
+                failed_count += 1
+            progress.update(1)
+            progress.set_postfix(
+                {
+                    "stage": "done",
+                    "batch": f"{batch_index}/{total_batches}",
+                    "ok": success_count,
+                    "fail": failed_count,
+                },
+                refresh=False,
+            )
+            if flush_every and len(results) % flush_every == 0:
+                write_results(results, output_path)
+    progress.close()
     write_results(results, output_path)
     return results
 

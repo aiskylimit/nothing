@@ -15,21 +15,27 @@ CSD_LORA="${CSD_LORA:-https://huggingface.co/distillation-sql/baselines/tree/mai
 SYNID_SQL_LORA="${SYNID_SQL_LORA:-https://huggingface.co/Dream-AI-HUST/synid_ckpt/tree/main/results/qwen3/synid_ce_keywords_weight_lora_218_train_g01_spider_synid_datalora218-e5-bs4-lr0.0001-G1-gridG01-k1-kd0.7-csd-tau0.05-a0.3-b0.3-k1_last_s27_t35-poolsc-keywords-lambda2.0-lora-16-64-0.1/4375}"
 
 BENCHMARKS="${BENCHMARKS:-spider_data,spider_syn,spider_realistic,spider_dk}"
+RUNS="${RUNS:-teacher_lora,student_sft,distillm,csd,synid_sql}"
 SPLIT="${SPLIT:-test}"
 DEVICE="${DEVICE:-cuda}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/macsql_agent}"
 PROMPT_DIR="${PROMPT_DIR:-prompts/macsql/default}"
-SELECTOR_MODEL="${SELECTOR_MODEL:-student}"
-DECOMPOSER_MODEL="${DECOMPOSER_MODEL:-teacher}"
-REFINER_MODEL="${REFINER_MODEL:-student}"
+TEACHER_SELECTOR_MODEL="${TEACHER_SELECTOR_MODEL:-teacher}"
+TEACHER_DECOMPOSER_MODEL="${TEACHER_DECOMPOSER_MODEL:-teacher}"
+TEACHER_REFINER_MODEL="${TEACHER_REFINER_MODEL:-teacher}"
+STUDENT_SELECTOR_MODEL="${STUDENT_SELECTOR_MODEL:-student}"
+STUDENT_DECOMPOSER_MODEL="${STUDENT_DECOMPOSER_MODEL:-student}"
+STUDENT_REFINER_MODEL="${STUDENT_REFINER_MODEL:-student}"
 MAX_REFINE_ROUNDS="${MAX_REFINE_ROUNDS:-3}"
 EXECUTION_TIMEOUT="${EXECUTION_TIMEOUT:-30}"
 VALUE_EXAMPLES="${VALUE_EXAMPLES:-5}"
+AGENT_BATCH_SIZE="${AGENT_BATCH_SIZE:-1}"
 FLUSH_EVERY="${FLUSH_EVERY:-20}"
 LIMIT="${LIMIT:-}"
 SEEDS="${SEEDS:-10,42,50,100,1234}"
 RUN_EVAL="${RUN_EVAL:-1}"
-UV_SYNC="${UV_SYNC:-0}"
+UV_SYNC="${UV_SYNC:-1}"
+SETUP_BENCHMARKS="${SETUP_BENCHMARKS:-1}"
 
 if [[ "${UV_SYNC}" == "1" ]]; then
   uv sync
@@ -39,6 +45,32 @@ if [[ -f ".venv/bin/activate" ]]; then
   # shellcheck disable=SC1091
   source .venv/bin/activate
 fi
+
+setup_benchmarks() {
+  if [[ "${SETUP_BENCHMARKS}" != "1" ]]; then
+    return
+  fi
+  if [[ -d "benchmarks/spider_data" && -d "benchmarks/spider_syn" && -d "benchmarks/spider_realistic" && -d "benchmarks/spider_dk" ]]; then
+    return
+  fi
+
+  # Download benchmark assets if the local benchmark folders are missing.
+  hf download Dream-AI-HUST/sql_benchmarks \
+    --repo-type dataset \
+    --local-dir .
+  unzip -o benchmarks.zip
+  unzip -o data.zip
+}
+
+setup_benchmarks
+
+python -c "import nltk; nltk.download('punkt_tab')"
+
+IFS=',' read -ra ALL_BENCHMARKS <<< "${BENCHMARKS}"
+IFS=',' read -ra ALL_SEEDS <<< "${SEEDS}"
+IFS=',' read -ra ALL_RUNS <<< "${RUNS}"
+TOTAL_JOBS=$((${#ALL_RUNS[@]} * ${#ALL_BENCHMARKS[@]} * ${#ALL_SEEDS[@]}))
+JOB_INDEX=0
 
 run_cmd() {
   echo "+ $*"
@@ -58,12 +90,27 @@ benchmark_eval_name() {
   esac
 }
 
+should_run_suite() {
+  local wanted="$1"
+  local item
+  for item in "${ALL_RUNS[@]}"; do
+    item="${item//[[:space:]]/}"
+    if [[ "${item}" == "${wanted}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 run_agent() {
   local run_name="$1"
   local student_sft="$2"
   local student_loras="$3"
   local benchmark="$4"
   local seed="$5"
+  local selector_model="$6"
+  local decomposer_model="$7"
+  local refiner_model="$8"
   local output_dir="${OUTPUT_ROOT}/${run_name}/${benchmark}/seed${seed}"
   local output_path="${output_dir}/${benchmark}_${SPLIT}_sql_result.json"
   local args=(
@@ -78,12 +125,13 @@ run_agent() {
     --student-base "${STUDENT_BASE}"
     --student-sft-ckpt "${student_sft}"
     --device "${DEVICE}"
-    --selector-model "${SELECTOR_MODEL}"
-    --decomposer-model "${DECOMPOSER_MODEL}"
-    --refiner-model "${REFINER_MODEL}"
+    --selector-model "${selector_model}"
+    --decomposer-model "${decomposer_model}"
+    --refiner-model "${refiner_model}"
     --max-refine-rounds "${MAX_REFINE_ROUNDS}"
     --execution-timeout "${EXECUTION_TIMEOUT}"
     --value-examples "${VALUE_EXAMPLES}"
+    --agent-batch-size "${AGENT_BATCH_SIZE}"
     --seed "${seed}"
   )
 
@@ -95,6 +143,8 @@ run_agent() {
   fi
 
   mkdir -p "${output_dir}"
+  JOB_INDEX=$((JOB_INDEX + 1))
+  echo "[agent-job ${JOB_INDEX}/${TOTAL_JOBS}] run=${run_name} benchmark=${benchmark} split=${SPLIT} seed=${seed} selector=${selector_model} decomposer=${decomposer_model} refiner=${refiner_model} batch=${AGENT_BATCH_SIZE}"
   run_cmd python "${args[@]}"
 }
 
@@ -129,6 +179,9 @@ run_suite() {
   local run_name="$1"
   local student_sft="$2"
   local student_loras="$3"
+  local selector_model="$4"
+  local decomposer_model="$5"
+  local refiner_model="$6"
   IFS=',' read -ra benchmark_list <<< "${BENCHMARKS}"
   IFS=',' read -ra seed_list <<< "${SEEDS}"
 
@@ -138,13 +191,24 @@ run_suite() {
       if [[ -z "${seed}" ]]; then
         continue
       fi
-      run_agent "${run_name}" "${student_sft}" "${student_loras}" "${benchmark}" "${seed}"
+      run_agent "${run_name}" "${student_sft}" "${student_loras}" "${benchmark}" "${seed}" "${selector_model}" "${decomposer_model}" "${refiner_model}"
       format_and_eval "${run_name}" "${benchmark}" "${seed}"
     done
   done
 }
 
-run_suite "student_sft" "${STUDENT_SFT}" ""
-run_suite "distillm" "${STUDENT_SFT}" "${DISTILLM_LORA}"
-run_suite "csd" "${STUDENT_SFT}" "${CSD_LORA}"
-run_suite "synid_sql" "${STUDENT_SFT}" "${SYNID_SQL_LORA}"
+if should_run_suite "teacher_lora"; then
+  run_suite "teacher_lora" "" "" "${TEACHER_SELECTOR_MODEL}" "${TEACHER_DECOMPOSER_MODEL}" "${TEACHER_REFINER_MODEL}"
+fi
+if should_run_suite "student_sft"; then
+  run_suite "student_sft" "${STUDENT_SFT}" "" "${STUDENT_SELECTOR_MODEL}" "${STUDENT_DECOMPOSER_MODEL}" "${STUDENT_REFINER_MODEL}"
+fi
+if should_run_suite "distillm"; then
+  run_suite "distillm" "${STUDENT_SFT}" "${DISTILLM_LORA}" "${STUDENT_SELECTOR_MODEL}" "${STUDENT_DECOMPOSER_MODEL}" "${STUDENT_REFINER_MODEL}"
+fi
+if should_run_suite "csd"; then
+  run_suite "csd" "${STUDENT_SFT}" "${CSD_LORA}" "${STUDENT_SELECTOR_MODEL}" "${STUDENT_DECOMPOSER_MODEL}" "${STUDENT_REFINER_MODEL}"
+fi
+if should_run_suite "synid_sql"; then
+  run_suite "synid_sql" "${STUDENT_SFT}" "${SYNID_SQL_LORA}" "${STUDENT_SELECTOR_MODEL}" "${STUDENT_DECOMPOSER_MODEL}" "${STUDENT_REFINER_MODEL}"
+fi

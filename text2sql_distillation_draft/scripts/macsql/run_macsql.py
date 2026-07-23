@@ -47,6 +47,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execution-timeout", type=float, default=30.0)
     parser.add_argument("--no-refine-empty-result", action="store_true")
     parser.add_argument("--value-examples", type=int, default=5)
+    parser.add_argument("--agent-batch-size", type=int, default=1)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--max-new-tokens",
@@ -198,6 +199,7 @@ def main() -> None:
             execution_timeout=args.execution_timeout,
             refine_empty_result=not args.no_refine_empty_result,
             value_examples=args.value_examples,
+            agent_batch_size=args.agent_batch_size,
         ),
     )
     results = run_pipeline(
