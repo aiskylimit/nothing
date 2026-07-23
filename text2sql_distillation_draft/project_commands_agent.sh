@@ -36,6 +36,10 @@ SEEDS="${SEEDS:-10,42,50,100,1234}"
 RUN_EVAL="${RUN_EVAL:-1}"
 UV_SYNC="${UV_SYNC:-1}"
 SETUP_BENCHMARKS="${SETUP_BENCHMARKS:-1}"
+UPLOAD_TO_HF="${UPLOAD_TO_HF:-1}"
+HF_UPLOAD_REPO_ID="${HF_UPLOAD_REPO_ID:-distillation-sql/nothing_agent}"
+HF_UPLOAD_REPO_TYPE="${HF_UPLOAD_REPO_TYPE:-model}"
+HF_UPLOAD_PATH_PREFIX="${HF_UPLOAD_PATH_PREFIX:-${OUTPUT_ROOT}}"
 
 if [[ "${UV_SYNC}" == "1" ]]; then
   uv sync
@@ -45,6 +49,15 @@ if [[ -f ".venv/bin/activate" ]]; then
   # shellcheck disable=SC1091
   source .venv/bin/activate
 fi
+
+setup_hf_auth() {
+  if [[ "${UPLOAD_TO_HF}" != "1" ]]; then
+    return
+  fi
+  if [[ -n "${HF_UPLOAD_TOKEN:-}" ]]; then
+    hf auth login --token "${HF_UPLOAD_TOKEN}"
+  fi
+}
 
 setup_benchmarks() {
   if [[ "${SETUP_BENCHMARKS}" != "1" ]]; then
@@ -62,6 +75,7 @@ setup_benchmarks() {
   unzip -o data.zip
 }
 
+setup_hf_auth
 setup_benchmarks
 
 python -c "import nltk; nltk.download('punkt_tab')"
@@ -175,6 +189,27 @@ format_and_eval() {
     --exec_timeout "${EXECUTION_TIMEOUT}"
 }
 
+upload_job_output() {
+  local run_name="$1"
+  local benchmark="$2"
+  local seed="$3"
+  local output_dir="${OUTPUT_ROOT}/${run_name}/${benchmark}/seed${seed}"
+  local repo_path="${HF_UPLOAD_PATH_PREFIX}/${run_name}/${benchmark}/seed${seed}"
+
+  if [[ "${UPLOAD_TO_HF}" != "1" ]]; then
+    return
+  fi
+  if [[ ! -d "${output_dir}" ]]; then
+    echo "[upload-skip] missing output_dir=${output_dir}"
+    return
+  fi
+
+  echo "[upload-start] local=${output_dir} repo=${HF_UPLOAD_REPO_ID}:${repo_path}"
+  run_cmd hf upload "${HF_UPLOAD_REPO_ID}" "${output_dir}" "${repo_path}" \
+    --repo-type "${HF_UPLOAD_REPO_TYPE}"
+  echo "[upload-done] local=${output_dir}"
+}
+
 run_suite() {
   local run_name="$1"
   local student_sft="$2"
@@ -193,6 +228,7 @@ run_suite() {
       fi
       run_agent "${run_name}" "${student_sft}" "${student_loras}" "${benchmark}" "${seed}" "${selector_model}" "${decomposer_model}" "${refiner_model}"
       format_and_eval "${run_name}" "${benchmark}" "${seed}"
+      upload_job_output "${run_name}" "${benchmark}" "${seed}"
     done
   done
 }
