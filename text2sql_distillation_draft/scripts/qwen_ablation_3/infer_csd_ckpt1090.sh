@@ -10,8 +10,8 @@ PYTHON_BIN="${PYTHON:-python}"
 INFER_SCRIPT="${INFER_SCRIPT:-scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/infer_multiseed.py}"
 
 MODEL_PATH="${MODEL_PATH:-Qwen/Qwen3-0.6B}"
-CKPT_STEP="${CKPT_STEP:-1090}"
-DEFAULT_CKPT_PATH="results/qwen3/qwen_ablation_3_train_csd_generated_lora218_spider_synid_generated-lora218-train-only-e5-bs8-lr0.0001-G4-N1-NN1-kd0.7-csd-tau0.05-a0.3-b0.3-k1_last_s27_t35-sl27-tl35-poolsc-keywords-lambda2.0-same-teacher-input-lora-16-64-0.1/${CKPT_STEP}"
+CKPT_STEP="${CKPT_STEP:-2185}"
+DEFAULT_CKPT_PATH="results/qwen3/qwen_ablation_3_csd_generated_lora218_train_only_spider/${CKPT_STEP}"
 
 RUN_GPUS="${RUN_GPUS:-0}"
 INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}"
