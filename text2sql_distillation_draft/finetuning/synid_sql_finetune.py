@@ -589,7 +589,10 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
 
             total_loss += global_loss
             total_time += elapsed_time
-            overhead_tracker.record_step(elapsed_time)
+            overhead_tracker.record_step(
+                elapsed_time,
+                is_optimizer_step=(step % args.gradient_accumulation_steps == 0),
+            )
 
             # Logging
             def get_log(log_loss, log_ce_loss, log_distil_loss, log_con1_loss, log_con2_loss, log_time):

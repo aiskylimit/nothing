@@ -74,7 +74,7 @@ class OverheadTracker:
             torch.cuda.reset_peak_memory_stats(self.device)
             torch.cuda.synchronize()
 
-    def record_step(self, elapsed_time):
+    def record_step(self, elapsed_time, is_optimizer_step=True):
         if not self.enabled:
             return
         self.epoch_time += float(elapsed_time)
@@ -86,7 +86,8 @@ class OverheadTracker:
             peak_gb = 0.0
         self.alloc_sum_gb += float(allocated_gb)
         self.alloc_count += 1
-        self.step_count += 1
+        if is_optimizer_step:
+            self.step_count += 1
         self.peak_alloc_gb = max(self.peak_alloc_gb, float(peak_gb))
 
     def finish_epoch(self, epoch):
