@@ -1,4 +1,4 @@
-#1 +10
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/infer_qwen_ablation_3.zip +a
 #sql-main
 #v1
 
@@ -36,8 +36,8 @@ cd text2sql_distillation_draft
 # source .venv/bin/activate
 # RUN_GPUS=0,1,2,3,4,5,6,7 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
 # RUN_GPUS=0,1,2,3,4,5,6,7 CKPT_STEP=874 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
-cd ./results
-zip -r infer_qwen_ablation_3.zip infer/qwen_ablation_3
+# cd ./results
+# zip -r infer_qwen_ablation_3.zip infer/qwen_ablation_3
 # zip -r eval_infer.zip eval infer
 # zip -r eval.zip eval
 # zip -r infer.zip infer
