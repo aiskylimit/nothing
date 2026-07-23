@@ -31,14 +31,25 @@ def summarize(rows: list[dict], last_epoch_only: bool) -> dict | None:
     if not rows:
         return None
     if last_epoch_only:
-        max_epoch = max(int(row["epoch"]) for row in rows)
-        rows = [row for row in rows if int(row["epoch"]) == max_epoch]
+        rows = [rows[-1]]
     return {
         "epochs": [int(row["epoch"]) for row in rows],
-        "time_epoch_s": mean(float(row["time_epoch_s"]) for row in rows),
+        "time_step_s": mean(step_time(row) for row in rows),
         "avg_alloc_gb": mean(float(row["avg_alloc_gb"]) for row in rows),
         "peak_alloc_gb": mean(float(row["peak_alloc_gb"]) for row in rows),
     }
+
+
+def step_time(row: dict) -> float:
+    if "time_step_s" in row:
+        return float(row["time_step_s"])
+    num_steps = int(row.get("num_steps", 0))
+    if num_steps <= 0:
+        raise ValueError(
+            "Cannot derive time/step from old overhead row without num_steps: "
+            f"{row}"
+        )
+    return float(row["time_epoch_s"]) / num_steps
 
 
 def fmt(value: float | None) -> str:
@@ -51,12 +62,12 @@ def make_table(results: dict[str, dict | None]) -> str:
     lines = []
     lines.append(r"\begin{tabular}{lccc}")
     lines.append(r"\toprule")
-    lines.append(r"\textbf{Method} & \textbf{Time/epoch} & \textbf{Avg. alloc.} & \textbf{Peak alloc.} \\")
+    lines.append(r"\textbf{Method} & \textbf{Time/step} & \textbf{Avg. alloc.} & \textbf{Peak alloc.} \\")
     lines.append(r"& (s) & (GB) & (GB) \\")
     lines.append(r"\midrule")
     for idx, (key, label, _) in enumerate(METHODS):
         summary = results.get(key)
-        time_value = fmt(None if summary is None else summary["time_epoch_s"])
+        time_value = fmt(None if summary is None else summary["time_step_s"])
         avg_value = fmt(None if summary is None else summary["avg_alloc_gb"])
         peak_value = fmt(None if summary is None else summary["peak_alloc_gb"])
         lines.append(f"{label} & {time_value} & {avg_value} & {peak_value} \\\\")

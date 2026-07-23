@@ -320,7 +320,12 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
     total_loss, total_distil_loss, total_time = 0.0, 0.0, 0.0
     
     adaptive_threshold = args.init_threshold if "adaptive" in args.type else -1.0
-    prev_avg_loss = evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device, adaptive_threshold)
+    run_train_eval = args.do_valid and not args.log_overhead_metrics
+    prev_avg_loss = (
+        evaluate(args, tokenizer, model, dataset["dev"], "dev", 0, device, adaptive_threshold)
+        if run_train_eval
+        else float("inf")
+    )
     replay_buffer = ReplayBuffer(args)
     
     overhead_tracker = OverheadTracker(
@@ -474,7 +479,7 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                 dist.barrier()
 
             # Evaluation
-            if args.eval_interval and global_step % args.eval_interval == 0 and step % args.gradient_accumulation_steps == 0:
+            if run_train_eval and args.eval_interval and global_step % args.eval_interval == 0 and step % args.gradient_accumulation_steps == 0:
                 curr_avg_loss = evaluate(args, tokenizer, model, dataset["dev"], "dev", epoch, device, adaptive_threshold)
                 if "adaptive" in args.type:
                     if curr_avg_loss >= prev_avg_loss + args.loss_eps:

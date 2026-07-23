@@ -59,6 +59,7 @@ class OverheadTracker:
         self.epoch_time = 0.0
         self.alloc_sum_gb = 0.0
         self.alloc_count = 0
+        self.step_count = 0
         self.peak_alloc_gb = 0.0
 
     def start_epoch(self, epoch):
@@ -67,6 +68,7 @@ class OverheadTracker:
         self.epoch_time = 0.0
         self.alloc_sum_gb = 0.0
         self.alloc_count = 0
+        self.step_count = 0
         self.peak_alloc_gb = 0.0
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats(self.device)
@@ -84,6 +86,7 @@ class OverheadTracker:
             peak_gb = 0.0
         self.alloc_sum_gb += float(allocated_gb)
         self.alloc_count += 1
+        self.step_count += 1
         self.peak_alloc_gb = max(self.peak_alloc_gb, float(peak_gb))
 
     def finish_epoch(self, epoch):
@@ -95,7 +98,13 @@ class OverheadTracker:
         else:
             device = torch.device("cpu")
         stats = torch.tensor(
-            [self.epoch_time, self.alloc_sum_gb, float(self.alloc_count), self.peak_alloc_gb],
+            [
+                self.epoch_time,
+                self.alloc_sum_gb,
+                float(self.alloc_count),
+                self.peak_alloc_gb,
+                float(self.step_count),
+            ],
             dtype=torch.float64,
             device=device,
         )
@@ -103,30 +112,38 @@ class OverheadTracker:
             time_value = stats[0].clone()
             alloc_values = stats[1:3].clone()
             peak_value = stats[3].clone()
+            step_value = stats[4].clone()
             dist.all_reduce(time_value, op=dist.ReduceOp.MAX)
             dist.all_reduce(alloc_values, op=dist.ReduceOp.SUM)
             dist.all_reduce(peak_value, op=dist.ReduceOp.MAX)
+            dist.all_reduce(step_value, op=dist.ReduceOp.MAX)
             time_epoch_s = float(time_value.item())
             alloc_sum_gb = float(alloc_values[0].item())
             alloc_count = int(alloc_values[1].item())
             peak_alloc_gb = float(peak_value.item())
+            step_count = int(step_value.item())
         else:
             time_epoch_s = self.epoch_time
             alloc_sum_gb = self.alloc_sum_gb
             alloc_count = self.alloc_count
             peak_alloc_gb = self.peak_alloc_gb
+            step_count = self.step_count
 
         avg_alloc_gb = alloc_sum_gb / alloc_count if alloc_count > 0 else 0.0
+        time_step_s = time_epoch_s / step_count if step_count > 0 else 0.0
         record = {
             "method": self.method_name,
             "epoch": int(epoch),
             "time_epoch_s": time_epoch_s,
+            "time_step_s": time_step_s,
             "avg_alloc_gb": avg_alloc_gb,
             "peak_alloc_gb": peak_alloc_gb,
+            "num_steps": step_count,
             "num_memory_samples": alloc_count,
         }
         log_line = (
-            "overhead | method: {method} | epoch: {epoch} | time_epoch_s: {time_epoch_s:.3f} "
+            "overhead | method: {method} | epoch: {epoch} | time_step_s: {time_step_s:.3f} "
+            "| num_steps: {num_steps} "
             "| avg_alloc_gb: {avg_alloc_gb:.3f} | peak_alloc_gb: {peak_alloc_gb:.3f}"
         ).format(**record)
         print_rank(log_line)
