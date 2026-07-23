@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draftresults/eval/ +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draftresults/results/eval/ +a
 #sql-main
 #v2
 
