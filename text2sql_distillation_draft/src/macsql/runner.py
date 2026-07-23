@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from tqdm.auto import tqdm
 
-from src.synid_sql.augmentation.execution import SqlExecutionError, execute_sql
-
 from .agents import DecomposerAgent, RefinerAgent, SelectorAgent
 from .schema import MacSqlRecord, build_schema_strings, estimate_tokens
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EVALUATOR_DIR = PROJECT_ROOT / "src" / "evaluator"
+if str(EVALUATOR_DIR) not in sys.path:
+    sys.path.insert(0, str(EVALUATOR_DIR))
+
+from exec_eval import exec_on_db, postprocess  # noqa: E402
 
 
 @dataclass
@@ -49,7 +56,6 @@ class MacSqlPipeline:
             selected_schema, selector_raw = self.selector.select(
                 db_id=row["db_id"],
                 question=row["question"],
-                evidence=row.get("evidence", ""),
                 schema=schema_for_selector,
             )
             schema_text, fk_text = build_schema_strings(
@@ -69,7 +75,6 @@ class MacSqlPipeline:
         pred_sql_initial, decomposition, decomposer_raw = self.decomposer.decompose(
             db_id=row["db_id"],
             question=row["question"],
-            evidence=row.get("evidence", ""),
             schema=schema_text,
             fk_str=fk_text,
         )
@@ -90,7 +95,6 @@ class MacSqlPipeline:
                 pred_sql, refiner_raw = self.refiner.refine(
                     db_id=row["db_id"],
                     question=row["question"],
-                    evidence=row.get("evidence", ""),
                     schema=schema_text,
                     fk_str=fk_text,
                     sql=old_sql,
@@ -110,7 +114,7 @@ class MacSqlPipeline:
                     }
                 )
 
-        success = bool(pred_sql)
+        success = bool(pred_sql) and bool(execution.get("ok"))
         return {
             **row,
             "schema": schema_text,
@@ -123,7 +127,7 @@ class MacSqlPipeline:
             "pred_sql": pred_sql,
             "execution": execution,
             "success": success,
-            "error": None if success else "empty final SQL",
+            "error": None if success else execution.get("error") or "empty final SQL",
         }
 
     def _execute(self, record: MacSqlRecord, sql: str) -> dict[str, Any]:
@@ -136,16 +140,50 @@ class MacSqlPipeline:
                 "exception_class": "FileNotFoundError",
                 "row_count": None,
             }
+        db_paths = sorted(path for path in record.db_path.parent.iterdir() if ".sqlite" in path.name)
+        if not db_paths:
+            db_paths = [record.db_path]
+        query = postprocess(sql)
+        timeout = max(1, int(self.config.execution_timeout))
+        row_count = None
         try:
-            rows = execute_sql(record.db_path, sql, timeout_s=self.config.execution_timeout)
-        except (SqlExecutionError, TimeoutError, OSError, ValueError) as exc:
+            for db_path in db_paths:
+                flag, payload = asyncio.run(
+                    exec_on_db(
+                        str(db_path),
+                        query,
+                        timeout=timeout,
+                    )
+                )
+                if flag == "exception":
+                    exception_class = payload.__name__ if isinstance(payload, type) else payload.__class__.__name__
+                    return {
+                        "ok": False,
+                        "error": f"{db_path.name}: {payload}",
+                        "exception_class": exception_class,
+                        "row_count": None,
+                        "checked_db_count": len(db_paths),
+                        "executor": "spider_exec_eval.exec_on_db",
+                    }
+                if row_count is None:
+                    row_count = len(payload)
+        except (TimeoutError, OSError, ValueError) as exc:
             return {
                 "ok": False,
                 "error": str(exc),
                 "exception_class": exc.__class__.__name__,
                 "row_count": None,
+                "checked_db_count": len(db_paths),
+                "executor": "spider_exec_eval.exec_on_db",
             }
-        return {"ok": True, "error": None, "exception_class": None, "row_count": len(rows)}
+        return {
+            "ok": True,
+            "error": None,
+            "exception_class": None,
+            "row_count": row_count or 0,
+            "checked_db_count": len(db_paths),
+            "executor": "spider_exec_eval.exec_on_db",
+        }
 
 
 def run_pipeline(

@@ -8,7 +8,6 @@ from itertools import product
 from collections import defaultdict
 import tqdm
 import random
-from parse import get_all_preds_for_execution, remove_distinct
 import time
 from itertools import chain
 
@@ -197,6 +196,8 @@ def eval_exec_match(
     progress_bar_for_each_datapoint: bool,
     timeout: int = TIMEOUT,
 ) -> int:
+    from parse import get_all_preds_for_execution, remove_distinct
+
     # post-process the prediction.
     # e.g. removing spaces between ">" and "="
     p_str, g_str = postprocess(p_str), postprocess(g_str)

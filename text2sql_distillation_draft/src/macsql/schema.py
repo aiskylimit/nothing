@@ -24,7 +24,6 @@ DEFAULT_DB_ROOTS = {
     "spider_syn": Path("benchmarks/spider_data/database"),
     "spider_realistic": Path("benchmarks/spider_data/database"),
     "spider_dk": Path("benchmarks/spider_dk/database"),
-    "bird": Path("benchmarks/bird/dev/dev_databases"),
 }
 
 

@@ -2,17 +2,23 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+os.chdir(ROOT)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run MAC-SQL multi-agent text-to-SQL inference.")
-    parser.add_argument("--benchmark", default="spider_data")
+    parser.add_argument(
+        "--benchmark",
+        default="spider_data",
+        choices=["spider_data", "spider_syn", "spider_realistic", "spider_dk"],
+    )
     parser.add_argument("--split", default="test", choices=["train", "dev", "test"])
     parser.add_argument("--db", default=None)
     parser.add_argument("--limit", type=int, default=None)
