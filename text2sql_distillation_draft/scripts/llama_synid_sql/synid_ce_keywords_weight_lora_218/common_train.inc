@@ -22,7 +22,7 @@ esac
 
 SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged_lora_218}"
 DATA_TAG="${DATA_TAG:-lora218}"
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/llama}"
+DATA_DIR="${DATA_DIR:-processed_data/spider_data/${SYNID_DATASET_NAME}/llama}"
 
 BATCH_SIZE="${BATCH_SIZE:-8}"
 GRAD_ACC="${GRAD_ACC:-4}"
