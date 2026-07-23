@@ -1,6 +1,6 @@
 #2
 #sql-main
-#v2
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/20260721_083929/jobs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_keywords_weight_lora_436/qwen_updated/collect/ +a
@@ -33,15 +33,15 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 cd text2sql_distillation_draft
 # bash ./project_commands_new.sh
 # ls text2sql_distillation_draft/results/eval -R
-source .venv/bin/activate
-RUN_GPUS=0,1,2,3,4,5,6,7 bash scripts/qwen_ablation_3/infer_synid_sql_ckpt1090.sh
-cd ./results
-zip -r eval_infer.zip eval infer
-zip -r eval.zip eval
-zip -r infer.zip infer
-du -sh eval_infer.zip
-du -sh eval.zip
-du -sh infer.zip
+# source .venv/bin/activate
+# RUN_GPUS=0,1,2,3,4,5,6,7 bash scripts/qwen_ablation_3/infer_synid_sql_ckpt1090.sh
+# cd ./results
+# zip -r eval_infer.zip eval infer
+# zip -r eval.zip eval
+# zip -r infer.zip infer
+# du -sh eval_infer.zip
+# du -sh eval.zip
+# du -sh infer.zip
 # bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
 # bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
