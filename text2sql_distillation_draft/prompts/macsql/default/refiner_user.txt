@@ -1,0 +1,24 @@
+[Database ID]
+{db_id}
+
+[Question]
+{question}
+
+[Database schema]
+{schema}
+
+[Foreign keys]
+{fk_str}
+
+[Old SQL]
+```sql
+{sql}
+```
+
+[SQLite error or feedback]
+{sqlite_error}
+
+[Exception class]
+{exception_class}
+
+Generate the corrected SQL.

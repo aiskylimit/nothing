@@ -1,0 +1,13 @@
+[Database ID]
+{db_id}
+
+[Database schema]
+{schema}
+
+[Foreign keys]
+{fk_str}
+
+[Question]
+{question}
+
+Decompose the question if useful, then generate the final SQLite SQL.

@@ -1,0 +1,10 @@
+[Database ID]
+{db_id}
+
+[Question]
+{question}
+
+[Full database schema]
+{schema}
+
+Select the relevant tables and columns.
