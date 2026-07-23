@@ -32,7 +32,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 # cd text2sql_distillation_draft
 # bash ./project_commands_new.sh
-ls text2sql_distillation_draft/results/infer
+ls text2sql_distillation_draft/results/eval -R
 # source .venv/bin/activate
 # bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
