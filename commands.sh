@@ -1,4 +1,4 @@
-#2 -10
+#1 +60
 #sql-main
 #v2
 
@@ -30,9 +30,15 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd text2sql_distillation_draft
+cd text2sql_distillation_draft
 # bash ./project_commands_new.sh
-ls text2sql_distillation_draft/results/eval -R
+# ls text2sql_distillation_draft/results/eval -R
+zip -r eval_infer.zip eval infer
+zip -r eval.zip eval
+zip -r infer.zip infer
+du -sh eval_infer.zip
+du -sh eval.zip
+du -sh infer.zip
 # source .venv/bin/activate
 # bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
