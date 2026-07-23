@@ -20,8 +20,8 @@ Grid:
 
 | Script | ID | Config | Student layers | Teacher layers | KD ratio |
 | --- | --- | --- | --- | --- | --- |
-| `train_g01.sh` | G01 | last1, alpha=beta=0.3 | 27 | 35 | 0.7 |
-| `train_g02.sh` | G02 | last1, alpha=beta=0.1 | 27 | 35 | 0.7 |
+| `train_g01.sh` | G01 | last1, alpha=beta=0.3 | 15 | 31 | 0.7 |
+| `train_g02.sh` | G02 | last1, alpha=beta=0.1 | 15 | 31 | 0.7 |
 
 Run:
 
