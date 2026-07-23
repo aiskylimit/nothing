@@ -5,11 +5,11 @@ set -euo pipefail
 uv sync
 source .venv/bin/activate
 
-hf download Dream-AI-HUST/sql_benchmarks \
-  --repo-type dataset \
-  --local-dir .
+# hf download Dream-AI-HUST/sql_benchmarks \
+#   --repo-type dataset \
+#   --local-dir .
 
-unzip -o data.zip
+# unzip -o data.zip
 
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

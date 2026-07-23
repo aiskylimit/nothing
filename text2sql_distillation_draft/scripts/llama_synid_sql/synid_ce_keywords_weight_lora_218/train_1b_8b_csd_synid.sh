@@ -28,7 +28,7 @@ SCRIPT_NAME="$(basename "${ENTRY_SCRIPT}" .sh)"
 SCRIPT_GROUP="$(basename "$(dirname "${ENTRY_SCRIPT}")")"
 
 SYNID_DATASET_NAME="${SYNID_DATASET_NAME:-synid_privileged_lora_218}"
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/${SYNID_DATASET_NAME}/llama}"
+DATA_DIR="${DATA_DIR:-processed_data/spider_data/${SYNID_DATASET_NAME}/llama}"
 
 CKPT_NAME="${CKPT_NAME:-llama3.2-1b-instruct}"
 CKPT="${CKPT:-meta-llama/Llama-3.2-1B-Instruct}"
