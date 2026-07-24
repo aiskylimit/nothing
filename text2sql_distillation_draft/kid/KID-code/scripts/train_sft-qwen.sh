@@ -8,6 +8,7 @@ teacher_name=$6
 kl_method=$7
 sample_source=$8 
 mask_strategy=$9
+TEMPLATE="${TEMPLATE:-llama2}"
 
 model_name_or_path="huggingface_models/${model_name}"
 
@@ -72,7 +73,7 @@ deepspeed --num_gpus 8 --master_port ${port}  dbgpt_hub/train/sft_train.py \
     --mask_strategy ${mask_strategy} \
     --max_source_length 1024 \
     --max_target_length 128 \
-    --template llama2 \
+    --template ${TEMPLATE} \
     --finetuning_type lora \
     --lora_rank 64 \
     --lora_alpha 32 \

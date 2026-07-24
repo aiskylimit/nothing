@@ -2,6 +2,7 @@ data_type=$1
 model_name=$2
 checkpoint_step=$3
 dataset=$4
+TEMPLATE="${TEMPLATE:-llama2}"
 
 model_name_or_path="huggingface_models/${model_name}"
 
@@ -23,7 +24,7 @@ mkdir -p ${output_path}
 
 python dbgpt_hub/train/export_model.py \
     --model_name_or_path $model_name_or_path \
-    --template llama2 \
+    --template ${TEMPLATE} \
     --finetuning_type lora \
     --checkpoint_dir $checkpoint_dir \
     --output_dir $output_path \

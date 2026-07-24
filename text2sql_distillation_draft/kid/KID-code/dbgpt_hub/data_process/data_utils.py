@@ -197,6 +197,15 @@ def get_template_and_fix_tokenizer(
         dict(additional_special_tokens=additional_special_tokens),
         replace_additional_special_tokens=False,
     )
+
+    if name in {"chatml", "qwen3"}:
+        # ChatML already starts with <|im_start|>; do not prepend it again as BOS.
+        tokenizer.add_bos_token = False
+
+    if name == "llama3":
+        # Llama 3 chat messages terminate with <|eot_id|>, not <|end_of_text|>.
+        tokenizer.eos_token = "<|eot_id|>"
+
     return template
 
 
@@ -525,10 +534,23 @@ register_template(
 
 register_template(
     name="llama3",
-    prefix=["<|start_header_id|>system<|end_header_id|>\n\n{{system}}<|eot_id|>"],
+    prefix=[
+        {"token": "<|start_header_id|>"},
+        "system",
+        {"token": "<|end_header_id|>"},
+        "\n\n{{system}}",
+        {"token": "<|eot_id|>"},
+    ],
     prompt=[
-        "<|start_header_id|>user<|end_header_id|>\n\n{{query}}<|eot_id|>"
-        "<|start_header_id|>assistant<|end_header_id|>\n\n"
+        {"token": "<|start_header_id|>"},
+        "user",
+        {"token": "<|end_header_id|>"},
+        "\n\n{{query}}",
+        {"token": "<|eot_id|>"},
+        {"token": "<|start_header_id|>"},
+        "assistant",
+        {"token": "<|end_header_id|>"},
+        "\n\n",
     ],
     system="You are a helpful assistant.",
     sep=[],

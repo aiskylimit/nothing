@@ -3,6 +3,7 @@ data_type=$1
 model_name=$2
 port=$3
 dataset=$4
+TEMPLATE="${TEMPLATE:-llama2}"
 
 model_name_or_path="huggingface_models/${model_name}"
 
@@ -36,7 +37,7 @@ deepspeed --num_gpus 8 --master_port ${port}  dbgpt_hub/train/sft_train.py \
     --dataset_dir "dbgpt_hub/data/${data_type}_codes" \
     --max_source_length 2048 \
     --max_target_length 256 \
-    --template llama2 \
+    --template ${TEMPLATE} \
     --finetuning_type lora \
     --lora_rank 64 \
     --lora_alpha 32 \

@@ -5,6 +5,7 @@ task_name=$4
 model_name_or_path=$5
 checkpoint_step=$6
 dataset=$7
+TEMPLATE="${TEMPLATE:-llama2}"
 
 checkpoint_dir=dbgpt_hub/output/adapter_kd/${data_type}/${task_name}/${checkpoint_step}
 if [ "$checkpoint_step" == "checkpoint_lastest" ]; then
@@ -22,7 +23,7 @@ echo 'predcited input filename:' ${predicted_input_filename}
 
 CUDA_VISIBLE_DEVICES=${cuda}  python dbgpt_hub/predict/predict.py \
     --model_name_or_path $model_name_or_path \
-    --template llama2 \
+    --template ${TEMPLATE} \
     --split_part ${split_part} \
     --finetuning_type lora \
     --predicted_input_filename $predicted_input_filename \
