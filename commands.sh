@@ -1,4 +1,4 @@
-#1 +60
+#2
 #sql-main
 #v1
 
@@ -30,16 +30,16 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-cd text2sql_distillation_draft
-mv results results_ablation
-bash ./project_commands_llama.sh
+# cd text2sql_distillation_draft
+# mv results results_ablation
+# bash ./project_commands_llama.sh
 # ls text2sql_distillation_draft/results -R
 # source .venv/bin/activate
 # RUN_GPUS=0,1,2,3,4,5,6,7 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
 # RUN_GPUS=0,1,2,3,4,5,6,7 CKPT_STEP=874 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
-cd ./results
-zip -r eval_infer.zip eval infer
-du -sh eval_infer.zip
+# cd ./results
+# zip -r eval_infer.zip eval infer
+# du -sh eval_infer.zip
 # bash ./eval.sh
 # python -c "import nltk; nltk.download('punkt_tab')"
 # bash scripts/qwen/synid_ce_multilayer_3/format_eval_multiseed.sh
