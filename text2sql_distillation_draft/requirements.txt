@@ -16,5 +16,6 @@ tqdm
 transformers==4.57.3
 trl==0.21.0
 typer>=0.15.2
+vllm==0.19.1
 wandb
 yq>=3.4.3

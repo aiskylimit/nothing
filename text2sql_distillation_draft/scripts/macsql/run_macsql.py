@@ -37,6 +37,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--student-lora-adapters", default=None)
     parser.add_argument("--student-ckpt-revision", default=None)
     parser.add_argument("--device", default="cuda", choices=["cpu", "cuda", "auto"])
+    parser.add_argument("--model-backend", choices=["hf", "vllm"], default="hf")
+    parser.add_argument("--teacher-model-backend", choices=["hf", "vllm"], default=None)
+    parser.add_argument("--student-model-backend", choices=["hf", "vllm"], default=None)
+    parser.add_argument("--teacher-vllm-base-url", default="http://localhost:8101/v1")
+    parser.add_argument("--student-vllm-base-url", default="http://localhost:8102/v1")
+    parser.add_argument("--teacher-vllm-model", default="teacher")
+    parser.add_argument("--student-vllm-model", default="student")
+    parser.add_argument("--vllm-api-key", default=os.getenv("VLLM_API_KEY", "EMPTY"))
+    parser.add_argument("--vllm-timeout", type=float, default=120.0)
+    parser.add_argument("--vllm-concurrency", type=int, default=8)
+    parser.add_argument(
+        "--vllm-enable-thinking",
+        action="store_true",
+        help="Do not pass chat_template_kwargs={enable_thinking: false} to vLLM.",
+    )
 
     parser.add_argument("--selector-model", choices=["teacher", "student", "none"], default="student")
     parser.add_argument("--decomposer-model", choices=["teacher", "student"], default="teacher")
@@ -111,25 +126,41 @@ def resolve_max_new_tokens(value: str, benchmark: str, split: str) -> int:
 def build_registry(args: argparse.Namespace):
     from src.macsql.models import ModelRegistry, ModelSpec, split_adapters
 
+    teacher_backend = args.teacher_model_backend or args.model_backend
+    student_backend = args.student_model_backend or args.model_backend
     return ModelRegistry(
         [
             ModelSpec(
                 name="teacher",
+                backend=teacher_backend,
                 base=args.teacher_base,
                 sft_ckpt=args.teacher_sft_ckpt,
                 sft_revision=args.teacher_ckpt_revision,
                 lora_adapters=split_adapters(args.teacher_lora_adapter),
                 lora_revision=args.teacher_ckpt_revision,
                 device=args.device,
+                vllm_base_url=args.teacher_vllm_base_url,
+                vllm_model=args.teacher_vllm_model,
+                vllm_api_key=args.vllm_api_key,
+                vllm_timeout=args.vllm_timeout,
+                vllm_concurrency=args.vllm_concurrency,
+                vllm_disable_thinking=not args.vllm_enable_thinking,
             ),
             ModelSpec(
                 name="student",
+                backend=student_backend,
                 base=args.student_base,
                 sft_ckpt=args.student_sft_ckpt,
                 sft_revision=args.student_ckpt_revision,
                 lora_adapters=split_adapters(args.student_lora_adapters),
                 lora_revision=args.student_ckpt_revision,
                 device=args.device,
+                vllm_base_url=args.student_vllm_base_url,
+                vllm_model=args.student_vllm_model,
+                vllm_api_key=args.vllm_api_key,
+                vllm_timeout=args.vllm_timeout,
+                vllm_concurrency=args.vllm_concurrency,
+                vllm_disable_thinking=not args.vllm_enable_thinking,
             ),
         ]
     )

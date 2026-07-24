@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from infer import generate_response_batch
-
 from .parsing import extract_selector_schema, extract_sql, parse_json_object
 
 
@@ -37,11 +35,9 @@ class ChatAgent:
                     {"role": "user", "content": user_prompt},
                 ]
             )
-        return generate_response_batch(
-            self.loaded_model.tokenizer,
-            self.loaded_model.model,
+        return self.loaded_model.generate_many(
             batch_messages,
-            max_length=self.gen.max_new_tokens,
+            max_new_tokens=self.gen.max_new_tokens,
             temperature=self.gen.temperature,
             top_p=self.gen.top_p,
             top_k=self.gen.top_k,
