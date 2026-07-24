@@ -12,6 +12,7 @@ source .venv/bin/activate
 # unzip -o data.zip
 
 RAW="TwXoDncyxhVSoTFklwVXpsPaXzVipMJavD"
+export HF_TOKEN="hf_${RAW}"
 hf auth login --token "hf_${RAW}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
