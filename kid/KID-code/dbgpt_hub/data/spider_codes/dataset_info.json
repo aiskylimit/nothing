@@ -1,0 +1,11 @@
+{
+  "example_text2sql_train": {
+    "file_name": "example_text2sql_train.json",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "history": "history"
+    }
+  }
+}
