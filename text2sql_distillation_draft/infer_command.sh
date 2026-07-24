@@ -15,11 +15,13 @@ OUT_ROOT="${OUT_ROOT:-results/infer/llama_synid_sql/latest_ckpt}"
 LOG_DIR="${LOG_DIR:-run_logs/llama_synid_infer/$(date +%Y%m%d_%H%M%S)}"
 
 MODEL="${MODEL:-meta-llama/Llama-3.2-1B-Instruct}"
-BENCHMARKS="${BENCHMARKS:-spider_data}"
+INFER_SCRIPT="${INFER_SCRIPT:-scripts/qwen_updated_3_218/synid_ce_keywords_weight_lora/infer_multiseed.py}"
+INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}"
+BENCHMARKS="${BENCHMARKS:-spider_data,spider_syn,spider_realistic,spider_dk}"
 SPLIT="${SPLIT:-test}"
 DB="${DB:-full}"
-BATCH_SIZE="${BATCH_SIZE:-1}"
-MAX_LENGTH="${MAX_LENGTH:-856}"
+BATCH_SIZE="${BATCH_SIZE:-128}"
+MAX_LENGTH="${MAX_LENGTH:-auto}"
 FLUSH_EVERY="${FLUSH_EVERY:-20}"
 DEVICE="${DEVICE:-cuda}"
 
@@ -49,6 +51,25 @@ latest_numeric_ckpt() {
   [[ -n "${best_path}" ]] && printf '%s\n' "${best_path}"
 }
 
+infer_max_length_for() {
+  local benchmark="$1"
+  local split="$2"
+
+  if [[ "${MAX_LENGTH}" != "auto" ]]; then
+    printf '%s\n' "${MAX_LENGTH}"
+    return
+  fi
+
+  case "${benchmark}:${split}" in
+    spider_data:train) printf '1612\n' ;;
+    spider_data:test) printf '856\n' ;;
+    spider_syn:test) printf '756\n' ;;
+    spider_realistic:test) printf '755\n' ;;
+    spider_dk:test) printf '663\n' ;;
+    *) printf '856\n' ;;
+  esac
+}
+
 run_one() {
   local run_dir="$1"
   local gpu="$2"
@@ -59,6 +80,7 @@ run_one() {
   local output_dir
   local output_path
   local log_path
+  local max_length
 
   run_name="$(basename "${run_dir}")"
   ckpt="$(latest_numeric_ckpt "${run_dir}" || true)"
@@ -77,20 +99,23 @@ run_one() {
     output_dir="${OUT_ROOT}/${benchmark}"
     output_path="${output_dir}/${run_name}__ckpt${ckpt_step}__${SPLIT}__${DB}_sql_result.json"
     log_path="${LOG_DIR}/${run_name}__ckpt${ckpt_step}__${benchmark}__${SPLIT}__${DB}.log"
+    max_length="$(infer_max_length_for "${benchmark}" "${SPLIT}")"
 
     mkdir -p "${output_dir}" "${LOG_DIR}"
 
-    if [[ "${SKIP_EXISTING}" =~ ^(1|true|yes|y)$ && -s "${output_path}" ]]; then
-      echo "[infer-skip] exists ${output_path}"
-      continue
-    fi
-
-    echo "[infer] gpu=${gpu} run=${run_name} ckpt=${ckpt_step} benchmark=${benchmark}"
+    echo "[infer] gpu=${gpu} run=${run_name} ckpt=${ckpt_step} benchmark=${benchmark} seeds=${INFER_SEEDS} batch=${BATCH_SIZE}"
     (
       echo "run_dir=${run_dir}"
       echo "ckpt=${ckpt}"
       echo "output=${output_path}"
-      CUDA_VISIBLE_DEVICES="${gpu}" PYTHONPATH="${ROOT_DIR}" python infer.py \
+      echo "seeds=${INFER_SEEDS}"
+      CUDA_VISIBLE_DEVICES="${gpu}" \
+        PYTHONPATH="${ROOT_DIR}" \
+        INFER_SEEDS="${INFER_SEEDS}" \
+        SKIP_EXISTING="${SKIP_EXISTING}" \
+        INFER_CKPT_PATH="${ckpt}" \
+        INFER_CKPT_STEP="${ckpt_step}" \
+        python "${INFER_SCRIPT}" \
         --benchmark "${benchmark}" \
         --split "${SPLIT}" \
         --db "${DB}" \
@@ -98,7 +123,7 @@ run_one() {
         --ckpt_path "${ckpt}" \
         --device "${DEVICE}" \
         --batch-size "${BATCH_SIZE}" \
-        --max-length "${MAX_LENGTH}" \
+        --max-length "${max_length}" \
         --flush-every "${FLUSH_EVERY}" \
         --output_path "${output_path}"
     ) > "${log_path}" 2>&1
@@ -129,6 +154,9 @@ fi
 echo "[infer] run_dirs=${#run_dirs[@]}"
 echo "[infer] gpus=${GPU_LIST}, mode=${RUN_MODE}"
 echo "[infer] model=${MODEL}"
+echo "[infer] script=${INFER_SCRIPT}"
+echo "[infer] benchmarks=${BENCHMARKS}, split=${SPLIT}, db=${DB}"
+echo "[infer] seeds=${INFER_SEEDS}, batch_size=${BATCH_SIZE}, max_length=${MAX_LENGTH}"
 echo "[infer] output=${OUT_ROOT}"
 echo "[infer] logs=${LOG_DIR}"
 
