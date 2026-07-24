@@ -41,7 +41,7 @@ SYNID_SQL_VLLM_MODEL="${SYNID_SQL_VLLM_MODEL:-synid_sql}"
 
 BENCHMARKS="${BENCHMARKS:-spider_data,spider_syn,spider_realistic,spider_dk}"
 RUNS="${RUNS:-teacher_lora,student_sft,distillm,csd,synid_sql}"
-SEEDS="${SEEDS:-10,42,50,100,1234}"
+SEEDS="${SEEDS:-42}"
 SPLIT="${SPLIT:-test}"
 DB="${DB:-full}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/macsql_vllm}"
