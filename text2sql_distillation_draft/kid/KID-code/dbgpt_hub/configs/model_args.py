@@ -69,6 +69,12 @@ class ModelArguments:
             "help": "Path to the teacher model."
         },
     )
+    teacher_peft_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Optional LoRA/PEFT adapter path for the teacher model."
+        },
+    )
     checkpoint_dir: Optional[str] = field(
         default=None,
         metadata={

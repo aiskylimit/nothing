@@ -507,6 +507,34 @@ register_template(
     stop_words=["<|im_end|>"],
 )
 
+register_template(
+    name="qwen3",
+    prefix=[{"token": "<|im_start|>"}, "system\n{{system}}", {"token": "<|im_end|>"}],
+    prompt=[
+        {"token": "<|im_start|>"},
+        "user\n{{query}}",
+        {"token": "<|im_end|>"},
+        "\n",
+        {"token": "<|im_start|>"},
+        "assistant\n",
+    ],
+    system="You are a helpful assistant.",
+    sep=["\n"],
+    stop_words=["<|im_end|>"],
+)
+
+register_template(
+    name="llama3",
+    prefix=["<|start_header_id|>system<|end_header_id|>\n\n{{system}}<|eot_id|>"],
+    prompt=[
+        "<|start_header_id|>user<|end_header_id|>\n\n{{query}}<|eot_id|>"
+        "<|start_header_id|>assistant<|end_header_id|>\n\n"
+    ],
+    system="You are a helpful assistant.",
+    sep=[],
+    stop_words=["<|eot_id|>"],
+)
+
 
 r"""
 Supports: https://huggingface.co/THUDM/chatglm2-6b

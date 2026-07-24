@@ -24,6 +24,7 @@ from dbgpt_hub.llm_base.model_trainer import (
 )
 import torch
 import transformers
+from peft import PeftModel
 from distill_trainer import DistillTrainer
 
 
@@ -38,6 +39,41 @@ if TYPE_CHECKING:
 
 
 logger = get_logger(__name__)
+
+
+def _normalize_hf_peft_path(path: Optional[str]) -> tuple[Optional[str], dict]:
+    if not path:
+        return None, {}
+
+    if path.startswith("hf://"):
+        parts = path[len("hf://") :].strip("/").split("/")
+        if len(parts) < 2:
+            raise ValueError(f"Invalid hf:// PEFT path: {path}")
+        repo_id = "/".join(parts[:2])
+        kwargs = {}
+        if len(parts) > 2:
+            kwargs["subfolder"] = "/".join(parts[2:])
+        return repo_id, kwargs
+
+    prefix = "https://huggingface.co/"
+    if path.startswith(prefix):
+        parts = path[len(prefix) :].strip("/").split("/")
+        if len(parts) < 2:
+            raise ValueError(f"Invalid Hugging Face PEFT URL: {path}")
+        repo_id = "/".join(parts[:2])
+        kwargs = {}
+        rest = parts[2:]
+        if rest[:2] == ["tree", "main"]:
+            kwargs["revision"] = "main"
+            rest = rest[2:]
+        elif rest[:1] == ["tree"] and len(rest) >= 2:
+            kwargs["revision"] = rest[1]
+            rest = rest[2:]
+        if rest:
+            kwargs["subfolder"] = "/".join(rest)
+        return repo_id, kwargs
+
+    return path, {}
 
 
 def run_sft(
@@ -99,7 +135,16 @@ def run_sft(
             torch_dtype=model_args.compute_dtype,
             use_safetensors=True
         ).to(device)
+        if model_args.teacher_peft_path:
+            peft_path, peft_kwargs = _normalize_hf_peft_path(model_args.teacher_peft_path)
+            teacher_model = PeftModel.from_pretrained(
+                teacher_model,
+                peft_path,
+                is_trainable=False,
+                **peft_kwargs,
+            )
         teacher_model.eval()
+        teacher_model.requires_grad_(False)
 
         if finetuning_args.sample_source in ["mix_token", "mix_request_teacher", "mix_request_gt", "student", "mask_student"]:
             copy_model, _ = load_model_and_tokenizer(model_args, finetuning_args, training_args.do_train)
