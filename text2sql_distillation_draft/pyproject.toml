@@ -25,7 +25,8 @@ dependencies = [
     "rich",
     "setuptools",
     "sqlparse",
-    "nltk"
+    "nltk",
+    "tiktoken"
 ]
 
 [tool.uv]
