@@ -1,4 +1,3 @@
-wandb offline # Close wandb
 data_type=$1
 model_name=$2
 port=$3

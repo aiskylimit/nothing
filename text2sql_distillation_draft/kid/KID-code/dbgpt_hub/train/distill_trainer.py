@@ -1,7 +1,6 @@
 import torch
 from transformers import Trainer, TrainerCallback
 from transformers.trainer_pt_utils import LabelSmoother
-import wandb
 try:
     from specInfer.generator import Generator
     from specInfer.common import pad_to_2d
@@ -72,7 +71,7 @@ class DistillTrainer(Seq2SeqPeftTrainer):
         self.mask_ratio = float(kwargs["finetuning_args"].mask_ratio)
         self.kl_method = KL_METHOD_MAP[kwargs["finetuning_args"].kl_method]
 
-    def training_step(self, model, inputs):
+    def training_step(self, model, inputs, num_items_in_batch=None):
         max_new_tokens = 128
         self.train_step_cnt += 1
         student_temperature = 1.0
@@ -290,13 +289,13 @@ class DistillTrainer(Seq2SeqPeftTrainer):
         # loss.backward()
         return loss.detach()
 
-    def log(self, logs):
+    def log(self, logs, *args, **kwargs):
         # Remove the 'loss' entry with value 0 before calling the superclass method
         if 'loss' in logs and logs['loss'] == -1:
             del logs['loss']
 
         # Call the original `log` method of the `Trainer` class
-        super().log(logs)
+        super().log(logs, *args, **kwargs)
 
     ###################### Helper Functions #############################
 

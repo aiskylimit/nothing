@@ -115,6 +115,7 @@ CMD=(
   --per_device_train_batch_size "${PER_DEVICE_TRAIN_BATCH_SIZE}"
   --gradient_accumulation_steps "${GRAD_ACC}"
   --lr_scheduler_type cosine
+  --report_to none
   --logging_steps "${LOGGING_STEPS}"
   --save_strategy steps
   --save_steps "${SAVE_STEPS}"
