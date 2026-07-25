@@ -1,6 +1,7 @@
 accelerate==1.13.0
 datasets
 deepspeed
+func-timeout
 huggingface-hub
 jsonlines
 matplotlib
