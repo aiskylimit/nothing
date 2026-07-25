@@ -1,4 +1,4 @@
-#2
+#1 +60
 #sql-main
 #v2
 
@@ -31,12 +31,10 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd text2sql_distillation_draft
-# mv results results_ablation
-# bash ./project_commands_llama.sh
-bash ./infer_command.sh
+
 # ls text2sql_distillation_draft/results -R
-# source .venv/bin/activate
-# RUN_GPUS=0,1,2,3,4,5,6,7 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
+source .venv/bin/activate
+MODEL_FAMILY=both LOG_TO_FILE=1 bash ./project_commands_kid.sh
 # RUN_GPUS=0,1,2,3,4,5,6,7 CKPT_STEP=874 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
 cd ./results
 zip -r eval_infer.zip eval infer
