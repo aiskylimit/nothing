@@ -272,8 +272,8 @@ def add_synid_sql_args(parser: argparse.ArgumentParser):
     group.add_argument(
         "--synid-projector-warmup-epochs",
         type=int,
-        default=1,
-        help="Number of initial epochs where contrastive losses train only SynID projectors.",
+        default=0,
+        help="Deprecated compatibility flag; SynID contrastive training is full from epoch 0.",
     )
     group.add_argument(
         "--synid-kd-loss",

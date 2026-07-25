@@ -51,6 +51,7 @@ def make_args(**overrides):
         "synid_use_syntax_weights": True,
         "synid_use_con1": True,
         "synid_use_con2": True,
+        "synid_con1_positive_source": "teacher_response",
         "synid_contrastive_tau": 0.1,
         "synid_alpha": 1.0,
         "synid_beta": 1.0,
@@ -424,17 +425,7 @@ def test_synid_loss_uses_separate_projector_per_layer_shared_by_contrastive_bran
         assert torch.isfinite(projector.weight.grad).all()
 
 
-@pytest.mark.parametrize(
-    ("detach_student_contrastive", "expect_student_grad"),
-    [
-        (True, False),
-        (False, True),
-    ],
-)
-def test_synid_loss_can_warm_up_projector_without_contrastive_student_grad(
-    detach_student_contrastive,
-    expect_student_grad,
-):
+def test_synid_loss_contrastive_branches_update_student_and_projector_from_first_epoch():
     tokenizer = DummyTokenizer()
     batch_size, seq_len, vocab_size = 2, 6, 13
     student_size, teacher_size = 3, 5
@@ -478,17 +469,13 @@ def test_synid_loss_can_warm_up_projector_without_contrastive_student_grad(
         student_projectors=projectors,
         student_hidden_states=[student_hidden],
         teacher_hidden_states=[teacher_hidden],
-        detach_student_contrastive=detach_student_contrastive,
     )
     (parts.con1 + parts.con2).backward()
 
     assert projectors[0].weight.grad is not None
     assert torch.isfinite(projectors[0].weight.grad).all()
-    if expect_student_grad:
-        assert student_hidden.grad is not None
-        assert torch.isfinite(student_hidden.grad).all()
-    else:
-        assert student_hidden.grad is None
+    assert student_hidden.grad is not None
+    assert torch.isfinite(student_hidden.grad).all()
 
 
 def test_synid_loss_averages_duplicate_hidden_layers_like_single_layer():

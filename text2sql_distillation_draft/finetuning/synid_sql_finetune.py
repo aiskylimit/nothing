@@ -416,11 +416,6 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
         else float("inf")
     )
     replay_buffer = ReplayBuffer(args)
-    if args.synid_projector_warmup_epochs < 0:
-        raise ValueError(
-            "SynID projector warmup epochs must be non-negative, "
-            f"got {args.synid_projector_warmup_epochs}."
-        )
     
     overhead_tracker = OverheadTracker(
         enabled=args.log_overhead_metrics,
@@ -435,10 +430,8 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
         overhead_tracker.start_epoch(epoch)
 
         model.train()
-        detach_student_contrastive = teacher_model is not None and epoch < args.synid_projector_warmup_epochs
         if teacher_model is not None:
-            contrastive_mode = "projector-only" if detach_student_contrastive else "model+projector"
-            print_rank(f"SynID contrastive mode: {contrastive_mode} (epoch {epoch + 1}/{args.epochs})")
+            print_rank(f"SynID contrastive mode: model+projector (epoch {epoch + 1}/{args.epochs})")
         for it, (model_batch, no_model_batch, gen_data, t_model_data, t_no_model_data) in enumerate(train_dataloader):
             dataset["train"].move_to_device(model_batch, no_model_batch, gen_data, device)
             move_batch_to_device(t_model_data, device)
@@ -536,7 +529,6 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                     student_projectors=getattr(model.module, "synid_projectors", None),
                     student_hidden_states=student_hidden_states,
                     teacher_hidden_states=teacher_hidden_states,
-                    detach_student_contrastive=detach_student_contrastive,
                 )
                 distil_loss = loss_parts.kd
                 con1_loss = loss_parts.con1

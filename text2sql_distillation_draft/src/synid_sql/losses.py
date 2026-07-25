@@ -512,7 +512,6 @@ def synid_loss(
     student_projectors: Optional[nn.Module] = None,
     student_hidden_states: Optional[torch.Tensor] = None,
     teacher_hidden_states: Optional[torch.Tensor] = None,
-    detach_student_contrastive: bool = False,
 ) -> SynIDLossParts:
     if teacher_batch is None:
         teacher_batch = student_batch
@@ -623,10 +622,6 @@ def synid_loss(
             student_attention_mask,
             student_syntax_weights,
         )
-
-        if detach_student_contrastive:
-            student_prompt_embedding = student_prompt_embedding.detach()
-            student_response_embedding = student_response_embedding.detach()
 
         prompt_projector, response_projector = _select_layer_projectors(
             student_projectors,
