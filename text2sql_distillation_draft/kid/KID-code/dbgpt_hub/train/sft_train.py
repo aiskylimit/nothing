@@ -41,6 +41,17 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _configure_kd_tokenizer(tokenizer, model_name_or_path: str) -> None:
+    """Match the project training tokenizer setup outside KID."""
+    if "qwen" in model_name_or_path.lower():
+        tokenizer.eos_token_id = 151645
+        tokenizer.eos_token = tokenizer.convert_ids_to_tokens(151645)
+
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "right"
+
+
 def _normalize_hf_peft_path(path: Optional[str]) -> tuple[Optional[str], dict]:
     if not path:
         return None, {}
@@ -90,17 +101,7 @@ def run_sft(
     )
     model.to(model_args.compute_dtype)
     if finetuning_args.use_kd and finetuning_args.sample_source in ["mix_token", "mix_request_teacher", "mix_request_gt", "student", "mask_student"]:
-        if "qwen" in model_args.model_name_or_path.lower():
-            tokenizer.pad_token_id=151645
-            tokenizer.pad_token='<|im_end|>'
-            tokenizer.bos_token_id=151644
-            tokenizer.bos_token='<|im_start|>'
-        elif "codes" in model_args.model_name_or_path.lower():
-            tokenizer.pad_token_id=4
-            tokenizer.pad_token='<fim_pad>'
-            tokenizer.bos_token_id=1
-            tokenizer.bos_token='<fim_prefix>'
-        tokenizer.padding_side='left'
+        _configure_kd_tokenizer(tokenizer, model_args.model_name_or_path)
         training_args.remove_unused_columns=False
 
     dataset = preprocess_dataset(dataset, tokenizer, data_args, training_args, finetuning_args, "sft")

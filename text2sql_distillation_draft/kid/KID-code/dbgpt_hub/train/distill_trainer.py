@@ -71,6 +71,24 @@ class DistillTrainer(Seq2SeqPeftTrainer):
         self.mask_ratio = float(kwargs["finetuning_args"].mask_ratio)
         self.kl_method = KL_METHOD_MAP[kwargs["finetuning_args"].kl_method]
 
+    def _mask_fill_token_id(self):
+        for token in ("<|im_start|>", "<fim_prefix>"):
+            token_id = self.tokenizer.convert_tokens_to_ids(token)
+            if token_id is not None and token_id != self.tokenizer.unk_token_id:
+                return token_id
+        if self.tokenizer.bos_token_id is not None:
+            return self.tokenizer.bos_token_id
+        return self.tokenizer.pad_token_id
+
+    @staticmethod
+    def _preserve_target_boundaries(keep_mask, target_mask):
+        for row_idx in range(target_mask.size(0)):
+            target_positions = target_mask[row_idx].nonzero(as_tuple=False).flatten()
+            if target_positions.numel() > 0:
+                keep_mask[row_idx, target_positions[0]] = True
+                keep_mask[row_idx, target_positions[-1]] = True
+        return keep_mask
+
     def training_step(self, model, inputs, num_items_in_batch=None):
         max_new_tokens = 128
         self.train_step_cnt += 1
@@ -122,48 +140,57 @@ class DistillTrainer(Seq2SeqPeftTrainer):
                 if self.copy_model.device != model.device:
                     self.copy_model.to(model.device)
 
-            # mask_input_ids=torch.cat((inputs["all_source_ids"], inputs["mask_target_ids"]), dim=-1)
-
-            prompt_len = inputs["all_source_ids"].shape[-1]
+            target_mask = inputs["labels"] != IGNORE_TOKEN_ID
+            keep_mask = torch.ones_like(inputs["input_ids"], dtype=torch.bool)
 
             if self.mask_strategy == "uniform":
-                mask=[False if i%5==0 else True for i in range(inputs["input_ids"].shape[-1]-inputs["all_source_ids"].shape[-1])]
+                target_ordinals = target_mask.long().cumsum(dim=-1)
+                mask_positions = target_mask & (target_ordinals % 5 == 0)
+                keep_mask[mask_positions] = False
             elif self.mask_strategy == "random":
-                mask=[True if random.random()<(1-self.mask_ratio) else False for i in range(inputs["input_ids"].shape[-1]-inputs["all_source_ids"].shape[-1])]
-            elif self.mask_strategy == "hard":
+                random_values = torch.rand(
+                    inputs["input_ids"].shape,
+                    device=inputs["input_ids"].device,
+                )
+                keep_mask[target_mask & (random_values < self.mask_ratio)] = False
+            elif self.mask_strategy in {"hard", "easy"}:
                 with torch.no_grad():
-                    logits=self.copy_model(inputs["input_ids"]).logits[...,:-1,:].contiguous()
-                entropy=entropy_loss(logits.squeeze())[prompt_len:]
-                _, indices = entropy.sort(descending=True)
-                num=int(self.mask_ratio*(inputs["input_ids"].shape[-1]-inputs["all_source_ids"].shape[-1]))
-                mask=[False if i in indices[:num] else True for i in range(inputs["input_ids"].shape[-1]-inputs["all_source_ids"].shape[-1])]
-            elif self.mask_strategy == "easy":
-                with torch.no_grad():
-                    logits=self.copy_model(inputs["input_ids"]).logits[...,:-1,:].contiguous()
-                entropy=entropy_loss(logits.squeeze())[prompt_len:]
-                _, indices = entropy.sort(descending=False)
-                num=int(self.mask_ratio*(inputs["input_ids"].shape[-1]-inputs["all_source_ids"].shape[-1]))
-                mask=[False if i in indices[:num] else True for i in range(inputs["input_ids"].shape[-1]-inputs["all_source_ids"].shape[-1])]
+                    logits = self.copy_model(
+                        inputs["input_ids"],
+                        attention_mask=inputs.get("attention_mask", None),
+                    ).logits[..., :-1, :].contiguous()
+                token_entropy = torch.zeros_like(inputs["input_ids"], dtype=torch.float)
+                token_entropy[..., 1:] = entropy_loss(logits)
+                descending = self.mask_strategy == "hard"
+                for row_idx in range(inputs["input_ids"].size(0)):
+                    target_positions = target_mask[row_idx].nonzero(as_tuple=False).flatten()
+                    num = int(self.mask_ratio * target_positions.numel())
+                    if num <= 0:
+                        continue
+                    scores = token_entropy[row_idx, target_positions]
+                    selected = torch.argsort(scores, descending=descending)[:num]
+                    keep_mask[row_idx, target_positions[selected]] = False
             else:
                 assert 0, f"Error! The mask strategy is not supportted."
 
-            mask[-1]=True
-            mask[0]=True
-            mask=[True]*inputs["all_source_ids"].shape[-1]+mask
-            inputs["input_ids"]=inputs["input_ids"].masked_fill(~torch.tensor(mask).to(inputs["input_ids"].device), self.tokenizer.bos_token_id)
+            keep_mask = self._preserve_target_boundaries(keep_mask, target_mask)
+            masked_input_ids = inputs["input_ids"].masked_fill(~keep_mask, self._mask_fill_token_id())
 
             with torch.no_grad():
-                mask_tokens=torch.argmax(self.copy_model(inputs["input_ids"]).logits[...,:-1,:].contiguous(), -1)
-                mask_tokens=torch.cat([inputs["input_ids"][..., 0].unsqueeze(0), mask_tokens], dim=-1)
-            generated_ids=torch.where(torch.tensor(mask).to(inputs["input_ids"].device)==True, inputs["input_ids"], mask_tokens)
+                mask_tokens = torch.argmax(
+                    self.copy_model(
+                        masked_input_ids,
+                        attention_mask=inputs.get("attention_mask", None),
+                    ).logits[..., :-1, :].contiguous(),
+                    dim=-1,
+                )
+                mask_tokens = torch.cat([inputs["input_ids"][..., :1], mask_tokens], dim=-1)
+            generated_ids = torch.where(keep_mask, inputs["input_ids"], mask_tokens)
 
             # generated_ids = inputs["input_ids"].clone().detach()
 
-            # prompt_len = inputs["all_source_ids"].shape[-1]
-            attention_mask = generated_ids != self.tokenizer.pad_token_id
-            output_mask = generated_ids[..., :] == self.tokenizer.pad_token_id
-            output_mask[..., :prompt_len-1] = True
-            output_mask[..., prompt_len-1:] = False
+            attention_mask = inputs.get("attention_mask", generated_ids != self.tokenizer.pad_token_id)
+            output_mask = inputs["labels"] == IGNORE_TOKEN_ID
             labels=inputs["labels"]
 
         elif self.sample_source in ["mix_request_teacher", "mix_request_gt"]:
@@ -426,7 +453,7 @@ class DistillTrainer(Seq2SeqPeftTrainer):
         torch.manual_seed(1)
         input_ids = student_first_token if random.random() < mix_ratio else teacher_first_token
         attention_mask = torch.cat([attention_mask, torch.ones(
-                bsz, 1, dtype=torch.long, device='cuda')], dim=1)
+                bsz, 1, dtype=torch.long, device=attention_mask.device)], dim=1)
 
         for i in range(max_new_tokens - 1):
             sample_model, past_key_values = (student_model, student_key_values) if random.random(
@@ -435,7 +462,7 @@ class DistillTrainer(Seq2SeqPeftTrainer):
                                         attention_mask, past_key_values)
             input_ids = torch.cat([input_ids, next_token], dim=-1)
             attention_mask = torch.cat([attention_mask, torch.ones(
-                bsz, 1, dtype=torch.long, device='cuda')], dim=1)
+                bsz, 1, dtype=torch.long, device=attention_mask.device)], dim=1)
 
         # mask eos
         eos_positions = (input_ids == tokenizer.eos_token_id).nonzero(as_tuple=True)
@@ -443,5 +470,5 @@ class DistillTrainer(Seq2SeqPeftTrainer):
         for row, col in zip(*eos_positions):
             mask[row, col+1:] = True
         input_ids[mask] = tokenizer.pad_token_id
-        return torch.cat((org_input_ids, input_ids), dim=-1).cuda()
+        return torch.cat((org_input_ids, input_ids), dim=-1).to(org_input_ids.device)
     

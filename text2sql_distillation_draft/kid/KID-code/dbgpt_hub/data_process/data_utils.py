@@ -710,7 +710,11 @@ class DataCollatorWithSource(DataCollatorForSeq2Seq):
                 pad_value = 0
             else:
                 pad_value = pad_token_id
-            batch[key] = pad_sequences(sequences, pad_value, padding_side)
+
+            # Match the main project: training tensors are right-padded, while
+            # prompt-only generation tensors are left-padded.
+            aux_padding_side = "left" if key in {"all_source_ids", "source_attention_mask"} else padding_side
+            batch[key] = pad_sequences(sequences, pad_value, aux_padding_side)
 
         return batch
 
