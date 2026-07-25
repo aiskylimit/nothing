@@ -32,7 +32,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 cd text2sql_distillation_draft
 
-ls text2sql_distillation_draft/dbgpt_hub/output/adapter_kd/spider -R
+ls text2sql_distillation_draft/kid/KID-codedbgpt_hub/output/adapter_kd/spider -R
 # source .venv/bin/activate
 # MODEL_FAMILY=both LOG_TO_FILE=1 bash ./project_commands_kid.sh
 # RUN_GPUS=0,1,2,3,4,5,6,7 CKPT_STEP=874 bash scripts/qwen_ablation_3/infer_csd_ckpt1090.sh
