@@ -5,6 +5,22 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT_DIR}"
 
+MODEL_FAMILY="${MODEL_FAMILY:-qwen}"
+LOG_TO_FILE="${LOG_TO_FILE:-1}"
+
+if [[ "${LOG_TO_FILE}" == "1" && -z "${KID_LOG_ACTIVE:-}" ]]; then
+  RUN_TS="${RUN_TS:-$(date +%Y%m%d_%H%M%S)}"
+  LOG_DIR="${LOG_DIR:-run_logs/kid/${MODEL_FAMILY}/${RUN_TS}}"
+  LOG_FILE="${LOG_FILE:-${LOG_DIR}/project_commands_kid.${MODEL_FAMILY}.log}"
+  mkdir -p "${LOG_DIR}"
+  export LOG_DIR
+  export LOG_FILE
+  export KID_LOG_ACTIVE=1
+  exec > >(tee -a "${LOG_FILE}") 2>&1
+fi
+
+echo "[kid] log_file=${LOG_FILE:-<disabled>}"
+
 SYNC_ENV="${SYNC_ENV:-1}"
 DOWNLOAD_DATA="${DOWNLOAD_DATA:-0}"
 UNZIP_DATA="${UNZIP_DATA:-0}"
@@ -34,7 +50,6 @@ fi
 KID_DIR="${ROOT_DIR}/kid/KID-code"
 cd "${KID_DIR}"
 
-MODEL_FAMILY="${MODEL_FAMILY:-qwen}"
 case "${MODEL_FAMILY}" in
   qwen)
     TRAIN_SCRIPT="scripts/train_kid_spider_qwen3_0.6b_4b.sh"

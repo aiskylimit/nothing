@@ -1,4 +1,5 @@
 import hashlib
+import inspect
 import os
 import numpy as np
 import pandas as pd
@@ -993,14 +994,19 @@ def get_dataset(
         else:
             raise NotImplementedError
 
-        dataset = load_dataset(
-            data_path,
+        load_kwargs = dict(
             data_files=data_files,
             split=data_args.split,
             cache_dir=model_args.cache_dir,
             streaming=data_args.streaming,
-            use_auth_token=True if model_args.use_auth_token else None,
         )
+        if dataset_attr.load_from == "hf_hub" and model_args.use_auth_token:
+            if "token" in inspect.signature(load_dataset).parameters:
+                load_kwargs["token"] = True
+            else:
+                load_kwargs["use_auth_token"] = True
+
+        dataset = load_dataset(data_path, **load_kwargs)
 
         if max_samples is not None:
             max_samples_temp = min(len(dataset), max_samples)
