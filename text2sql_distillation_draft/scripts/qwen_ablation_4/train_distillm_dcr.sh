@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-BATCH_SIZE="${BATCH_SIZE:-4}"
+BATCH_SIZE="${BATCH_SIZE:-3}"
 GRAD_ACC="${GRAD_ACC:-4}"
 TRAIN_TYPE="${TRAIN_TYPE:-adaptive-srkl}"
 SYNID_KD_LOSS="${SYNID_KD_LOSS:-srkl}"
