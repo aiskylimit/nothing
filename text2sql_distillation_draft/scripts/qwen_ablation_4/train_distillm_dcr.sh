@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 
-BATCH_SIZE="${BATCH_SIZE:-1}"
-GRAD_ACC="${GRAD_ACC:-16}"
+BATCH_SIZE="${BATCH_SIZE:-4}"
+GRAD_ACC="${GRAD_ACC:-4}"
 TRAIN_TYPE="${TRAIN_TYPE:-adaptive-srkl}"
 SYNID_KD_LOSS="${SYNID_KD_LOSS:-srkl}"
 OVERHEAD_METHOD_NAME="${OVERHEAD_METHOD_NAME:-distillm_dcr}"
