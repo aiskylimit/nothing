@@ -159,7 +159,7 @@ def run_sft(
             model=model,
             finetuning_args=finetuning_args,
             args=training_args,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             data_collator=data_collator,
             callbacks=callbacks,
             compute_metrics=ComputeMetrics(tokenizer)
@@ -172,7 +172,7 @@ def run_sft(
             finetuning_args=finetuning_args,
             model=model,
             args=training_args,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             data_collator=data_collator,
             callbacks=callbacks,
             compute_metrics=ComputeMetrics(tokenizer)

@@ -153,7 +153,17 @@ class PeftTrainer(PeftModelMixin, Seq2SeqTrainer):
     Inherits Seq2SeqTrainer to support parameter-efficient checkpoints.
     """
 
+    @property
+    def tokenizer(self):
+        return getattr(self, "processing_class", None)
+
+    @tokenizer.setter
+    def tokenizer(self, value):
+        self.processing_class = value
+
     def __init__(self, finetuning_args: "FinetuningArguments", **kwargs):
+        if "tokenizer" in kwargs and "processing_class" not in kwargs:
+            kwargs["processing_class"] = kwargs.pop("tokenizer")
         Seq2SeqTrainer.__init__(self, **kwargs)
         self.finetuning_args = finetuning_args
 
