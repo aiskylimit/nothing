@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import random
 from multiprocessing import Process, Manager
 
 ROOT_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,9 +9,30 @@ sys.path.append(ROOT_PATH)
 
 from tqdm import tqdm
 from typing import List, Dict, Optional, Any
+import torch
+from transformers import set_seed as transformers_set_seed
 
 from dbgpt_hub.data_process.data_utils import extract_sql_prompt_dataset
 from dbgpt_hub.llm_base.chat_model import ChatModel
+
+
+def set_infer_seed_from_env() -> None:
+    raw_seed = os.environ.get("KID_INFER_SEED") or os.environ.get("INFER_SEED")
+    if not raw_seed:
+        return
+
+    seed = int(raw_seed)
+    random.seed(seed)
+    try:
+        import numpy as np
+
+        np.random.seed(seed)
+    except ImportError:
+        pass
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    transformers_set_seed(seed)
 
 
 def prepare_dataset(
@@ -63,5 +85,6 @@ def predict(model: ChatModel):
 
 
 if __name__ == "__main__":
+    set_infer_seed_from_env()
     model = ChatModel()
     predict(model)

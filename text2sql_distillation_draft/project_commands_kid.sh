@@ -3,9 +3,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="${ROOT_DIR}/$(basename "${BASH_SOURCE[0]}")"
 cd "${ROOT_DIR}"
 
-MODEL_FAMILY="${MODEL_FAMILY:-qwen}"
+MODEL_FAMILY="${MODEL_FAMILY:-both}"
 DRY_RUN="${DRY_RUN:-0}"
 if [[ "${DRY_RUN}" == "1" ]]; then
   LOG_TO_FILE="${LOG_TO_FILE:-0}"
@@ -17,6 +18,135 @@ print_command() {
   printf '%q ' "$@"
   printf '\n'
 }
+
+run_both_families() {
+  local run_ts
+  local parent_log_dir
+  local qwen_log_dir
+  local llama_log_dir
+  local qwen_log_file
+  local llama_log_file
+  local qwen_pid
+  local llama_pid
+  local failures=0
+
+  run_ts="${RUN_TS:-$(date +%Y%m%d_%H%M%S)}"
+  parent_log_dir="${LOG_DIR:-run_logs/kid/both/${run_ts}}"
+  qwen_log_dir="${parent_log_dir}/qwen"
+  llama_log_dir="${parent_log_dir}/llama"
+  qwen_log_file="${qwen_log_dir}/project_commands_kid.qwen.log"
+  llama_log_file="${llama_log_dir}/project_commands_kid.llama.log"
+
+  echo "[kid] mode=both"
+  echo "[kid] qwen_gpus=${QWEN_GPUS:-0,1,2,3}, llama_gpus=${LLAMA_GPUS:-4,5,6,7}"
+  echo "[kid] batch=${PER_DEVICE_TRAIN_BATCH_SIZE:-8}, grad_acc=${GRAD_ACC:-1}, target_eff=${TARGET_EFFECTIVE_BATCH_SIZE:-32}"
+  echo "[kid] infer_seeds=${INFER_SEEDS:-10,42,50,100,1234}"
+  echo "[kid] qwen_log=${qwen_log_file}"
+  echo "[kid] llama_log=${llama_log_file}"
+
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    (
+      unset KID_LOG_ACTIVE RUN_NAME OUTPUT_DIR MODEL_NAME_OR_PATH TEMPLATE LOG_FILE LOG_DIR
+      RUN_TS="${run_ts}" \
+      LOG_TO_FILE="${LOG_TO_FILE}" \
+      MODEL_FAMILY=qwen \
+      RUN_GPUS="${QWEN_GPUS:-0,1,2,3}" \
+      EVAL_GPUS="${QWEN_EVAL_GPUS:-${QWEN_GPUS:-0,1,2,3}}" \
+      PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
+      GRAD_ACC="${GRAD_ACC:-1}" \
+      TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
+      INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
+      DRY_RUN="${DRY_RUN}" \
+      bash "${SCRIPT_PATH}"
+    )
+    (
+      unset KID_LOG_ACTIVE RUN_NAME OUTPUT_DIR MODEL_NAME_OR_PATH TEMPLATE LOG_FILE LOG_DIR
+      RUN_TS="${run_ts}" \
+      LOG_TO_FILE="${LOG_TO_FILE}" \
+      MODEL_FAMILY=llama \
+      RUN_GPUS="${LLAMA_GPUS:-4,5,6,7}" \
+      EVAL_GPUS="${LLAMA_EVAL_GPUS:-${LLAMA_GPUS:-4,5,6,7}}" \
+      PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
+      GRAD_ACC="${GRAD_ACC:-1}" \
+      TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
+      INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
+      DRY_RUN="${DRY_RUN}" \
+      bash "${SCRIPT_PATH}"
+    )
+    return 0
+  fi
+
+  if [[ "${SYNC_ENV:-1}" == "1" ]]; then
+    echo "[kid] preparing shared env before parallel jobs"
+    if [[ "${DEACTIVATE_OLD_ENV:-1}" == "1" ]]; then
+      if declare -F deactivate >/dev/null 2>&1; then
+        deactivate || true
+      fi
+      if [[ -n "${CONDA_PREFIX:-}" ]] && command -v conda >/dev/null 2>&1; then
+        conda deactivate || true
+      fi
+    fi
+    uv sync
+  fi
+
+  mkdir -p "${qwen_log_dir}" "${llama_log_dir}"
+
+  (
+    unset KID_LOG_ACTIVE RUN_NAME OUTPUT_DIR MODEL_NAME_OR_PATH TEMPLATE
+    RUN_TS="${run_ts}" \
+    LOG_TO_FILE=1 \
+    LOG_DIR="${qwen_log_dir}" \
+    LOG_FILE="${qwen_log_file}" \
+    SYNC_ENV=0 \
+    MODEL_FAMILY=qwen \
+    RUN_GPUS="${QWEN_GPUS:-0,1,2,3}" \
+    EVAL_GPUS="${QWEN_EVAL_GPUS:-${QWEN_GPUS:-0,1,2,3}}" \
+    PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
+    GRAD_ACC="${GRAD_ACC:-1}" \
+    TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
+    INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
+    bash "${SCRIPT_PATH}"
+  ) &
+  qwen_pid="$!"
+
+  (
+    unset KID_LOG_ACTIVE RUN_NAME OUTPUT_DIR MODEL_NAME_OR_PATH TEMPLATE
+    RUN_TS="${run_ts}" \
+    LOG_TO_FILE=1 \
+    LOG_DIR="${llama_log_dir}" \
+    LOG_FILE="${llama_log_file}" \
+    SYNC_ENV=0 \
+    MODEL_FAMILY=llama \
+    RUN_GPUS="${LLAMA_GPUS:-4,5,6,7}" \
+    EVAL_GPUS="${LLAMA_EVAL_GPUS:-${LLAMA_GPUS:-4,5,6,7}}" \
+    PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
+    GRAD_ACC="${GRAD_ACC:-1}" \
+    TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
+    INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
+    bash "${SCRIPT_PATH}"
+  ) &
+  llama_pid="$!"
+
+  if ! wait "${qwen_pid}"; then
+    echo "[kid][fail] qwen failed; log=${qwen_log_file}" >&2
+    failures=$((failures + 1))
+  fi
+  if ! wait "${llama_pid}"; then
+    echo "[kid][fail] llama failed; log=${llama_log_file}" >&2
+    failures=$((failures + 1))
+  fi
+
+  if [[ "${failures}" -gt 0 ]]; then
+    exit 1
+  fi
+}
+
+case "${MODEL_FAMILY}" in
+  both|all|parallel)
+    run_both_families
+    exit 0
+    ;;
+esac
 
 if [[ "${LOG_TO_FILE}" == "1" && -z "${KID_LOG_ACTIVE:-}" ]]; then
   RUN_TS="${RUN_TS:-$(date +%Y%m%d_%H%M%S)}"
@@ -34,40 +164,26 @@ echo "[kid] log_file=${LOG_FILE:-<disabled>}"
 echo "[kid] dry_run=${DRY_RUN}"
 
 SYNC_ENV="${SYNC_ENV:-1}"
-DOWNLOAD_DATA="${DOWNLOAD_DATA:-0}"
-UNZIP_DATA="${UNZIP_DATA:-0}"
 RUN_TRAIN="${RUN_TRAIN:-1}"
 RUN_EVAL="${RUN_EVAL:-1}"
 
 if [[ "${DRY_RUN}" == "1" ]]; then
   echo "[kid][dry-run] skip environment sync/activation"
 elif [[ "${SYNC_ENV}" == "1" ]]; then
+  if [[ "${DEACTIVATE_OLD_ENV:-1}" == "1" ]]; then
+    if declare -F deactivate >/dev/null 2>&1; then
+      deactivate || true
+    fi
+    if [[ -n "${CONDA_PREFIX:-}" ]] && command -v conda >/dev/null 2>&1; then
+      conda deactivate || true
+    fi
+  fi
   uv sync
   # shellcheck disable=SC1091
   source .venv/bin/activate
 elif [[ -f .venv/bin/activate ]]; then
   # shellcheck disable=SC1091
   source .venv/bin/activate
-fi
-
-if [[ "${DOWNLOAD_DATA}" == "1" ]]; then
-  if [[ "${DRY_RUN}" == "1" ]]; then
-    print_command hf download Dream-AI-HUST/sql_benchmarks --repo-type dataset --local-dir .
-  else
-    hf download Dream-AI-HUST/sql_benchmarks \
-      --repo-type dataset \
-      --local-dir .
-  fi
-fi
-
-if [[ "${UNZIP_DATA}" == "1" ]]; then
-  if [[ "${DRY_RUN}" == "1" ]]; then
-    print_command unzip -o benchmarks.zip
-    print_command unzip -o data.zip
-  else
-    unzip -o benchmarks.zip
-    unzip -o data.zip
-  fi
 fi
 
 KID_DIR="${ROOT_DIR}/kid/KID-code"
@@ -95,8 +211,8 @@ case "${MODEL_FAMILY}" in
 esac
 
 RUN_GPUS="${RUN_GPUS:-0,1,2,3}"
-PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-2}"
-GRAD_ACC="${GRAD_ACC:-4}"
+PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}"
+GRAD_ACC="${GRAD_ACC:-1}"
 TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}"
 LR="${LR:-0.0001}"
 EPOCHS="${EPOCHS:-5}"
@@ -174,6 +290,7 @@ if [[ "${RUN_EVAL}" == "1" ]]; then
   IFS=', ' read -r -a EVAL_GPU_IDS <<< "${EVAL_GPUS}"
   EVAL_SPLITS="${#EVAL_GPU_IDS[@]}"
   EVAL_CHECKPOINTS="${EVAL_CHECKPOINTS:-checkpoint-${SAVE_STEPS},checkpoint_lastest}"
+  INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}"
   PREDICT_INPUT_FILENAME="${PREDICT_INPUT_FILENAME:-${DATASET_DIR}/example_text2sql_dev.json}"
 
   if [[ "${EVAL_SPLITS}" -lt 1 ]]; then
@@ -182,49 +299,52 @@ if [[ "${RUN_EVAL}" == "1" ]]; then
   fi
 
   for checkpoint_step in ${EVAL_CHECKPOINTS//,/ }; do
-    output_path="dbgpt_hub/output/adapter_kd/spider/${RUN_NAME}/preds/${checkpoint_step}"
     checkpoint_dir="dbgpt_hub/output/adapter_kd/spider/${RUN_NAME}/${checkpoint_step}"
     if [[ "${checkpoint_step}" == "checkpoint_lastest" ]]; then
       checkpoint_dir="dbgpt_hub/output/adapter_kd/spider/${RUN_NAME}"
     fi
 
-    echo "[kid] infer/eval ${checkpoint_step} on gpus=${EVAL_GPUS}"
-    if [[ "${DRY_RUN}" == "1" ]]; then
-      print_command mkdir -p "${output_path}"
-    else
-      mkdir -p "${output_path}"
-    fi
+    for infer_seed in ${INFER_SEEDS//,/ }; do
+      output_path="dbgpt_hub/output/adapter_kd/spider/${RUN_NAME}/preds/${checkpoint_step}/seed${infer_seed}"
 
-    for idx in "${!EVAL_GPU_IDS[@]}"; do
-      cuda="${EVAL_GPU_IDS[$idx]}"
-      EVAL_CMD=(
-        python dbgpt_hub/predict/predict.py
-        --model_name_or_path "${MODEL_NAME_OR_PATH}"
-        --template "${TEMPLATE}"
-        --split_part "${idx}:${EVAL_SPLITS}"
-        --finetuning_type lora
-        --predicted_input_filename "${PREDICT_INPUT_FILENAME}"
-        --checkpoint_dir "${checkpoint_dir}"
-        --predicted_out_filename "${output_path}/pred_codes-${idx}:${EVAL_SPLITS}.sql"
-      )
+      echo "[kid] infer/eval ${checkpoint_step} seed=${infer_seed} on gpus=${EVAL_GPUS}"
       if [[ "${DRY_RUN}" == "1" ]]; then
-        printf 'CUDA_VISIBLE_DEVICES=%q ' "${cuda}"
-        print_command "${EVAL_CMD[@]}"
+        print_command mkdir -p "${output_path}"
       else
-        CUDA_VISIBLE_DEVICES="${cuda}" "${EVAL_CMD[@]}" &
+        mkdir -p "${output_path}"
+      fi
+
+      for idx in "${!EVAL_GPU_IDS[@]}"; do
+        cuda="${EVAL_GPU_IDS[$idx]}"
+        EVAL_CMD=(
+          python dbgpt_hub/predict/predict.py
+          --model_name_or_path "${MODEL_NAME_OR_PATH}"
+          --template "${TEMPLATE}"
+          --split_part "${idx}:${EVAL_SPLITS}"
+          --finetuning_type lora
+          --predicted_input_filename "${PREDICT_INPUT_FILENAME}"
+          --checkpoint_dir "${checkpoint_dir}"
+          --predicted_out_filename "${output_path}/pred_codes-${idx}:${EVAL_SPLITS}.sql"
+        )
+        if [[ "${DRY_RUN}" == "1" ]]; then
+          printf 'PYTHONHASHSEED=%q KID_INFER_SEED=%q CUDA_VISIBLE_DEVICES=%q ' "${infer_seed}" "${infer_seed}" "${cuda}"
+          print_command "${EVAL_CMD[@]}"
+        else
+          PYTHONHASHSEED="${infer_seed}" KID_INFER_SEED="${infer_seed}" CUDA_VISIBLE_DEVICES="${cuda}" "${EVAL_CMD[@]}" &
+        fi
+      done
+
+      if [[ "${DRY_RUN}" == "1" ]]; then
+        echo "cat ${output_path}/pred_codes-*.sql > ${output_path}/pred_codes.sql"
+        echo "rm -f ${output_path}/pred_codes-*.sql"
+        echo "python dbgpt_hub/eval/evaluation.py --plug_value --input ${output_path}/pred_codes.sql > ${output_path}/pred_codes.result"
+      else
+        wait
+        cat "${output_path}"/pred_codes-*.sql > "${output_path}/pred_codes.sql"
+        rm -f "${output_path}"/pred_codes-*.sql
+        python dbgpt_hub/eval/evaluation.py --plug_value --input "${output_path}/pred_codes.sql" \
+          > "${output_path}/pred_codes.result"
       fi
     done
-
-    if [[ "${DRY_RUN}" == "1" ]]; then
-      echo "cat ${output_path}/pred_codes-*.sql > ${output_path}/pred_codes.sql"
-      echo "rm -f ${output_path}/pred_codes-*.sql"
-      echo "python dbgpt_hub/eval/evaluation.py --plug_value --input ${output_path}/pred_codes.sql > ${output_path}/pred_codes.result"
-    else
-      wait
-      cat "${output_path}"/pred_codes-*.sql > "${output_path}/pred_codes.sql"
-      rm -f "${output_path}"/pred_codes-*.sql
-      python dbgpt_hub/eval/evaluation.py --plug_value --input "${output_path}/pred_codes.sql" \
-        > "${output_path}/pred_codes.result"
-    fi
   done
 fi
