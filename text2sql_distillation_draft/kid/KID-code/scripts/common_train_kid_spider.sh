@@ -12,6 +12,13 @@ cd "${BASE_DIR}"
 : "${TEACHER_TAG:?TEACHER_TAG must be set by the entry script}"
 : "${TEMPLATE:?TEMPLATE must be set by the entry script}"
 
+DRY_RUN="${DRY_RUN:-0}"
+
+print_command() {
+  printf '%q ' "$@"
+  printf '\n'
+}
+
 RUN_GPUS="${RUN_GPUS:-0}"
 IFS=', ' read -r -a GPUS <<< "${RUN_GPUS}"
 NUM_GPUS="${#GPUS[@]}"
@@ -42,13 +49,23 @@ if [[ "${PREPARE_DATA}" == "1" ]]; then
   if [[ "${INCLUDE_TRAIN_OTHERS}" == "1" ]]; then
     PREPARE_ARGS+=(--include-train-others)
   fi
-  python scripts/prepare_spider_benchmarks_data.py "${PREPARE_ARGS[@]}"
+  PREPARE_CMD=(python scripts/prepare_spider_benchmarks_data.py "${PREPARE_ARGS[@]}")
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    echo "[dry-run] prepare data command:"
+    print_command "${PREPARE_CMD[@]}"
+  else
+    "${PREPARE_CMD[@]}"
+  fi
 fi
 
 if [[ ! -s "${DATASET_DIR}/dataset_info.json" || ! -s "${DATASET_DIR}/example_text2sql_train.json" ]]; then
-  echo "Missing prepared KID Spider data under ${DATASET_DIR}" >&2
-  echo "Run: python scripts/prepare_spider_benchmarks_data.py --spider-root ${SPIDER_ROOT} --output-dir ${DATASET_DIR}" >&2
-  exit 2
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    echo "[dry-run] warning: prepared KID Spider data not found under ${DATASET_DIR}" >&2
+  else
+    echo "Missing prepared KID Spider data under ${DATASET_DIR}" >&2
+    echo "Run: python scripts/prepare_spider_benchmarks_data.py --spider-root ${SPIDER_ROOT} --output-dir ${DATASET_DIR}" >&2
+    exit 2
+  fi
 fi
 
 LR="${LR:-0.0001}"
@@ -124,7 +141,12 @@ echo "  per-device batch: ${PER_DEVICE_TRAIN_BATCH_SIZE}"
 echo "  grad acc: ${GRAD_ACC}"
 echo "  effective batch: ${EFFECTIVE_BATCH_SIZE}"
 echo "  output: ${OUTPUT_DIR}"
-echo "${CMD[*]}"
+print_command "${CMD[@]}"
+
+if [[ "${DRY_RUN}" == "1" ]]; then
+  echo "[dry-run] skip mkdir/train"
+  exit 0
+fi
 
 mkdir -p "${OUTPUT_DIR}"
 "${CMD[@]}"

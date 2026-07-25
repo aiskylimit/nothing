@@ -6,7 +6,17 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT_DIR}"
 
 MODEL_FAMILY="${MODEL_FAMILY:-qwen}"
-LOG_TO_FILE="${LOG_TO_FILE:-1}"
+DRY_RUN="${DRY_RUN:-0}"
+if [[ "${DRY_RUN}" == "1" ]]; then
+  LOG_TO_FILE="${LOG_TO_FILE:-0}"
+else
+  LOG_TO_FILE="${LOG_TO_FILE:-1}"
+fi
+
+print_command() {
+  printf '%q ' "$@"
+  printf '\n'
+}
 
 if [[ "${LOG_TO_FILE}" == "1" && -z "${KID_LOG_ACTIVE:-}" ]]; then
   RUN_TS="${RUN_TS:-$(date +%Y%m%d_%H%M%S)}"
@@ -21,6 +31,7 @@ if [[ "${LOG_TO_FILE}" == "1" && -z "${KID_LOG_ACTIVE:-}" ]]; then
 fi
 
 echo "[kid] log_file=${LOG_FILE:-<disabled>}"
+echo "[kid] dry_run=${DRY_RUN}"
 
 SYNC_ENV="${SYNC_ENV:-1}"
 DOWNLOAD_DATA="${DOWNLOAD_DATA:-0}"
@@ -28,7 +39,9 @@ UNZIP_DATA="${UNZIP_DATA:-0}"
 RUN_TRAIN="${RUN_TRAIN:-1}"
 RUN_EVAL="${RUN_EVAL:-1}"
 
-if [[ "${SYNC_ENV}" == "1" ]]; then
+if [[ "${DRY_RUN}" == "1" ]]; then
+  echo "[kid][dry-run] skip environment sync/activation"
+elif [[ "${SYNC_ENV}" == "1" ]]; then
   uv sync
   # shellcheck disable=SC1091
   source .venv/bin/activate
@@ -38,14 +51,23 @@ elif [[ -f .venv/bin/activate ]]; then
 fi
 
 if [[ "${DOWNLOAD_DATA}" == "1" ]]; then
-  hf download Dream-AI-HUST/sql_benchmarks \
-    --repo-type dataset \
-    --local-dir .
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    print_command hf download Dream-AI-HUST/sql_benchmarks --repo-type dataset --local-dir .
+  else
+    hf download Dream-AI-HUST/sql_benchmarks \
+      --repo-type dataset \
+      --local-dir .
+  fi
 fi
 
 if [[ "${UNZIP_DATA}" == "1" ]]; then
-  unzip -o benchmarks.zip
-  unzip -o data.zip
+  if [[ "${DRY_RUN}" == "1" ]]; then
+    print_command unzip -o benchmarks.zip
+    print_command unzip -o data.zip
+  else
+    unzip -o benchmarks.zip
+    unzip -o data.zip
+  fi
 fi
 
 KID_DIR="${ROOT_DIR}/kid/KID-code"
@@ -127,6 +149,7 @@ export PREPARE_DATA
 export INCLUDE_TRAIN_OTHERS
 export TEMPLATE
 export MODEL_NAME_OR_PATH
+export DRY_RUN
 
 IFS=', ' read -r -a GPU_IDS <<< "${RUN_GPUS}"
 NUM_GPUS="${#GPU_IDS[@]}"
@@ -164,25 +187,44 @@ if [[ "${RUN_EVAL}" == "1" ]]; then
     if [[ "${checkpoint_step}" == "checkpoint_lastest" ]]; then
       checkpoint_dir="dbgpt_hub/output/adapter_kd/spider/${RUN_NAME}"
     fi
-    mkdir -p "${output_path}"
 
     echo "[kid] infer/eval ${checkpoint_step} on gpus=${EVAL_GPUS}"
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      print_command mkdir -p "${output_path}"
+    else
+      mkdir -p "${output_path}"
+    fi
+
     for idx in "${!EVAL_GPU_IDS[@]}"; do
       cuda="${EVAL_GPU_IDS[$idx]}"
-      CUDA_VISIBLE_DEVICES="${cuda}" python dbgpt_hub/predict/predict.py \
-        --model_name_or_path "${MODEL_NAME_OR_PATH}" \
-        --template "${TEMPLATE}" \
-        --split_part "${idx}:${EVAL_SPLITS}" \
-        --finetuning_type lora \
-        --predicted_input_filename "${PREDICT_INPUT_FILENAME}" \
-        --checkpoint_dir "${checkpoint_dir}" \
-        --predicted_out_filename "${output_path}/pred_codes-${idx}:${EVAL_SPLITS}.sql" &
+      EVAL_CMD=(
+        python dbgpt_hub/predict/predict.py
+        --model_name_or_path "${MODEL_NAME_OR_PATH}"
+        --template "${TEMPLATE}"
+        --split_part "${idx}:${EVAL_SPLITS}"
+        --finetuning_type lora
+        --predicted_input_filename "${PREDICT_INPUT_FILENAME}"
+        --checkpoint_dir "${checkpoint_dir}"
+        --predicted_out_filename "${output_path}/pred_codes-${idx}:${EVAL_SPLITS}.sql"
+      )
+      if [[ "${DRY_RUN}" == "1" ]]; then
+        printf 'CUDA_VISIBLE_DEVICES=%q ' "${cuda}"
+        print_command "${EVAL_CMD[@]}"
+      else
+        CUDA_VISIBLE_DEVICES="${cuda}" "${EVAL_CMD[@]}" &
+      fi
     done
-    wait
 
-    cat "${output_path}"/pred_codes-*.sql > "${output_path}/pred_codes.sql"
-    rm -f "${output_path}"/pred_codes-*.sql
-    python dbgpt_hub/eval/evaluation.py --plug_value --input "${output_path}/pred_codes.sql" \
-      > "${output_path}/pred_codes.result"
+    if [[ "${DRY_RUN}" == "1" ]]; then
+      echo "cat ${output_path}/pred_codes-*.sql > ${output_path}/pred_codes.sql"
+      echo "rm -f ${output_path}/pred_codes-*.sql"
+      echo "python dbgpt_hub/eval/evaluation.py --plug_value --input ${output_path}/pred_codes.sql > ${output_path}/pred_codes.result"
+    else
+      wait
+      cat "${output_path}"/pred_codes-*.sql > "${output_path}/pred_codes.sql"
+      rm -f "${output_path}"/pred_codes-*.sql
+      python dbgpt_hub/eval/evaluation.py --plug_value --input "${output_path}/pred_codes.sql" \
+        > "${output_path}/pred_codes.result"
+    fi
   done
 fi
