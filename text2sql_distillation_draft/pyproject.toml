@@ -26,6 +26,7 @@ dependencies = [
     "setuptools",
     "sqlparse",
     "nltk",
+    "jsonlines",
     "tiktoken"
 ]
 
