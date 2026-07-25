@@ -16,7 +16,8 @@ if [[ "${LOG_TO_FILE}" == "1" && -z "${KID_LOG_ACTIVE:-}" ]]; then
   export LOG_DIR
   export LOG_FILE
   export KID_LOG_ACTIVE=1
-  exec > >(tee -a "${LOG_FILE}") 2>&1
+  echo "[kid] log_file=${LOG_FILE}"
+  exec >> "${LOG_FILE}" 2>&1
 fi
 
 echo "[kid] log_file=${LOG_FILE:-<disabled>}"

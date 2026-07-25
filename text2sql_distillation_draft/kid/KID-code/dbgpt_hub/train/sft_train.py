@@ -104,7 +104,8 @@ def run_sft(
         training_args.remove_unused_columns=False
 
     dataset = preprocess_dataset(dataset, tokenizer, data_args, training_args, finetuning_args, "sft")
-    data_collator = DataCollatorForSeq2Seq(
+    collator_cls = DataCollatorWithSource if finetuning_args.use_kd else DataCollatorForSeq2Seq
+    data_collator = collator_cls(
         tokenizer=tokenizer,
         label_pad_token_id=IGNORE_INDEX
         if data_args.ignore_pad_token_for_loss

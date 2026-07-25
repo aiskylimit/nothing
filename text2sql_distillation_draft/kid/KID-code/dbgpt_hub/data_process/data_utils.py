@@ -4,6 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 import tiktoken
+import torch
 from dataclasses import dataclass
 import random
 from itertools import chain
@@ -668,26 +669,50 @@ def split_dataset(
 @dataclass
 class DataCollatorWithSource(DataCollatorForSeq2Seq):
     r"""
-    Data collator for pairwise data.
+    Data collator for KID batches with variable-length source fields.
     """
 
     def __call__(self, features):
-        r"""
-        Pads batched data to the longest sequence in the batch.
+        aux_keys = (
+            "all_source_ids",
+            "source_attention_mask",
+            "all_target_ids",
+            "mask_target_ids",
+        )
+        aux_features = {
+            key: [feature.pop(key) for feature in features if key in feature]
+            for key in aux_keys
+        }
+        batch = super().__call__(features)
 
-        We generate 2 * n examples where the first n examples represent chosen examples and
-        the last n examples represent rejected examples.
-        """
-        features = [
-            {
-                "input_ids": feature["prompt_ids"] + feature[key],
-                "attention_mask": [1]
-                * (len(feature["prompt_ids"]) + len(feature[key])),
-            }
-            for key in ("chosen_ids", "rejected_ids")
-            for feature in features
-        ]
-        return super().__call__(features)
+        def pad_sequences(sequences, pad_value, padding_side):
+            if not sequences:
+                return None
+            max_len = max(len(sequence) for sequence in sequences)
+            padded = []
+            for sequence in sequences:
+                pad = [pad_value] * (max_len - len(sequence))
+                if padding_side == "left":
+                    padded.append(pad + sequence)
+                else:
+                    padded.append(sequence + pad)
+            return torch.tensor(padded, dtype=torch.long)
+
+        padding_side = self.tokenizer.padding_side
+        pad_token_id = self.tokenizer.pad_token_id
+        if pad_token_id is None:
+            pad_token_id = 0
+
+        for key, sequences in aux_features.items():
+            if len(sequences) != len(batch["input_ids"]):
+                continue
+            if key == "source_attention_mask":
+                pad_value = 0
+            else:
+                pad_value = pad_token_id
+            batch[key] = pad_sequences(sequences, pad_value, padding_side)
+
+        return batch
 
 def preprocess_dataset(
     dataset: Union["Dataset", "IterableDataset"],
