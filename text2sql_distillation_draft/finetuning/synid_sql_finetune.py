@@ -52,7 +52,7 @@ from distillm import skewed_forward_kl, skewed_reverse_kl, csd
 from distillm import ab_div, bdkd, AKL, wsd, alphanet, amid
 from distillm import SampleGenerator, ReplayBuffer
 
-from src.synid_sql import SelectedHiddenStateCapture, combine_synid_with_ce, parse_layer_ids, synid_loss
+from src.synid_sql import SelectedHiddenStateCapture, combine_synid_with_ce, parse_layer_ids, synid_contrastive_loss, synid_loss
 from rouge_metric import compute_metrics
 
 from peft import PeftModel
@@ -269,11 +269,7 @@ def move_batch_to_device(batch, device):
     return batch
 
 
-def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits):
-    with torch.no_grad():
-        teacher_model.eval()
-        teacher_outputs = teacher_model(**model_batch, use_cache=False)
-        teacher_logits = teacher_outputs.logits
+def distil_loss_from_logits(args, logits, teacher_logits, no_model_batch):
     if args.model_parallel:
         raise NotImplementedError
     else:
@@ -306,6 +302,14 @@ def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model
         else:
             raise NotImplementedError
     return distil_loss
+
+
+def get_distil_loss(args, tokenizer, model, teacher_model, model_batch, no_model_batch, logits):
+    with torch.no_grad():
+        teacher_model.eval()
+        teacher_outputs = teacher_model(**model_batch, use_cache=False)
+        teacher_logits = teacher_outputs.logits
+    return distil_loss_from_logits(args, logits, teacher_logits, no_model_batch)
 
 
 def get_teacher_lm_loss(args, tokenizer, model, teacher_model, model_batch):
@@ -516,30 +520,61 @@ def finetune(args, tokenizer: AutoTokenizer, model: deepspeed.DeepSpeedEngine, o
                     )
                 student_hidden_states = student_hidden_capture.pop_all()
                 teacher_hidden_states = teacher_hidden_capture.pop_all()
-                loss_parts = synid_loss(
-                    args=args,
-                    tokenizer=tokenizer,
-                    student_outputs=outputs,
-                    teacher_outputs=teacher_outputs,
-                    student_batch=model_batch,
-                    student_no_model_batch=no_model_batch,
-                    teacher_batch=teacher_batch,
-                    teacher_no_model_batch=teacher_no_model_batch,
-                    student_projector=getattr(model.module, "synid_projector", None),
-                    student_projectors=getattr(model.module, "synid_projectors", None),
-                    student_hidden_states=student_hidden_states,
-                    teacher_hidden_states=teacher_hidden_states,
-                )
-                distil_loss = loss_parts.kd
-                con1_loss = loss_parts.con1
-                con2_loss = loss_parts.con2
-                loss = combine_synid_with_ce(
-                    lm_loss,
-                    loss_parts,
-                    kd_ratio=args.kd_ratio,
-                    con1_weight=args.synid_alpha,
-                    con2_weight=args.synid_beta,
-                )
+                if args.type == "synid":
+                    loss_parts = synid_loss(
+                        args=args,
+                        tokenizer=tokenizer,
+                        student_outputs=outputs,
+                        teacher_outputs=teacher_outputs,
+                        student_batch=model_batch,
+                        student_no_model_batch=no_model_batch,
+                        teacher_batch=teacher_batch,
+                        teacher_no_model_batch=teacher_no_model_batch,
+                        student_projector=getattr(model.module, "synid_projector", None),
+                        student_projectors=getattr(model.module, "synid_projectors", None),
+                        student_hidden_states=student_hidden_states,
+                        teacher_hidden_states=teacher_hidden_states,
+                    )
+                    distil_loss = loss_parts.kd
+                    con1_loss = loss_parts.con1
+                    con2_loss = loss_parts.con2
+                    loss = combine_synid_with_ce(
+                        lm_loss,
+                        loss_parts,
+                        kd_ratio=args.kd_ratio,
+                        con1_weight=args.synid_alpha,
+                        con2_weight=args.synid_beta,
+                    )
+                else:
+                    if teacher_batch is model_batch:
+                        kd_teacher_logits = teacher_outputs.logits
+                    else:
+                        with torch.no_grad():
+                            kd_teacher_outputs = teacher_model(
+                                **model_batch,
+                                use_cache=False,
+                                output_hidden_states=False,
+                            )
+                        kd_teacher_logits = kd_teacher_outputs.logits
+                    distil_loss = distil_loss_from_logits(args, logits, kd_teacher_logits, no_model_batch)
+                    con1_loss, con2_loss = synid_contrastive_loss(
+                        args=args,
+                        tokenizer=tokenizer,
+                        student_outputs=outputs,
+                        teacher_outputs=teacher_outputs,
+                        student_batch=model_batch,
+                        student_no_model_batch=no_model_batch,
+                        teacher_batch=teacher_batch,
+                        teacher_no_model_batch=teacher_no_model_batch,
+                        student_projector=getattr(model.module, "synid_projector", None),
+                        student_projectors=getattr(model.module, "synid_projectors", None),
+                        student_hidden_states=student_hidden_states,
+                        teacher_hidden_states=teacher_hidden_states,
+                        reference_loss=distil_loss,
+                    )
+                    loss = (1.0 - args.kd_ratio) * lm_loss + args.kd_ratio * (
+                        distil_loss + args.synid_alpha * con1_loss + args.synid_beta * con2_loss
+                    )
             else:
                 loss = lm_loss
                 distil_loss = torch.zeros_like(loss)

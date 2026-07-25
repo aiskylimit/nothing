@@ -498,7 +498,7 @@ def _as_hidden_state_list(hidden_states) -> list[torch.Tensor]:
     raise TypeError("SynID hidden states must be a tensor or a non-empty list of tensors.")
 
 
-def synid_loss(
+def synid_contrastive_loss(
     *,
     args,
     tokenizer,
@@ -512,7 +512,8 @@ def synid_loss(
     student_projectors: Optional[nn.Module] = None,
     student_hidden_states: Optional[torch.Tensor] = None,
     teacher_hidden_states: Optional[torch.Tensor] = None,
-) -> SynIDLossParts:
+    reference_loss: Optional[torch.Tensor] = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
     if teacher_batch is None:
         teacher_batch = student_batch
     if teacher_no_model_batch is None:
@@ -520,16 +521,6 @@ def synid_loss(
 
     student_labels = student_no_model_batch["label"]
     teacher_labels = teacher_no_model_batch["label"]
-
-    kd_loss = response_kd_loss(
-        student_outputs.logits,
-        teacher_outputs.logits,
-        student_labels,
-        teacher_labels,
-        kd_loss=args.synid_kd_loss,
-        skew_alpha=args.skew_alpha,
-        temperature=args.synid_kd_temperature,
-    )
 
     if args.synid_pool_tau <= 0:
         raise ValueError(f"SynID pooling temperature must be positive, got {args.synid_pool_tau}.")
@@ -549,6 +540,7 @@ def synid_loss(
             "Student and teacher hidden-state layer lists must have equal length, "
             f"got {len(student_hidden_layers)} and {len(teacher_hidden_layers)}."
         )
+    zero_reference = reference_loss if reference_loss is not None else student_hidden_layers[0].new_zeros(())
 
     student_attention_mask = student_batch["attention_mask"].bool()
     teacher_attention_mask = teacher_batch["attention_mask"].bool()
@@ -639,18 +631,66 @@ def synid_loss(
             raise ValueError(f"Unsupported SynID con1 positive source: {args.synid_con1_positive_source}")
 
         con1_losses.append(
-            _zero_like(kd_loss)
+            _zero_like(zero_reference)
             if not args.synid_use_con1
             else _info_nce(student_prompt_embedding, con1_positive_embedding, args.synid_contrastive_tau)
         )
         con2_losses.append(
-            _zero_like(kd_loss)
+            _zero_like(zero_reference)
             if not args.synid_use_con2 or args.synid_con1_positive_source == "student_response"
             else _info_nce(student_response_embedding, teacher_response_embedding, args.synid_contrastive_tau)
         )
 
     con1_loss = torch.stack(con1_losses).mean()
     con2_loss = torch.stack(con2_losses).mean()
+    return con1_loss, con2_loss
+
+
+def synid_loss(
+    *,
+    args,
+    tokenizer,
+    student_outputs,
+    teacher_outputs,
+    student_batch: dict[str, torch.Tensor],
+    student_no_model_batch: dict[str, torch.Tensor],
+    teacher_batch: Optional[dict[str, torch.Tensor]] = None,
+    teacher_no_model_batch: Optional[dict[str, torch.Tensor]] = None,
+    student_projector: Optional[nn.Module] = None,
+    student_projectors: Optional[nn.Module] = None,
+    student_hidden_states: Optional[torch.Tensor] = None,
+    teacher_hidden_states: Optional[torch.Tensor] = None,
+) -> SynIDLossParts:
+    if teacher_no_model_batch is None:
+        teacher_no_model_batch = student_no_model_batch
+
+    student_labels = student_no_model_batch["label"]
+    teacher_labels = teacher_no_model_batch["label"]
+
+    kd_loss = response_kd_loss(
+        student_outputs.logits,
+        teacher_outputs.logits,
+        student_labels,
+        teacher_labels,
+        kd_loss=args.synid_kd_loss,
+        skew_alpha=args.skew_alpha,
+        temperature=args.synid_kd_temperature,
+    )
+    con1_loss, con2_loss = synid_contrastive_loss(
+        args=args,
+        tokenizer=tokenizer,
+        student_outputs=student_outputs,
+        teacher_outputs=teacher_outputs,
+        student_batch=student_batch,
+        student_no_model_batch=student_no_model_batch,
+        teacher_batch=teacher_batch,
+        teacher_no_model_batch=teacher_no_model_batch,
+        student_projector=student_projector,
+        student_projectors=student_projectors,
+        student_hidden_states=student_hidden_states,
+        teacher_hidden_states=teacher_hidden_states,
+        reference_loss=kd_loss,
+    )
 
     total = kd_loss + args.synid_alpha * con1_loss + args.synid_beta * con2_loss
     return SynIDLossParts(total=total, kd=kd_loss, con1=con1_loss, con2=con2_loss)
