@@ -14,7 +14,10 @@ from transformers import PreTrainedModel, PreTrainedTokenizer
 from transformers.utils import check_min_version, cached_file
 from transformers.utils.versions import require_version
 from transformers.trainer import WEIGHTS_NAME, SAFE_WEIGHTS_NAME
-from transformers.deepspeed import is_deepspeed_zero3_enabled
+try:
+    from transformers.integrations.deepspeed import is_deepspeed_zero3_enabled
+except ImportError:
+    from transformers.deepspeed import is_deepspeed_zero3_enabled
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
