@@ -38,8 +38,8 @@ run_both_families() {
   llama_log_file="${llama_log_dir}/project_commands_kid.llama.log"
 
   echo "[kid] mode=both"
-  echo "[kid] qwen_gpus=${QWEN_GPUS:-0,1,2,3}, llama_gpus=${LLAMA_GPUS:-4,5,6,7}"
-  echo "[kid] batch=${PER_DEVICE_TRAIN_BATCH_SIZE:-8}, grad_acc=${GRAD_ACC:-1}, target_eff=${TARGET_EFFECTIVE_BATCH_SIZE:-32}"
+  echo "[kid] qwen_gpus=${QWEN_GPUS:-0,1}, llama_gpus=${LLAMA_GPUS:-2,3}"
+  echo "[kid] batch=${PER_DEVICE_TRAIN_BATCH_SIZE:-8}, grad_acc=${GRAD_ACC:-2}, target_eff=${TARGET_EFFECTIVE_BATCH_SIZE:-32}"
   echo "[kid] infer_seeds=${INFER_SEEDS:-10,42,50,100,1234}"
   echo "[kid] qwen_log=${qwen_log_file}"
   echo "[kid] llama_log=${llama_log_file}"
@@ -50,10 +50,10 @@ run_both_families() {
       RUN_TS="${run_ts}" \
       LOG_TO_FILE="${LOG_TO_FILE}" \
       MODEL_FAMILY=qwen \
-      RUN_GPUS="${QWEN_GPUS:-0,1,2,3}" \
-      EVAL_GPUS="${QWEN_EVAL_GPUS:-${QWEN_GPUS:-0,1,2,3}}" \
+      RUN_GPUS="${QWEN_GPUS:-0,1}" \
+      EVAL_GPUS="${QWEN_EVAL_GPUS:-${QWEN_GPUS:-0,1}}" \
       PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
-      GRAD_ACC="${GRAD_ACC:-1}" \
+      GRAD_ACC="${GRAD_ACC:-2}" \
       TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
       INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
       DRY_RUN="${DRY_RUN}" \
@@ -64,10 +64,10 @@ run_both_families() {
       RUN_TS="${run_ts}" \
       LOG_TO_FILE="${LOG_TO_FILE}" \
       MODEL_FAMILY=llama \
-      RUN_GPUS="${LLAMA_GPUS:-4,5,6,7}" \
-      EVAL_GPUS="${LLAMA_EVAL_GPUS:-${LLAMA_GPUS:-4,5,6,7}}" \
+      RUN_GPUS="${LLAMA_GPUS:-2,3}" \
+      EVAL_GPUS="${LLAMA_EVAL_GPUS:-${LLAMA_GPUS:-2,3}}" \
       PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
-      GRAD_ACC="${GRAD_ACC:-1}" \
+      GRAD_ACC="${GRAD_ACC:-2}" \
       TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
       INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
       DRY_RUN="${DRY_RUN}" \
@@ -99,10 +99,10 @@ run_both_families() {
     LOG_FILE="${qwen_log_file}" \
     SYNC_ENV=0 \
     MODEL_FAMILY=qwen \
-    RUN_GPUS="${QWEN_GPUS:-0,1,2,3}" \
-    EVAL_GPUS="${QWEN_EVAL_GPUS:-${QWEN_GPUS:-0,1,2,3}}" \
+    RUN_GPUS="${QWEN_GPUS:-0,1}" \
+    EVAL_GPUS="${QWEN_EVAL_GPUS:-${QWEN_GPUS:-0,1}}" \
     PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
-    GRAD_ACC="${GRAD_ACC:-1}" \
+    GRAD_ACC="${GRAD_ACC:-2}" \
     TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
     INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
     bash "${SCRIPT_PATH}"
@@ -117,10 +117,10 @@ run_both_families() {
     LOG_FILE="${llama_log_file}" \
     SYNC_ENV=0 \
     MODEL_FAMILY=llama \
-    RUN_GPUS="${LLAMA_GPUS:-4,5,6,7}" \
-    EVAL_GPUS="${LLAMA_EVAL_GPUS:-${LLAMA_GPUS:-4,5,6,7}}" \
+    RUN_GPUS="${LLAMA_GPUS:-2,3}" \
+    EVAL_GPUS="${LLAMA_EVAL_GPUS:-${LLAMA_GPUS:-2,3}}" \
     PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}" \
-    GRAD_ACC="${GRAD_ACC:-1}" \
+    GRAD_ACC="${GRAD_ACC:-2}" \
     TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}" \
     INFER_SEEDS="${INFER_SEEDS:-10,42,50,100,1234}" \
     bash "${SCRIPT_PATH}"
@@ -196,6 +196,7 @@ case "${MODEL_FAMILY}" in
     DEFAULT_TEACHER_TAG="qwen3-4b"
     DEFAULT_MODEL_NAME_OR_PATH="Qwen/Qwen3-0.6B"
     DEFAULT_TEMPLATE="qwen3"
+    DEFAULT_RUN_GPUS="0,1"
     ;;
   llama)
     TRAIN_SCRIPT="scripts/train_kid_spider_llama3_1b_8b.sh"
@@ -203,6 +204,7 @@ case "${MODEL_FAMILY}" in
     DEFAULT_TEACHER_TAG="llama3.1-8b-instruct"
     DEFAULT_MODEL_NAME_OR_PATH="meta-llama/Llama-3.2-1B-Instruct"
     DEFAULT_TEMPLATE="llama3"
+    DEFAULT_RUN_GPUS="2,3"
     ;;
   *)
     echo "Unsupported MODEL_FAMILY=${MODEL_FAMILY}. Use qwen or llama." >&2
@@ -210,9 +212,9 @@ case "${MODEL_FAMILY}" in
     ;;
 esac
 
-RUN_GPUS="${RUN_GPUS:-0,1,2,3}"
+RUN_GPUS="${RUN_GPUS:-${DEFAULT_RUN_GPUS}}"
 PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-8}"
-GRAD_ACC="${GRAD_ACC:-1}"
+GRAD_ACC="${GRAD_ACC:-2}"
 TARGET_EFFECTIVE_BATCH_SIZE="${TARGET_EFFECTIVE_BATCH_SIZE:-32}"
 LR="${LR:-0.0001}"
 EPOCHS="${EPOCHS:-5}"
