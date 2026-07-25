@@ -17,8 +17,11 @@ dependencies = [
     "wandb",
     "yq>=3.4.3",
     "deepspeed",
+    "matplotlib",
     "nltk",
     "numerize",
+    "numpy",
+    "pandas",
     "torch==2.9.1",
     "tqdm",
     "rouge-score",
@@ -27,7 +30,12 @@ dependencies = [
     "sqlparse",
     "nltk",
     "func-timeout",
+    "jieba",
     "jsonlines",
+    "PyMySQL",
+    "rouge-chinese",
+    "safetensors",
+    "scikit-learn",
     "tiktoken"
 ]
 

@@ -2,8 +2,16 @@ import torch
 from transformers import Trainer, TrainerCallback
 from transformers.trainer_pt_utils import LabelSmoother
 import wandb
-from specInfer.generator import Generator
-from specInfer.common import pad_to_2d
+try:
+    from specInfer.generator import Generator
+    from specInfer.common import pad_to_2d
+except ImportError:
+    class Generator:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    def pad_to_2d(*args, **kwargs):
+        raise RuntimeError("specInfer is not available in this checkout.")
 from enum import Enum
 import random
 from torch.utils.data import DataLoader
