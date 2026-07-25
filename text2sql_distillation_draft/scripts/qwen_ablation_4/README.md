@@ -1,9 +1,10 @@
 # Qwen Ablation 4
 
 Computational-overhead runs for the dual-contrastive representation loss.
-Each run defaults to batch size 4 with gradient accumulation 4, giving effective
-batch size 16 when `GPUS_PER_JOB=1`. Runs stop after 50 optimizer steps. Overhead
-metrics are logged per optimizer step and then averaged by the collector.
+`csd` defaults to batch size 4 with gradient accumulation 4. `distillm` defaults
+to batch size 2 with gradient accumulation 8. Both give effective batch size 16
+when `GPUS_PER_JOB=1`. Runs stop after 50 optimizer steps. Overhead metrics are
+logged per optimizer step and then averaged by the collector.
 
 Methods:
 
