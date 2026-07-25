@@ -1,4 +1,4 @@
-#1 +60
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/run_logs/kid/both/20260725_071711/ +a
 #sql-main
 #v2
 
