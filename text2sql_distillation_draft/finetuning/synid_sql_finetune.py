@@ -45,7 +45,7 @@ from utils import get_optimizer_params, get_optimizer_params_peft, print_args, i
 from utils import print_rank, get_rank, OverheadTracker
 from utils import save_rank
 from utils import all_gather
-from utils import get_tokenizer, get_model, resolve_hf_path
+from utils import get_tokenizer, get_model, resolve_hf_path, validate_shared_qwen_tokenizer_for_kd
 
 from distillm import forward_kl, reverse_kl, js_distance, tv_distance
 from distillm import skewed_forward_kl, skewed_reverse_kl, csd
@@ -820,9 +820,13 @@ def main():
     args.bf16 = "bf16" in ds_config and ds_config["bf16"]["enabled"]  
     args.deepspeed_config = None
     
+    if args.teacher_model_type is None:
+        args.teacher_model_type = args.model_type
+
     # get the tokenizer
     tokenizer = get_tokenizer(args)
     print(type(tokenizer))
+    validate_shared_qwen_tokenizer_for_kd(args, tokenizer)
 
     dataset = prepare_dataset(
         args,
@@ -845,9 +849,6 @@ def main():
         
         if args.eval_interval == -1:
             args.eval_interval = args.train_iters_per_epoch
-    
-    if args.teacher_model_type is None:
-        args.teacher_model_type = args.model_type
     
     if args.teacher_model_path is not None:
         teacher_model = get_teacher_model(args, device)

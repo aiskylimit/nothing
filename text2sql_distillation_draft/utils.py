@@ -28,6 +28,15 @@ HF_PATH_ALIASES = {
     "./results/qwen3/sft_4B/e5-bs2-lr1e-05-G8-N2-NN1-lora-32-64-0.1/1065": "hf://fisherman611/text-to-cypher-models/e5-bs2-lr1e-05-G8-N2-NN1-lora-32-64-0.1/1065",
 }
 
+QWEN_SHARED_TOKENIZER_SAMPLE_TEXTS = [
+    "Translate this to Cypher: Which movies did Tom Hanks act in?",
+    'QUESTION:\nHow many singers are older than 30?\n\nSCHEMA:\n- singer(id, name, age)\n\nReturn only the JSON object.',
+    '{"sql": "SELECT name FROM singer WHERE age > 30 ORDER BY name"}',
+    '{"cypher": "MATCH (m:Movie)<-[:ACTED_IN]-(p:Person {name: \'Tom Hanks\'}) RETURN m.title"}',
+]
+
+QWEN_SHARED_SPECIAL_TOKENS = ["<|im_start|>", "<|im_end|>", "<|endoftext|>"]
+
 
 # Logging
 def print_args(args):
@@ -392,13 +401,76 @@ def get_tokenizer(args):
     tokenizer = AutoTokenizer.from_pretrained(model_path, padding_side="right")
 
     if args.model_type == "qwen":
-        tokenizer.eos_token_id = 151645 
+        tokenizer.eos_token_id = 151645
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.pad_token = tokenizer.eos_token
     # print(tokenizer.eos_token_id)
 
-    
     return tokenizer
+
+
+def validate_shared_qwen_tokenizer_for_kd(args, tokenizer=None):
+    """Fail fast when Qwen KD is configured with incompatible token ids."""
+    if args.teacher_model_path is None:
+        return
+    if args.model_type != "qwen":
+        return
+    if args.teacher_model_type is not None and args.teacher_model_type != "qwen":
+        return
+
+    student_path = resolve_hf_path(args.model_path)
+    teacher_path = resolve_hf_path(args.teacher_model_path)
+    student_tokenizer = tokenizer or AutoTokenizer.from_pretrained(
+        student_path,
+        padding_side="right",
+    )
+    teacher_tokenizer = AutoTokenizer.from_pretrained(
+        teacher_path,
+        padding_side="right",
+    )
+    student_config = AutoConfig.from_pretrained(student_path)
+    teacher_config = AutoConfig.from_pretrained(teacher_path)
+
+    mismatches = []
+    if student_config.vocab_size != teacher_config.vocab_size:
+        mismatches.append(
+            "config.vocab_size "
+            f"{student_config.vocab_size} != {teacher_config.vocab_size}"
+        )
+    if student_tokenizer.vocab_size != teacher_tokenizer.vocab_size:
+        mismatches.append(
+            "vocab_size "
+            f"{student_tokenizer.vocab_size} != {teacher_tokenizer.vocab_size}"
+        )
+
+    for token in QWEN_SHARED_SPECIAL_TOKENS:
+        student_id = student_tokenizer.convert_tokens_to_ids(token)
+        teacher_id = teacher_tokenizer.convert_tokens_to_ids(token)
+        if student_id != teacher_id:
+            mismatches.append(f"{token} id {student_id} != {teacher_id}")
+
+    for text in QWEN_SHARED_TOKENIZER_SAMPLE_TEXTS:
+        student_ids = student_tokenizer.encode(text, add_special_tokens=False)
+        teacher_ids = teacher_tokenizer.encode(text, add_special_tokens=False)
+        if student_ids != teacher_ids:
+            mismatches.append(
+                "encode mismatch for sample "
+                f"{text[:60]!r}: {student_ids[:16]} != {teacher_ids[:16]}"
+            )
+
+    if mismatches:
+        raise ValueError(
+            "Qwen student/teacher tokenizers are not compatible for shared-token-id "
+            "KD. This pipeline feeds student-tokenized input ids to the teacher and "
+            "compares logits over the same vocabulary. Mismatches: "
+            + "; ".join(mismatches)
+        )
+
+    print_rank(
+        "Qwen shared-tokenizer KD check passed: "
+        f"student={args.model_path}, teacher={args.teacher_model_path}, "
+        f"vocab_size={student_tokenizer.vocab_size}"
+    )
 
 
 def load_parallel(model, load_dir):
