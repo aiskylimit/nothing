@@ -91,9 +91,9 @@ run_group() {
   fi
 }
 
-run_group "sft" "scripts/qwen2.5/sft/train_qwen2.5_0.5b_sft.sh" "${BASELINE_DATA_DIR}" &
-run_group "csd" "scripts/qwen2.5/kd/csd/train_0.5b_4b.sh" "${BASELINE_DATA_DIR}" &
-run_group "distillm" "scripts/qwen2.5/kd/distillm/train_0.5b_4b.sh" "${BASELINE_DATA_DIR}" &
-run_group "synid_sql" "scripts/qwen2.5/synid_sql/synid_ce_keywords_weight_lora_218/train_g" &
+run_group "sft" "scripts/qwen2.5/sft/train_qwen2.5_0.5b_sft.sh" "${BASELINE_DATA_DIR}"
+run_group "csd" "scripts/qwen2.5/kd/csd/train_0.5b_4b.sh" "${BASELINE_DATA_DIR}"
+run_group "distillm" "scripts/qwen2.5/kd/distillm/train_0.5b_4b.sh" "${BASELINE_DATA_DIR}"
+run_group "synid_sql" "scripts/qwen2.5/synid_sql/synid_ce_keywords_weight_lora_218/train_g"
 
 wait
