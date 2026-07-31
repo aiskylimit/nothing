@@ -5,6 +5,7 @@ ROOT_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 sys.path.append(ROOT_PATH)
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from transformers import DataCollatorForSeq2Seq, Seq2SeqTrainingArguments
+from transformers import AutoConfig, AutoTokenizer
 from trl import SFTTrainer
 from dbgpt_hub.llm_base.loggings import LogCallback, get_logger
 from dbgpt_hub.llm_base.config_parser import get_train_args
@@ -41,6 +42,15 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+QWEN_SHARED_TOKENIZER_SAMPLE_TEXTS = [
+    "Translate this to SQL: Which singers are older than 30?",
+    'QUESTION:\nHow many singers are older than 30?\n\nSCHEMA:\n- singer(id, name, age)\n\nReturn only the JSON object.',
+    '{"sql": "SELECT name FROM singer WHERE age > 30 ORDER BY name"}',
+]
+
+QWEN_SHARED_SPECIAL_TOKENS = ["<|im_start|>", "<|im_end|>", "<|endoftext|>"]
+
+
 def _configure_kd_tokenizer(tokenizer, model_name_or_path: str) -> None:
     """Match the project training tokenizer setup outside KID."""
     if "qwen" in model_name_or_path.lower():
@@ -50,6 +60,75 @@ def _configure_kd_tokenizer(tokenizer, model_name_or_path: str) -> None:
     tokenizer.pad_token_id = tokenizer.eos_token_id
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
+
+
+def _validate_shared_qwen_tokenizer_for_kd(
+    tokenizer,
+    model_name_or_path: str,
+    teacher_model_path: Optional[str],
+) -> None:
+    if not teacher_model_path:
+        return
+    if "qwen" not in model_name_or_path.lower():
+        return
+    if "qwen" not in teacher_model_path.lower():
+        return
+
+    teacher_tokenizer = AutoTokenizer.from_pretrained(
+        teacher_model_path,
+        padding_side="right",
+        trust_remote_code=True,
+    )
+    student_config = AutoConfig.from_pretrained(
+        model_name_or_path,
+        trust_remote_code=True,
+    )
+    teacher_config = AutoConfig.from_pretrained(
+        teacher_model_path,
+        trust_remote_code=True,
+    )
+
+    mismatches = []
+    if student_config.vocab_size != teacher_config.vocab_size:
+        mismatches.append(
+            "config.vocab_size "
+            f"{student_config.vocab_size} != {teacher_config.vocab_size}"
+        )
+    if tokenizer.vocab_size != teacher_tokenizer.vocab_size:
+        mismatches.append(
+            "vocab_size "
+            f"{tokenizer.vocab_size} != {teacher_tokenizer.vocab_size}"
+        )
+
+    for token in QWEN_SHARED_SPECIAL_TOKENS:
+        student_id = tokenizer.convert_tokens_to_ids(token)
+        teacher_id = teacher_tokenizer.convert_tokens_to_ids(token)
+        if student_id != teacher_id:
+            mismatches.append(f"{token} id {student_id} != {teacher_id}")
+
+    for text in QWEN_SHARED_TOKENIZER_SAMPLE_TEXTS:
+        student_ids = tokenizer.encode(text, add_special_tokens=False)
+        teacher_ids = teacher_tokenizer.encode(text, add_special_tokens=False)
+        if student_ids != teacher_ids:
+            mismatches.append(
+                "encode mismatch for sample "
+                f"{text[:60]!r}: {student_ids[:16]} != {teacher_ids[:16]}"
+            )
+
+    if mismatches:
+        raise ValueError(
+            "Qwen student/teacher tokenizers are not compatible for KID KD. "
+            "KID feeds student-tokenized ids to the teacher and compares logits "
+            "over the same vocabulary. Mismatches: "
+            + "; ".join(mismatches)
+        )
+
+    logger.info(
+        "Qwen shared-tokenizer KID check passed: student=%s teacher=%s vocab_size=%s",
+        model_name_or_path,
+        teacher_model_path,
+        tokenizer.vocab_size,
+    )
 
 
 def _normalize_hf_peft_path(path: Optional[str]) -> tuple[Optional[str], dict]:
@@ -102,6 +181,11 @@ def run_sft(
     model.to(model_args.compute_dtype)
     if finetuning_args.use_kd and finetuning_args.sample_source in ["mix_token", "mix_request_teacher", "mix_request_gt", "student", "mask_student"]:
         _configure_kd_tokenizer(tokenizer, model_args.model_name_or_path)
+        _validate_shared_qwen_tokenizer_for_kd(
+            tokenizer,
+            model_args.model_name_or_path,
+            model_args.teacher_model_path,
+        )
         training_args.remove_unused_columns=False
 
     dataset = preprocess_dataset(dataset, tokenizer, data_args, training_args, finetuning_args, "sft")

@@ -200,7 +200,7 @@ def get_template_and_fix_tokenizer(
         replace_additional_special_tokens=False,
     )
 
-    if name in {"chatml", "qwen3"}:
+    if name in {"chatml", "qwen2.5", "qwen3"}:
         # ChatML already starts with <|im_start|>; do not prepend it again as BOS.
         tokenizer.add_bos_token = False
 
@@ -520,6 +520,22 @@ register_template(
 
 register_template(
     name="qwen3",
+    prefix=[{"token": "<|im_start|>"}, "system\n{{system}}", {"token": "<|im_end|>"}],
+    prompt=[
+        {"token": "<|im_start|>"},
+        "user\n{{query}}",
+        {"token": "<|im_end|>"},
+        "\n",
+        {"token": "<|im_start|>"},
+        "assistant\n",
+    ],
+    system="You are a helpful assistant.",
+    sep=["\n"],
+    stop_words=["<|im_end|>"],
+)
+
+register_template(
+    name="qwen2.5",
     prefix=[{"token": "<|im_start|>"}, "system\n{{system}}", {"token": "<|im_end|>"}],
     prompt=[
         {"token": "<|im_start|>"},
