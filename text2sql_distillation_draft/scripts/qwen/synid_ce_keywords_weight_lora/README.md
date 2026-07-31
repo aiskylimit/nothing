@@ -27,7 +27,7 @@ Fixed:
 - `T_MAX_LENGTH=2048`
 - `T_MAX_PROMPT_LENGTH=1800`
 - `DATA_DIR=processed_data/benchmarks/spider_data/synid_privileged_lora/qwen`
-- `TEACHER_PEFT_PATH=hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090`
+- `TEACHER_PEFT_PATH=hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090`
 - `EVAL_GEN=auto`
 
 Grid:

@@ -53,7 +53,7 @@ Main setting:
 
 - student: `Qwen/Qwen3-0.6B`
 - teacher: `Qwen/Qwen3-4B-Instruct-2507`
-- teacher LoRA: `hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090`
+- teacher LoRA: `hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090`
 - KD ratio: `0.7`
 - SynID KD loss: `csd`
 - SynID alpha/beta: `0.1/0.1`, `0.2/0.2`, `0.3/0.3`

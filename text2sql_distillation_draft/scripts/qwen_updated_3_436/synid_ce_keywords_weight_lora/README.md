@@ -8,7 +8,7 @@ Processed data:
 
 Teacher PEFT checkpoint:
 
-- `hf://distillation-sql/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/436`
+- `hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/436`
 
 Defaults:
 
