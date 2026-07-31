@@ -28,7 +28,7 @@ DISTRIBUTED_ARGS="--nproc_per_node ${GPUS_PER_NODE} \
                   --master_port ${MASTER_PORT}"
 
 BASE_PATH="${BASE_PATH:-.}"
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/qwen}"
+DATA_DIR="${DATA_DIR:-orig_processed_data/benchmarks/spider_data/qwen}"
 
 CKPT_NAME="${CKPT_NAME:-qwen2.5-0.5B-Instruct}"
 CKPT="${CKPT:-Qwen/Qwen2.5-0.5B-Instruct}"
@@ -37,9 +37,9 @@ TEACHER_CKPT="${TEACHER_CKPT:-Qwen/Qwen3-4B-Instruct-2507}"
 TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090}"
 
 KD_TYPE="${KD_TYPE:-${SCRIPT_GROUP}}"
-BATCH_SIZE="${BATCH_SIZE:-2}"
+BATCH_SIZE="${BATCH_SIZE:-4}"
 LR="${LR:-0.0001}"
-GRAD_ACC="${GRAD_ACC:-8}"
+GRAD_ACC="${GRAD_ACC:-4}"
 EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-16}"
 EPOCHS="${EPOCHS:-5}"
 KD_RATIO="${KD_RATIO:-0.7}"

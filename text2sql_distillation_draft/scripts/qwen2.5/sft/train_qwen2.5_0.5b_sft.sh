@@ -23,14 +23,14 @@ DISTRIBUTED_ARGS="--nproc_per_node ${GPUS_PER_NODE} \
                   --master_port ${MASTER_PORT}"
 
 BASE_PATH="${BASE_PATH:-.}"
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/qwen}"
+DATA_DIR="${DATA_DIR:-orig_processed_data/benchmarks/spider_data/qwen}"
 
 CKPT_NAME="${CKPT_NAME:-qwen2.5-0.5B-Instruct}"
 CKPT="${CKPT:-Qwen/Qwen2.5-0.5B-Instruct}"
 
-BATCH_SIZE="${BATCH_SIZE:-8}"
+BATCH_SIZE="${BATCH_SIZE:-4}"
 LR="${LR:-0.00005}"
-GRAD_ACC="${GRAD_ACC:-1}"
+GRAD_ACC="${GRAD_ACC:-4}"
 EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-128}"
 EPOCHS="${EPOCHS:-5}"
 
