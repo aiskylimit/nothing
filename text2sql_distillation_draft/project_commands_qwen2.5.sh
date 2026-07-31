@@ -9,12 +9,12 @@ RUNNING_EXTRA_ARGS=("$@")
 uv sync
 source .venv/bin/activate
 
-# hf download Dream-AI-HUST/sql_benchmarks \
-#   --repo-type dataset \
-#   --local-dir .
-# unzip -o benchmarks.zip
-# unzip -o data.zip
-# unzip -o orig_processed_data.zip
+hf download Dream-AI-HUST/sql_benchmarks \
+  --repo-type dataset \
+  --local-dir .
+unzip -o benchmarks.zip
+unzip -o data.zip
+unzip -o orig_processed_data.zip
 
 export RUNNER_GPU_LIST="${QWEN25_GPU_LIST:-${RUNNER_GPU_LIST:-0,1,2,3,4,5,6,7}}"
 export GPUS_PER_JOB="${GPUS_PER_JOB:-2}"
