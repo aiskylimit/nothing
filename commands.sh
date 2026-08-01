@@ -1,4 +1,4 @@
-#2
+#1 +10
 #sql
 #v2
 
@@ -20,8 +20,8 @@
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
-sleep 5
+# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+# sleep 5
 nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -31,5 +31,6 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd ./text2sql_distillation_draft
-QWEN25_GPU_LIST=0,1,2,3,4,5,6,7 GPUS_PER_JOB=2 RUN_MODE=parallel \
-BATCH_SIZE=4 GRAD_ACC=1 bash project_commands_qwen2.5.sh
+ls results -R
+# QWEN25_GPU_LIST=0,1,2,3,4,5,6,7 GPUS_PER_JOB=2 RUN_MODE=parallel \
+# BATCH_SIZE=4 GRAD_ACC=1 bash project_commands_qwen2.5.sh
