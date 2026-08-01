@@ -13,6 +13,7 @@ numpy
 pandas
 peft==0.18.1
 PyMySQL
+pytest
 rich
 rouge-score
 rouge-chinese
@@ -28,3 +29,6 @@ trl==0.21.0
 typer>=0.15.2
 wandb
 yq>=3.4.3
+
+# Optional Linux/CUDA dependency for scripts/synid_augment/run_spider_aug_loops_v2.py:
+# vllm

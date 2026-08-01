@@ -2,8 +2,8 @@
 name = "sql_distill"
 version = "0.1.0"
 description = "Add your description here"
-readme = "readme.md"
-requires-python = "==3.10.*"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
 
 
 dependencies = [
@@ -28,15 +28,20 @@ dependencies = [
     "rich",
     "setuptools",
     "sqlparse",
-    "nltk",
     "func-timeout",
     "jieba",
     "jsonlines",
     "PyMySQL",
+    "pytest",
     "rouge-chinese",
     "safetensors",
     "scikit-learn",
     "tiktoken"
+]
+
+[project.optional-dependencies]
+vllm = [
+    "vllm"
 ]
 
 [tool.uv]
