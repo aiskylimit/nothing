@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate and validate SynID-SQL augmentation candidates in repair loops."""
+"""Generate and validate SynID-SQL augmentation candidates with rejection sampling."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from infer import init_model
 from src.synid_sql.augmentation.io import read_jsonl, write_json, write_jsonl
 from src.synid_sql.augmentation.spider_records import (
     build_teacher_user_prompt,
@@ -32,50 +31,6 @@ from src.synid_sql.augmentation.validator import validate_candidate
 DEFAULT_TEACHER_PEFT_PATHS = {
     "spider": "hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090",
 }
-
-REPAIR_INSTRUCTION = """Previous attempt:
-{previous_candidate_sql}
-
-Validation result:
-- reason: {failure_reason}
-- detail: {failure_detail}
-
-Repair guidance:
-{repair_guidance}
-
-Return only the requested JSON object."""
-
-REPAIR_GUIDANCE_BY_REASON = {
-    "empty_sql": (
-        'Your previous response did not contain a usable SQL query. Return exactly one JSON object like {"sql": "..."} '
-        "where the SQL is a complete SQLite SELECT query."
-    ),
-    "candidate_execution_error": (
-        "The previous SQL could not be executed. Fix the syntax/runtime issue, use only schema-valid tables and columns, "
-        "and keep the query execution-equivalent to the reference solution."
-    ),
-    "execution_mismatch": (
-        "The previous SQL executed but returned a different result from the reference solution. Correct the joins, filters, "
-        "aggregation, grouping, ordering, or selected columns so the result matches the reference solution."
-    ),
-    "jaccard_too_high": (
-        "The previous SQL was execution-equivalent but too syntactically similar to the reference solution. Keep the same "
-        "execution result, but rewrite the query using a meaningfully different valid SQL form."
-    ),
-    "evaluator_error": (
-        "The benchmark evaluator failed while checking the previous SQL. Produce a conservative, simple, schema-valid SQLite "
-        "query that is execution-equivalent to the reference solution."
-    ),
-    "db_not_found": (
-        "The database could not be found during validation. Still return a schema-valid SQLite query based only on the provided "
-        "schema and reference solution."
-    ),
-    "gold_execution_error": (
-        "The reference solution failed during validation, so avoid copying brittle syntax from it. Generate a simple schema-valid "
-        "SQLite query that answers the question according to the schema and reference solution intent."
-    ),
-}
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -92,7 +47,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--device", default="cuda", choices=["cpu", "cuda", "auto"])
     parser.add_argument("--num-loops", type=int, default=5)
-    parser.add_argument("--gamma", type=float, default=0.6)
+    parser.add_argument(
+        "--gamma",
+        "--similarity-threshold",
+        dest="gamma",
+        type=float,
+        default=0.8,
+        help="Maximum allowed difflib.SequenceMatcher SQL similarity before retrying.",
+    )
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--max-input-tokens", type=int, default=4096)
     parser.add_argument("--max-new-tokens", type=int, default=512)
@@ -123,43 +85,19 @@ def _failure_detail(row: dict[str, Any]) -> str:
         "evaluator",
         "gold_row_count",
         "candidate_row_count",
-        "jaccard",
-        "gamma",
+        "similarity",
+        "similarity_threshold",
     ):
         if key in row:
             fields.append(f"{key}={row[key]}")
     return "; ".join(fields) if fields else "No additional detail."
 
 
-def _repair_guidance(row: dict[str, Any], *, gamma: float) -> str:
-    reason = row.get("reason") or row.get("failure_reason") or "unknown"
-    guidance = REPAIR_GUIDANCE_BY_REASON.get(
-        str(reason),
-        "Generate a corrected SQL query that is execution-equivalent to the reference solution and follows the output format.",
-    )
-    if reason == "jaccard_too_high":
-        guidance = f"{guidance} The token Jaccard similarity must be below gamma={gamma}."
-    return guidance
-
-
 def _build_messages(
     tokenizer,
     system_prompt: str,
     user_prompt: str,
-    failed_row: dict[str, Any] | None,
-    args: argparse.Namespace,
 ) -> str:
-    if failed_row is not None:
-        user_prompt = (
-            user_prompt
-            + "\n\n"
-            + REPAIR_INSTRUCTION.format(
-                previous_candidate_sql=failed_row.get("candidate_sql") or failed_row.get("previous_candidate_sql") or "",
-                failure_reason=failed_row.get("reason") or failed_row.get("failure_reason") or "unknown",
-                failure_detail=_failure_detail(failed_row),
-                repair_guidance=_repair_guidance(failed_row, gamma=args.gamma),
-            )
-        )
     return tokenizer.apply_chat_template(
         [
             {"role": "system", "content": system_prompt},
@@ -177,12 +115,11 @@ def generate_batch(
     model,
     system_prompt: str,
     user_prompts: list[str],
-    failed_rows: list[dict[str, Any] | None],
     args: argparse.Namespace,
 ) -> list[tuple[str, str]]:
     prompts = [
-        _build_messages(tokenizer, system_prompt, user_prompt, failed_row, args)
-        for user_prompt, failed_row in zip(user_prompts, failed_rows)
+        _build_messages(tokenizer, system_prompt, user_prompt)
+        for user_prompt in user_prompts
     ]
     inputs = tokenizer(
         prompts,
@@ -313,6 +250,7 @@ def main() -> None:
         "teacher_peft_path": args.teacher_peft_path,
         "num_loops": args.num_loops,
         "gamma": args.gamma,
+        "similarity_threshold": args.gamma,
         "timeout": args.timeout,
         "max_input_tokens": args.max_input_tokens,
         "max_new_tokens": args.max_new_tokens,
@@ -324,6 +262,8 @@ def main() -> None:
     }
     _append_log(log_path, "START " + json.dumps(start_summary, ensure_ascii=False))
     _append_jsonl(progress_path, {"timestamp": _timestamp(), **start_summary})
+
+    from infer import init_model
 
     tokenizer, model = init_model(args.model, args.teacher_peft_path, device=args.device)
     model.eval()
@@ -353,13 +293,11 @@ def main() -> None:
                     user_prompt_builder(user_template, base_record)
                     for base_record in base_records
                 ]
-                failed_rows = [item if "reason" in item else None for item in batch_items]
                 generated = generate_batch(
                     tokenizer=tokenizer,
                     model=model,
                     system_prompt=system_prompt,
                     user_prompts=user_prompts,
-                    failed_rows=failed_rows,
                     args=args,
                 )
                 for base_record, (raw_response, candidate_sql) in zip(base_records, generated):

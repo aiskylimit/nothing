@@ -1,121 +1,152 @@
+#!/usr/bin/env python3
+"""Merge accepted SynID candidates with recovered final rejections.
+
+This implements the final selection rule used by the reformulation pipeline:
+after the retry budget, keep the execution-correct candidate with the lowest
+normalized SQL SequenceMatcher similarity. If no execution-correct candidate
+exists, fall back to the original gold SQL.
+"""
+
+from __future__ import annotations
+
+import argparse
 import json
 from pathlib import Path
+from typing import Any
 
-def main():
-    # 1. Khai báo các đường dẫn
-    base_dir = Path("benchmarks_2/spider_data/synid_aug_v2_lora")
-    final_rejected_path = base_dir / "rejected_final.jsonl"
-    loops_dir = base_dir / "loops"
-    recovered_path = base_dir / "recovered_final.jsonl" # File xuất ra cho các sample được cứu
-    accepted_path = base_dir / "accepted_all.jsonl"     # File chứa các sample đã pass
-    final_merged_path = base_dir / "final_merged.jsonl" # File gộp cuối cùng
 
-    if not final_rejected_path.exists():
-        print(f"Không tìm thấy file: {final_rejected_path}")
-        return
+SIMILARITY_TOO_HIGH_REASONS = {"sql_similarity_too_high", "jaccard_too_high"}
 
-    # 2. Đọc danh sách các sample bị fail cuối cùng
-    final_rejected_records = {}
-    with open(final_rejected_path, "r", encoding="utf-8") as f:
-        for line in f:
-            record = json.loads(line)
-            record_id = str(record["id"])
-            final_rejected_records[record_id] = record
 
-    print(f"Đã load {len(final_rejected_records)} samples từ rejected_final.jsonl")
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    rows = []
+    with path.open(encoding="utf-8-sig") as file:
+        for line_no, line in enumerate(file, start=1):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if not isinstance(row, dict):
+                raise ValueError(f"{path}:{line_no} is not a JSON object")
+            rows.append(row)
+    return rows
 
-    # 3. Quét tất cả các loop để tìm best candidate cho từng sample fail
-    best_candidates = {}
-    
-    # Tìm tất cả các file rejected.jsonl trong các thư mục loop_1, loop_2, loop_3...
-    for loop_file in loops_dir.glob("loop_*/rejected.jsonl"):
-        with open(loop_file, "r", encoding="utf-8") as f:
-            for line in f:
-                cand = json.loads(line)
-                cand_id = str(cand.get("id"))
-                
-                # Nếu sample này nằm trong danh sách fail cuối cùng
-                if cand_id in final_rejected_records:
-                    # Chỉ lấy nếu lý do fail là jaccard_too_high
-                    if cand.get("reason") == "jaccard_too_high":
-                        current_jaccard = cand.get("jaccard", 1.0)
-                        
-                        # Cập nhật nếu chưa có, hoặc nếu jaccard này nhỏ hơn jaccard đã lưu
-                        if cand_id not in best_candidates:
-                            best_candidates[cand_id] = cand
-                        else:
-                            best_jaccard = best_candidates[cand_id].get("jaccard", 1.0)
-                            if current_jaccard < best_jaccard:
-                                best_candidates[cand_id] = cand
 
-    # 4. Quyết định kết quả cuối cùng (lấy từ loop hoặc fallback về gold)
-    recovered_records = []
+def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="\n") as file:
+        for row in rows:
+            file.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def row_similarity(row: dict[str, Any]) -> float:
+    if row.get("similarity") is not None:
+        return float(row["similarity"])
+    if row.get("jaccard") is not None:
+        return float(row["jaccard"])
+    return 1.0
+
+
+def select_best_rejected_candidates(loops_dir: Path, final_rejected_ids: set[str]) -> dict[str, dict[str, Any]]:
+    best: dict[str, dict[str, Any]] = {}
+    for loop_file in sorted(loops_dir.glob("loop_*/rejected.jsonl")):
+        for candidate in read_jsonl(loop_file):
+            candidate_id = str(candidate.get("id"))
+            if candidate_id not in final_rejected_ids:
+                continue
+            if candidate.get("reason") not in SIMILARITY_TOO_HIGH_REASONS:
+                continue
+            previous = best.get(candidate_id)
+            if previous is None or row_similarity(candidate) < row_similarity(previous):
+                best[candidate_id] = candidate
+    return best
+
+
+def recover_rows(
+    final_rejected_rows: list[dict[str, Any]],
+    best_candidates: dict[str, dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    recovered_rows = []
     stats = {"recovered_from_loops": 0, "fallback_to_gold": 0}
 
-    for cand_id, original_record in final_rejected_records.items():
-        recovered_record = original_record.copy()
-        
-        # NOTE: Thay đổi key "query" dưới đây thành tên key chứa câu SQL gốc của bạn
-        gold_sql = original_record.get("query", original_record.get("gold_sql", ""))
-
-        if cand_id in best_candidates:
-            # Nếu tìm thấy candidate hợp lệ trong các loop
-            best = best_candidates[cand_id]
-            recovered_record["candidate_sql"] = best["candidate_sql"]
-            recovered_record["jaccard"] = best["jaccard"]
-            recovered_record["recovery_source"] = f"loop_{best.get('loop', 'unknown')}"
+    for row in final_rejected_rows:
+        row_id = str(row["id"])
+        recovered = dict(row)
+        best = best_candidates.get(row_id)
+        if best is not None:
+            candidate_sql = best.get("aug_sql") or best.get("candidate_sql")
+            if not candidate_sql:
+                raise ValueError(f"Missing candidate SQL for recovered row id={row_id}")
+            recovered["candidate_sql"] = str(candidate_sql).strip()
+            recovered["aug_sql"] = str(candidate_sql).strip()
+            recovered["similarity"] = row_similarity(best)
+            recovered["similarity_threshold"] = best.get("similarity_threshold") or best.get("gamma")
+            recovered["recovery_source"] = f"loop_{best.get('loop', 'unknown')}"
             stats["recovered_from_loops"] += 1
         else:
-            # Không tìm thấy ứng viên hợp lệ -> Fallback về câu Gold SQL
-            recovered_record["candidate_sql"] = gold_sql
-            recovered_record["jaccard"] = 1.0 # Jaccard của gold vs gold là 1.0
-            recovered_record["recovery_source"] = "gold_fallback"
+            gold_sql = row.get("gold_sql") or row.get("query")
+            if not gold_sql:
+                raise ValueError(f"Missing gold_sql/query for fallback row id={row_id}")
+            recovered["candidate_sql"] = str(gold_sql).strip()
+            recovered["aug_sql"] = str(gold_sql).strip()
+            recovered["similarity"] = 1.0
+            recovered["recovery_source"] = "gold_fallback"
             stats["fallback_to_gold"] += 1
-            
-        recovered_records.append(recovered_record)
+        recovered_rows.append(recovered)
 
-    # 5. Lưu ra file recovered_final.jsonl (Bước đệm)
-    with open(recovered_path, "w", encoding="utf-8") as f:
-        for rec in recovered_records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return recovered_rows, stats
 
-    # 6. Đọc file accepted_all.jsonl và gộp (Merge)
-    accepted_records = []
-    if accepted_path.exists():
-        with open(accepted_path, "r", encoding="utf-8") as f:
-            for line in f:
-                rec = json.loads(line)
-                # Đánh dấu nguồn gốc cho đồng nhất
-                rec["recovery_source"] = "accepted"
-                accepted_records.append(rec)
-    else:
-        print(f"⚠️ Cảnh báo: Không tìm thấy file {accepted_path}. Sẽ chỉ xuất ra dữ liệu recovered.")
 
-    # Gộp 2 mảng lại với nhau
-    final_merged_records = accepted_records + recovered_records
-
-    # Tùy chọn: Sắp xếp lại dữ liệu theo 'id' cho dễ nhìn (nếu id là số)
+def sort_by_id(rows: list[dict[str, Any]]) -> None:
     try:
-        final_merged_records.sort(key=lambda x: int(x["id"]))
-    except ValueError:
-        # Nếu id chứa chữ (không phải số nguyên), sắp xếp theo kiểu chuỗi
-        final_merged_records.sort(key=lambda x: str(x["id"]))
+        rows.sort(key=lambda row: int(row["id"]))
+    except (KeyError, ValueError):
+        rows.sort(key=lambda row: str(row.get("id", "")))
 
-    # Lưu ra file gộp cuối cùng
-    with open(final_merged_path, "w", encoding="utf-8") as f:
-        for rec in final_merged_records:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    # In báo cáo
-    print("\n--- KẾT QUẢ KHÔI PHỤC & GỘP DATA ---")
-    print(f"✅ Số sample pass ngay từ đầu (Accepted): {len(accepted_records)}")
-    print(f"🔄 Số sample được khôi phục/fallback: {len(recovered_records)}")
-    print(f"   ↳ Khôi phục từ các loop (Min Jaccard): {stats['recovered_from_loops']}")
-    print(f"   ↳ Dùng bản Gold SQL (Fallback): {stats['fallback_to_gold']}")
-    print("-" * 35)
-    print(f"🚀 TỔNG CỘNG data sau khi gộp: {len(final_merged_records)} samples")
-    print(f"📁 Đã lưu file khôi phục tại: {recovered_path}")
-    print(f"📁 Đã lưu file gộp toàn bộ tại: {final_merged_path}")
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base-dir", type=Path, default=Path("benchmarks_2/spider_data/synid_aug_v2_lora"))
+    parser.add_argument("--accepted", type=Path, default=None)
+    parser.add_argument("--rejected-final", type=Path, default=None)
+    parser.add_argument("--loops-dir", type=Path, default=None)
+    parser.add_argument("--recovered-output", type=Path, default=None)
+    parser.add_argument("--merged-output", type=Path, default=None)
+    args = parser.parse_args()
+
+    accepted_path = args.accepted or args.base_dir / "accepted_all.jsonl"
+    rejected_final_path = args.rejected_final or args.base_dir / "rejected_final.jsonl"
+    loops_dir = args.loops_dir or args.base_dir / "loops"
+    recovered_output = args.recovered_output or args.base_dir / "recovered_final.jsonl"
+    merged_output = args.merged_output or args.base_dir / "final_merged.jsonl"
+
+    if not rejected_final_path.exists():
+        raise FileNotFoundError(f"Missing final rejected file: {rejected_final_path}")
+    if not loops_dir.exists():
+        raise FileNotFoundError(f"Missing loops directory: {loops_dir}")
+
+    final_rejected_rows = read_jsonl(rejected_final_path)
+    final_rejected_ids = {str(row["id"]) for row in final_rejected_rows}
+    best_candidates = select_best_rejected_candidates(loops_dir, final_rejected_ids)
+    recovered_rows, stats = recover_rows(final_rejected_rows, best_candidates)
+    write_jsonl(recovered_output, recovered_rows)
+
+    accepted_rows = read_jsonl(accepted_path) if accepted_path.exists() else []
+    for row in accepted_rows:
+        row.setdefault("recovery_source", "accepted")
+
+    final_rows = [*accepted_rows, *recovered_rows]
+    sort_by_id(final_rows)
+    write_jsonl(merged_output, final_rows)
+
+    print(f"accepted={len(accepted_rows)}")
+    print(f"recovered={len(recovered_rows)}")
+    print(f"recovered_from_loops={stats['recovered_from_loops']}")
+    print(f"fallback_to_gold={stats['fallback_to_gold']}")
+    print(f"merged={len(final_rows)}")
+    print(f"recovered_output={recovered_output}")
+    print(f"merged_output={merged_output}")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

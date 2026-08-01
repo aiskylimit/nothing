@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate and validate SynID-SQL augmentation candidates in repair loops."""
+"""Generate and validate SynID-SQL augmentation candidates with rejection sampling."""
 
 from __future__ import annotations
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .execution import SqlExecutionError, execute_sql, resolve_sqlite_path, spider_exec_match
-from .jaccard import sql_token_jaccard
+from .similarity import sql_sequence_similarity
 from .sql_normalize import normalize_sql
 
 
@@ -121,16 +121,16 @@ def validate_candidate(
             candidate_row_count=len(candidate_rows),
         )
 
-    jaccard = sql_token_jaccard(gold_sql, candidate_sql)
-    if jaccard >= gamma:
+    similarity = sql_sequence_similarity(gold_sql, candidate_sql)
+    if similarity >= gamma:
         return _reject(
             candidate,
-            reason="jaccard_too_high",
+            reason="sql_similarity_too_high",
             failure_stage="diversity_filter",
             repairable=True,
             candidate_sql=candidate_sql,
-            jaccard=jaccard,
-            gamma=gamma,
+            similarity=similarity,
+            similarity_threshold=gamma,
             gold_result_hash=_result_hash(gold_rows),
             candidate_result_hash=_result_hash(candidate_rows),
         )
@@ -142,7 +142,8 @@ def validate_candidate(
             "aug_sql": candidate_sql,
             "candidate_sql": candidate_sql,
             "status": "accepted",
-            "jaccard": jaccard,
+            "similarity": similarity,
+            "similarity_threshold": gamma,
             "gold_result_hash": _result_hash(gold_rows),
             "candidate_result_hash": _result_hash(candidate_rows),
         },

@@ -13,14 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from tqdm.auto import tqdm
-from transformers import AutoTokenizer
-from vllm import LLM, SamplingParams
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from infer import init_model
 from src.synid_sql.augmentation.io import read_jsonl, write_json, write_jsonl
 from src.synid_sql.augmentation.spider_records import (
     build_teacher_user_prompt,
@@ -51,7 +48,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--tensor-parallel-size", "-tp", type=int, default=1, help="Number of GPUs for vLLM")
     parser.add_argument("--num-loops", type=int, default=5, help="Number of independent retries for failed candidates")
-    parser.add_argument("--gamma", type=float, default=0.8)
+    parser.add_argument(
+        "--gamma",
+        "--similarity-threshold",
+        dest="gamma",
+        type=float,
+        default=0.8,
+        help="Maximum allowed difflib.SequenceMatcher SQL similarity before retrying.",
+    )
     parser.add_argument("--timeout", type=float, default=120.0)
     parser.add_argument("--max-input-tokens", type=int, default=4096)
     parser.add_argument("--max-new-tokens", type=int, default=512)
@@ -81,8 +85,8 @@ def _failure_detail(row: dict[str, Any]) -> str:
         "evaluator",
         "gold_row_count",
         "candidate_row_count",
-        "jaccard",
-        "gamma",
+        "similarity",
+        "similarity_threshold",
     ):
         if key in row:
             fields.append(f"{key}={row[key]}")
@@ -107,7 +111,7 @@ def _build_messages(
 
 def generate_with_vllm(
     *,
-    llm: LLM,
+    llm,
     tokenizer,
     system_prompt: str,
     user_prompts: list[str],
@@ -119,6 +123,14 @@ def generate_with_vllm(
         _build_messages(tokenizer, system_prompt, user_prompt)
         for user_prompt in user_prompts
     ]
+
+    try:
+        from vllm import SamplingParams
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "run_spider_aug_loops_v2.py requires vllm. Install vllm or use "
+            "run_spider_aug_loops.py for the standard Transformers backend."
+        ) from exc
 
     do_sample = args.temperature > 0
     sampling_params = SamplingParams(
@@ -248,6 +260,7 @@ def main() -> None:
         "teacher_peft_path": args.teacher_peft_path,
         "num_loops": args.num_loops,
         "gamma": args.gamma,
+        "similarity_threshold": args.gamma,
         "timeout": args.timeout,
         "max_input_tokens": args.max_input_tokens,
         "max_new_tokens": args.max_new_tokens,
@@ -265,10 +278,9 @@ def main() -> None:
     # ==========================================
     model_name_or_path = args.model
     if args.teacher_peft_path:
+        from infer import init_model
         import torch
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM
-        
+
         clean_peft_path = args.teacher_peft_path.replace("hf://", "")
         merged_model_path = args.output_root / "merged_model"
         
@@ -291,6 +303,15 @@ def main() -> None:
         # Override the model path so vLLM loads the merged version
         model_name_or_path = str(merged_model_path)
 
+    try:
+        from transformers import AutoTokenizer
+        from vllm import LLM
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "run_spider_aug_loops_v2.py requires vllm and transformers. Install vllm "
+            "or use run_spider_aug_loops.py for the standard Transformers backend."
+        ) from exc
+
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
     
     print("Loading vLLM Engine...")
@@ -309,7 +330,7 @@ def main() -> None:
     remaining: list[dict[str, Any]] = records
     loop_summaries = []
 
-    for loop_index in range(1, args.num_loops + 5):
+    for loop_index in range(1, args.num_loops + 1):
         loop_dir = args.output_root / "loops" / f"loop_{loop_index}"
         loop_dir.mkdir(parents=True, exist_ok=True)
 
@@ -349,12 +370,11 @@ def main() -> None:
                     "candidate_sql": candidate_sql,
                 }
 
-                gamma = args.gamma if loop_index < args.num_loops else 1.0
                 ok, validation_row = validate_candidate(
                     candidate,
                     benchmark=args.benchmark,
                     db_root=args.db_root,
-                    gamma=gamma,
+                    gamma=args.gamma,
                     timeout_s=args.timeout,
                 )
                 candidates.append(candidate)
