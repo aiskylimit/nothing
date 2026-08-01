@@ -1,4 +1,4 @@
-#1 +30
+#2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/infer.zip +a
 #sql
 #v1
 
