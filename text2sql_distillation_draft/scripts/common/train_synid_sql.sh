@@ -34,7 +34,7 @@ TEACHER_MODEL_PATH="${TEACHER_MODEL_PATH:?TEACHER_MODEL_PATH must be set by the 
 TEACHER_CKPT_NAME="${TEACHER_CKPT_NAME:?TEACHER_CKPT_NAME must be set by the wrapper script}"
 TEACHER_MODEL_TYPE="${TEACHER_MODEL_TYPE:-${MODEL_TYPE}}"
 TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:?TEACHER_PEFT_PATH must point to the custom teacher LoRA adapter for this run}"
-DATA_DIR="${DATA_DIR:?DATA_DIR must point to a SynID processed mmap data directory, e.g. processed_data/benchmarks/spider_data/synid_privileged_lora/qwen}"
+DATA_DIR="${DATA_DIR:?DATA_DIR must point to a SynID processed mmap data directory, e.g. processed_data/spider_data/synid_privileged_lora/qwen}"
 
 EPOCHS="${EPOCHS:-5}"
 BATCH_SIZE="${BATCH_SIZE:-4}"
@@ -77,7 +77,7 @@ if [[ "${SYNID_USE_PRIVILEGED_TEACHER_INPUT}" =~ ^(1|true|yes|y)$ ]]; then
   if [[ ! -f "${DATA_DIR}/teacher_train_0.bin" || ! -f "${DATA_DIR}/teacher_train_0.idx" ]]; then
     echo "Missing SynID teacher mmap files in DATA_DIR=${DATA_DIR}" >&2
     echo "Expected: ${DATA_DIR}/teacher_train_0.bin and ${DATA_DIR}/teacher_train_0.idx" >&2
-    echo "For Qwen, expected data dir is: processed_data/benchmarks/spider_data/synid_privileged_lora/qwen" >&2
+    echo "For Qwen, expected data dir is: processed_data/spider_data/synid_privileged_lora/qwen" >&2
     echo "Unset stale DATA_DIR or pass DATA_DIR=<correct path> before running this script." >&2
     exit 1
   fi

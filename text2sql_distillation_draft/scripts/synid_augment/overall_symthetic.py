@@ -105,7 +105,7 @@ def sort_by_id(rows: list[dict[str, Any]]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-dir", type=Path, default=Path("benchmarks/spider_data/synid_aug_v2_lora"))
+    parser.add_argument("--base-dir", type=Path, default=Path("datasets/train/spider_data/synid_aug_v2_lora"))
     parser.add_argument("--accepted", type=Path, default=None)
     parser.add_argument("--rejected-final", type=Path, default=None)
     parser.add_argument("--loops-dir", type=Path, default=None)

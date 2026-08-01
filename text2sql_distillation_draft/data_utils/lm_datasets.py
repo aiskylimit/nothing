@@ -12,10 +12,10 @@ from torch.distributed import get_rank, get_world_size
 from utils import print_rank
 
 HF_DATA_PATH_ALIASES = {
-    "./processed_data/benchmarks/Cypherbench/qwen": "hf://fisherman611/text_to_cypher_distillation/benchmarks/Cypherbench/qwen",
-    "./processed_data/benchmarks/Cypherbench/qwen/": "hf://fisherman611/text_to_cypher_distillation/benchmarks/Cypherbench/qwen",
-    "processed_data/benchmarks/Cypherbench/qwen": "hf://fisherman611/text_to_cypher_distillation/benchmarks/Cypherbench/qwen",
-    "processed_data/benchmarks/Cypherbench/qwen/": "hf://fisherman611/text_to_cypher_distillation/benchmarks/Cypherbench/qwen",
+    "./processed_data/Cypherbench/qwen": "hf://fisherman611/text_to_cypher_distillation/datasets/Cypherbench/qwen",
+    "./processed_data/Cypherbench/qwen/": "hf://fisherman611/text_to_cypher_distillation/datasets/Cypherbench/qwen",
+    "processed_data/Cypherbench/qwen": "hf://fisherman611/text_to_cypher_distillation/datasets/Cypherbench/qwen",
+    "processed_data/Cypherbench/qwen/": "hf://fisherman611/text_to_cypher_distillation/datasets/Cypherbench/qwen",
 }
 
 

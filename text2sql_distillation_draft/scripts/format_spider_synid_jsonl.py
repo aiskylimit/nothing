@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 
-SPIDER_ROOT = Path("benchmarks/spider_data")
+SPIDER_ROOT = Path("datasets/train/spider_data")
 TEACHER_PROMPT_DIR = Path("prompts/single_turn/synid_teacher")
 JSON_SCHEMA = json.dumps({"sql": "The complete SQL query"}, indent=2)
 

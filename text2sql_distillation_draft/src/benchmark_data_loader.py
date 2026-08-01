@@ -43,7 +43,7 @@ def load_benchmark_json(
         )
 
     normalized_rel_path = relative_path.replace("\\", "/").lstrip("/")
-    local_path = Path("benchmarks") / benchmark / Path(normalized_rel_path)
+    local_path = Path("datasets") / benchmark / Path(normalized_rel_path)
     local_error: Optional[Exception] = None
 
     if data_source in {"local", "auto"} and local_path.exists():

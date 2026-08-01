@@ -43,19 +43,18 @@ SynID train set is provided for both model families:
 
 ## Download Sources
 
-Download sources and local placement for the benchmark-style layout used by
-inference and evaluator scripts:
+Download sources and local placement under `datasets/`:
 
 | Benchmark | Source | JSON/schema path | DB path |
 | --- | --- | --- | --- |
-| Spider original | [Spider 1.0](https://yale-lily.github.io/spider) | `benchmarks/spider_data/` | `benchmarks/spider_data/database/` |
-| Spider-Syn | [ygan/Spider-Syn](https://github.com/ygan/Spider-Syn) | `benchmarks/spider_syn/test.json` | `benchmarks/spider_data/database/` |
-| Spider-Realistic | [aherntech/spider-realistic](https://github.com/aherntech/spider-realistic) | `benchmarks/spider_realistic/test.json` | `benchmarks/spider_data/database/` |
-| Spider-DK | [ygan/Spider-DK](https://github.com/ygan/Spider-DK) | `benchmarks/spider_dk/test.json`, `benchmarks/spider_dk/tables.json` | `benchmarks/spider_dk/database/` |
+| Spider original | [Spider 1.0](https://yale-lily.github.io/spider) | `datasets/train/spider_data/`, `datasets/eval/spider_data/`, `datasets/test/spider_data/` | `datasets/train/spider_data/database/`, `datasets/eval/spider_data/database/`, `datasets/test/spider_data/database/` |
+| Spider-Syn | [ygan/Spider-Syn](https://github.com/ygan/Spider-Syn) | `datasets/test/spider_syn/test.json` | `datasets/test/spider_data/database/` |
+| Spider-Realistic | [aherntech/spider-realistic](https://github.com/aherntech/spider-realistic) | `datasets/test/spider_realistic/test.json` | `datasets/test/spider_data/database/` |
+| Spider-DK | [ygan/Spider-DK](https://github.com/ygan/Spider-DK) | `datasets/test/spider_dk/test.json`, `datasets/test/spider_dk/tables.json` | `datasets/test/spider_dk/database/` |
 
 Spider-Syn and Spider-Realistic reuse the original Spider SQLite databases, so
-keep those databases in `benchmarks/spider_data/database/`. Spider-DK uses its
-own database directory under `benchmarks/spider_dk/database/`.
+keep those test databases in `datasets/test/spider_data/database/`. Spider-DK
+uses its own database directory under `datasets/test/spider_dk/database/`.
 
 Step 1: format Spider JSON files into prompt/response JSONL. Run this before any
 `process_data.py` command, because `process_data.py` reads `train.jsonl`,
@@ -428,6 +427,12 @@ bash scripts/synid-sql/infer_llama3_to_llama3_1b.sh
 bash scripts/synid-sql/eval_llama3_to_llama3_1b.sh
 ```
 
+Or evaluate an existing inference run directly:
+
+```bash
+bash eval.sh synid_sql_qwen3_4b_to_qwen3_0.6b
+```
+
 Override seeds if needed:
 
 ```bash
@@ -439,7 +444,7 @@ export INFER_SEEDS=10,42,50,100,1234
 Note: the checked-in `final_merged.jsonl` files are already generated. If you
 want to regenerate them, first follow the download/setup steps above and make
 sure the original Spider SQLite databases are available at
-`benchmarks/spider_data/database/`. The vLLM generator should be run on CUDA
+`datasets/train/spider_data/database/`. The vLLM generator should be run on CUDA
 Linux/WSL.
 
 Generate the Qwen SynID data:
@@ -451,7 +456,7 @@ python scripts/synid_augment/run_spider_aug_loops_v2.py \
   --benchmark spider \
   --root datasets/train/spider_data \
   --output-root datasets/train/spider_data/synid_aug_v2_lora \
-  --db-root benchmarks/spider_data/database \
+  --db-root datasets/train/spider_data/database \
   --model Qwen/Qwen3-4B-Instruct-2507 \
   --teacher-peft-path "${TEACHER_PEFT_PATH}" \
   --tensor-parallel-size 2 \
@@ -472,7 +477,7 @@ python scripts/synid_augment/run_spider_aug_loops_v2.py \
   --benchmark spider \
   --root datasets/train/spider_data \
   --output-root datasets/train/spider_data/llama_synid_aug_v2_lora \
-  --db-root benchmarks/spider_data/database \
+  --db-root datasets/train/spider_data/database \
   --model meta-llama/Llama-3.1-8B-Instruct \
   --teacher-peft-path "${TEACHER_PEFT_PATH}" \
   --tensor-parallel-size 2 \

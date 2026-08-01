@@ -2,16 +2,16 @@
 split_data.py – Split train.jsonl → train.jsonl (80%) + dev.jsonl (20%)
 ========================================================================
 
-Finds every ``train.jsonl`` under ``benchmarks/*/`` and splits it in-place.
-The original file is overwritten with the train portion; ``dev.jsonl`` is
-written alongside it.
+Finds every ``train.jsonl`` under ``datasets/train/*/format_data/`` and splits
+it in-place. The original file is overwritten with the train portion;
+``dev.jsonl`` is written alongside it.
 
 Usage
 -----
-# Split all benchmarks (default)
+# Split all training datasets (default)
 python split_data.py
 
-# Split a specific benchmark only
+# Split a specific training dataset only
 python split_data.py --benchmark Cypherbench
 
 # Custom ratio (e.g. 90/10)
@@ -39,8 +39,8 @@ def parse_args():
         "--benchmark",
         default=None,
         help=(
-            "Benchmark to split (e.g. Cypherbench). "
-            "If omitted, all benchmarks under benchmarks/ are processed."
+            "Training dataset to split (e.g. spider_data). "
+            "If omitted, all datasets under datasets/train/ are processed."
         ),
     )
     parser.add_argument(
@@ -100,13 +100,13 @@ def split_file(train_jsonl: Path, train_ratio: float, seed: int, shuffle: bool):
 def main():
     args = parse_args()
     base_dir = Path(args.base_dir)
-    benchmarks_dir = base_dir / "benchmarks"
+    datasets_dir = base_dir / "datasets" / "train"
 
     if args.benchmark:
-        benchmark_dirs = [benchmarks_dir / args.benchmark]
+        benchmark_dirs = [datasets_dir / args.benchmark / "format_data"]
     else:
         benchmark_dirs = sorted(
-            p for p in benchmarks_dir.iterdir() if p.is_dir()
+            p / "format_data" for p in datasets_dir.iterdir() if p.is_dir()
         )
 
     print(

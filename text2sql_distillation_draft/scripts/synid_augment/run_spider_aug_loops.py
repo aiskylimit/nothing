@@ -62,11 +62,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if args.root is None:
-        args.root = Path("benchmarks/spider_data")
+        args.root = Path("datasets/train/spider_data")
     if args.output_root is None:
         args.output_root = args.root / "synid_aug"
     if args.db_root is None:
-        args.db_root = Path("benchmarks/spider_data/database")
+        args.db_root = Path("datasets/train/spider_data/database")
     return args
 
 

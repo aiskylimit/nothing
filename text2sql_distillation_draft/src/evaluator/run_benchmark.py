@@ -5,29 +5,29 @@ import sys
 
 BENCHMARKS = {
     "spider_dev": {
-        "gold": "benchmarks/spider_data/dev_gold.sql",
-        "db": "benchmarks/spider_data/database",
-        "table": "benchmarks/spider_data/tables.json",
+        "gold": "datasets/eval/spider_data/dev_gold.sql",
+        "db": ["datasets/eval/spider_data/database", "datasets/train/spider_data/database"],
+        "table": "datasets/eval/spider_data/tables.json",
     },
     "spider_test": {
-        "gold": "benchmarks/spider_data/test_gold.sql",
-        "db": "benchmarks/spider_data/test_database",
-        "table": "benchmarks/spider_data/test_tables.json",
+        "gold": "datasets/test/spider_data/test_gold.sql",
+        "db": ["datasets/test/spider_data/database", "datasets/test/spider_data/test_database"],
+        "table": "datasets/test/spider_data/test_tables.json",
     },
     "spider_syn_test": {
         "gold": None,
-        "db": "benchmarks/spider_data/database",
-        "table": "benchmarks/spider_data/tables.json",
+        "db": ["datasets/test/spider_data/database", "datasets/test/spider_data/test_database"],
+        "table": "datasets/test/spider_data/tables.json",
     },
     "spider_realistic_test": {
         "gold": None,
-        "db": "benchmarks/spider_data/database",
-        "table": "benchmarks/spider_data/tables.json",
+        "db": ["datasets/test/spider_data/database", "datasets/test/spider_data/test_database"],
+        "table": "datasets/test/spider_data/tables.json",
     },
     "spider_dk_test": {
         "gold": None,
-        "db": "benchmarks/spider_dk/database",
-        "table": "benchmarks/spider_dk/tables.json",
+        "db": "datasets/test/spider_dk/database",
+        "table": "datasets/test/spider_dk/tables.json",
     },
 }
 
@@ -67,6 +67,16 @@ def validate_prediction_shape(gold_path, pred_path):
 
 def resolve_repo_path(path):
     return os.path.abspath(path)
+
+
+def resolve_config_path(value):
+    if isinstance(value, (list, tuple)):
+        candidates = [resolve_repo_path(path) for path in value]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        return candidates[0]
+    return resolve_repo_path(value)
 
 
 def main():
@@ -136,8 +146,8 @@ def main():
         )
     gold_path = resolve_repo_path(gold_config)
     pred_path = resolve_repo_path(args.pred)
-    db_dir = resolve_repo_path(config["db"])
-    table_path = resolve_repo_path(config["table"])
+    db_dir = resolve_config_path(config["db"])
+    table_path = resolve_config_path(config["table"])
 
     for path_name, path in (
         ("gold", gold_path),

@@ -12,7 +12,11 @@ from format_spider_variant_jsonl import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 from format_spider_variant_jsonl import build_schema_lookup, write_jsonl
 
 
-SPIDER_ROOT = Path("benchmarks/spider_data")
+DEFAULT_SPLIT_ROOTS = {
+    "train": Path("datasets/train/spider_data"),
+    "dev": Path("datasets/eval/spider_data"),
+    "test": Path("datasets/test/spider_data"),
+}
 SPLIT_CONFIG = {
     "train": ("train_spider.json", "tables.json"),
     "dev": ("dev.json", "tables.json"),
@@ -55,12 +59,13 @@ def format_split(root: Path, split: str) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=SPIDER_ROOT)
+    parser.add_argument("--root", type=Path, default=None)
     parser.add_argument("--splits", nargs="+", default=["train", "dev", "test"])
     args = parser.parse_args()
 
     for split in args.splits:
-        format_split(args.root, split)
+        root = args.root or DEFAULT_SPLIT_ROOTS[split]
+        format_split(root, split)
 
 
 if __name__ == "__main__":
