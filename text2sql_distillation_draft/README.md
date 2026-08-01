@@ -196,7 +196,6 @@ bash scripts/teacher_lora/llama3.sh
 ```bash
 bash scripts/student_sft/qwen3_0.6b.sh
 bash scripts/student_sft/llama3_1b.sh
-bash scripts/student_sft/qwen2.5_0.5b.sh
 ```
 
 ### SynID-SQL Distillation
@@ -204,7 +203,6 @@ bash scripts/student_sft/qwen2.5_0.5b.sh
 ```bash
 bash scripts/synid-sql/qwen3_to_qwen3_0.6b.sh
 bash scripts/synid-sql/llama3_to_llama3_1b.sh
-bash scripts/synid-sql/qwen3_to_qwen2.5_0.5b.sh
 ```
 
 Default SynID-SQL hyperparameters:
@@ -218,7 +216,6 @@ Default SynID-SQL hyperparameters:
 - syntax lambda: `2.0`
 - Qwen3 layer pair: student `27`, teacher `35`
 - Llama3 layer pair: student `15`, teacher `31`
-- Qwen3 to Qwen2.5 layer pair: `-1` to `-1`
 
 ## Inference and Evaluation
 
@@ -259,9 +256,6 @@ bash scripts/student_sft/eval_qwen3_0.6b.sh
 
 bash scripts/student_sft/infer_llama3_1b.sh
 bash scripts/student_sft/eval_llama3_1b.sh
-
-bash scripts/student_sft/infer_qwen2.5_0.5b.sh
-bash scripts/student_sft/eval_qwen2.5_0.5b.sh
 ```
 
 SynID-SQL:
@@ -272,9 +266,6 @@ bash scripts/synid-sql/eval_qwen3_to_qwen3_0.6b.sh
 
 bash scripts/synid-sql/infer_llama3_to_llama3_1b.sh
 bash scripts/synid-sql/eval_llama3_to_llama3_1b.sh
-
-bash scripts/synid-sql/infer_qwen3_to_qwen2.5_0.5b.sh
-bash scripts/synid-sql/eval_qwen3_to_qwen2.5_0.5b.sh
 ```
 
 Override seeds if needed:
