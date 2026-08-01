@@ -17,27 +17,17 @@ BENCHMARKS = {
     "spider_syn_test": {
         "gold": None,
         "db": "benchmarks/spider_data/database",
-        "table": "benchmarks_2/spider_data/tables.json",
+        "table": "benchmarks/spider_data/tables.json",
     },
     "spider_realistic_test": {
         "gold": None,
         "db": "benchmarks/spider_data/database",
-        "table": "benchmarks_2/spider_data/tables.json",
+        "table": "benchmarks/spider_data/tables.json",
     },
     "spider_dk_test": {
         "gold": None,
         "db": "benchmarks/spider_dk/database",
-        "table": "benchmarks_2/spider_dk/tables.json",
-    },
-    "sparc_dev": {
-        "gold": "benchmarks/sparc/dev_gold.txt",
-        "db": "benchmarks/sparc/database",
-        "table": "benchmarks/sparc/tables.json",
-    },
-    "cosql_dev": {
-        "gold": "benchmarks/cosql_dataset/sql_state_tracking/dev_gold.txt",
-        "db": "benchmarks/cosql_dataset/database",
-        "table": "benchmarks/cosql_dataset/tables.json",
+        "table": "benchmarks/spider_dk/tables.json",
     },
 }
 

@@ -30,7 +30,7 @@ RUN_NAME="${RUN_NAME:?RUN_NAME must be set by the wrapper script}"
 MODEL_PATH="${MODEL_PATH:?MODEL_PATH must be set by the wrapper script}"
 CKPT_NAME="${CKPT_NAME:?CKPT_NAME must be set by the wrapper script}"
 MODEL_TYPE="${MODEL_TYPE:?MODEL_TYPE must be set by the wrapper script}"
-DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/qwen}"
+DATA_DIR="${DATA_DIR:?DATA_DIR must point to a processed mmap data directory, e.g. processed_data/benchmarks/spider_data/qwen}"
 USE_LORA="${USE_LORA:-0}"
 
 EPOCHS="${EPOCHS:-5}"

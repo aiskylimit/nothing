@@ -10,8 +10,8 @@ export MODEL_TYPE="${MODEL_TYPE:-llama}"
 export TEACHER_MODEL_PATH="${TEACHER_MODEL_PATH:-meta-llama/Llama-3.1-8B-Instruct}"
 export TEACHER_CKPT_NAME="${TEACHER_CKPT_NAME:-llama3.1-8b-instruct}"
 export TEACHER_MODEL_TYPE="${TEACHER_MODEL_TYPE:-llama}"
-export TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-https://huggingface.co/Dream-AI-HUST/llama_spider/tree/main/llama/sft_sft_llama3_8b_lora_spider_lm_e5-bs2-lr0.0001-G8-N2-NN1-lora-16-64-0.1/e5-bs2-lr0.0001-G8-N2-NN1-lora-16-64-0.1/1090}"
-export DATA_DIR="${DATA_DIR:-processed_data/spider_data/synid_privileged_lora_218/llama}"
+export TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-}"
+export DATA_DIR="${DATA_DIR:-}"
 
 # SynID-SQL method settings.
 export SYNID_KD_LOSS="${SYNID_KD_LOSS:-csd}"

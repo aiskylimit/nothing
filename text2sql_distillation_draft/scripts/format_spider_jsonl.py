@@ -12,7 +12,7 @@ from format_spider_variant_jsonl import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 from format_spider_variant_jsonl import build_schema_lookup, write_jsonl
 
 
-SPIDER_ROOT = Path("benchmarks_2/spider_data")
+SPIDER_ROOT = Path("benchmarks/spider_data")
 SPLIT_CONFIG = {
     "train": ("train_spider.json", "tables.json"),
     "dev": ("dev.json", "tables.json"),

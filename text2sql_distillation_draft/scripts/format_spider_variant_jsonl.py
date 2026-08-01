@@ -156,7 +156,7 @@ def format_benchmark(root: Path, benchmark: str, split: str) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=Path("benchmarks_2"))
+    parser.add_argument("--root", type=Path, default=Path("benchmarks"))
     parser.add_argument("--split", default="test")
     parser.add_argument(
         "--benchmarks",

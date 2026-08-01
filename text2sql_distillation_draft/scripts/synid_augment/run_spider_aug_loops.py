@@ -28,10 +28,6 @@ from src.synid_sql.augmentation.sql_extract import extract_sql
 from src.synid_sql.augmentation.validator import validate_candidate
 
 
-DEFAULT_TEACHER_PEFT_PATHS = {
-    "spider": "hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090",
-}
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--benchmark", choices=["spider"], default="spider")
@@ -43,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--teacher-peft-path",
         default=None,
-        help="Teacher LoRA adapter. Defaults to the benchmark-specific Qwen3-4B teacher LoRA.",
+        help="Optional custom teacher LoRA adapter path. If omitted, the base model is used.",
     )
     parser.add_argument("--device", default="cuda", choices=["cpu", "cuda", "auto"])
     parser.add_argument("--num-loops", type=int, default=5)
@@ -66,13 +62,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if args.root is None:
-        args.root = Path("benchmarks_2/spider_data")
+        args.root = Path("benchmarks/spider_data")
     if args.output_root is None:
         args.output_root = args.root / "synid_aug"
     if args.db_root is None:
         args.db_root = Path("benchmarks/spider_data/database")
-    if args.teacher_peft_path is None:
-        args.teacher_peft_path = DEFAULT_TEACHER_PEFT_PATHS[args.benchmark]
     return args
 
 

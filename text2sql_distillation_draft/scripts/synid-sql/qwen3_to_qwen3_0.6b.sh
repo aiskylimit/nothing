@@ -10,8 +10,8 @@ export MODEL_TYPE="${MODEL_TYPE:-qwen}"
 export TEACHER_MODEL_PATH="${TEACHER_MODEL_PATH:-Qwen/Qwen3-4B-Instruct-2507}"
 export TEACHER_CKPT_NAME="${TEACHER_CKPT_NAME:-qwen3-4b}"
 export TEACHER_MODEL_TYPE="${TEACHER_MODEL_TYPE:-qwen}"
-export TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/218}"
-export DATA_DIR="${DATA_DIR:-processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen}"
+export TEACHER_PEFT_PATH="${TEACHER_PEFT_PATH:-}"
+export DATA_DIR="${DATA_DIR:-}"
 
 # SynID-SQL method settings.
 export SYNID_KD_LOSS="${SYNID_KD_LOSS:-csd}"

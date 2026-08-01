@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--copy-dev-test", action="store_true", help="Copy dev/test JSONL from root/format_data into output dir.")
     args = parser.parse_args()
     if args.root is None:
-        args.root = Path("benchmarks_2/spider_data")
+        args.root = Path("benchmarks/spider_data")
     output_root = args.root / "synid_aug"
     if args.accepted is None:
         args.accepted = output_root / "accepted_all.jsonl"
