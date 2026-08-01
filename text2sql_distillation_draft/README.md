@@ -13,8 +13,8 @@ datasets/
 |       |-- train_others.json
 |       |-- train_gold.sql
 |       |-- tables.json
-|       |-- synid_aug_v2_lora_218/final_merged.jsonl
-|       `-- llama_synid_aug_v2_lora_218/final_merged.jsonl
+|       |-- synid_aug_v2_lora/final_merged.jsonl
+|       `-- llama_synid_aug_v2_lora/final_merged.jsonl
 |-- eval/
 |   `-- spider_data/
 |       |-- dev.json
@@ -38,8 +38,28 @@ SynID train set is provided for both model families:
 
 | Model family | Generated train source |
 | --- | --- |
-| Qwen | `datasets/train/spider_data/synid_aug_v2_lora_218/final_merged.jsonl` |
-| Llama | `datasets/train/spider_data/llama_synid_aug_v2_lora_218/final_merged.jsonl` |
+| Qwen | `datasets/train/spider_data/synid_aug_v2_lora/final_merged.jsonl` |
+| Llama | `datasets/train/spider_data/llama_synid_aug_v2_lora/final_merged.jsonl` |
+
+## Download Sources
+
+Download sources and local placement for the benchmark-style layout used by
+inference and evaluator scripts:
+
+| Benchmark | Source | JSON/schema path | DB path |
+| --- | --- | --- | --- |
+| Spider original | [Spider 1.0](https://yale-lily.github.io/spider) | `benchmarks/spider_data/` | `benchmarks/spider_data/database/` |
+| Spider-Syn | [ygan/Spider-Syn](https://github.com/ygan/Spider-Syn) | `benchmarks/spider_syn/test.json` | `benchmarks/spider_data/database/` |
+| Spider-Realistic | [aherntech/spider-realistic](https://github.com/aherntech/spider-realistic) | `benchmarks/spider_realistic/test.json` | `benchmarks/spider_data/database/` |
+| Spider-DK | [ygan/Spider-DK](https://github.com/ygan/Spider-DK) | `benchmarks/spider_dk/test.json`, `benchmarks/spider_dk/tables.json` | `benchmarks/spider_dk/database/` |
+
+Spider-Syn and Spider-Realistic reuse the original Spider SQLite databases, so
+keep those databases in `benchmarks/spider_data/database/`. Spider-DK uses its
+own database directory under `benchmarks/spider_dk/database/`.
+
+Step 1: format Spider JSON files into prompt/response JSONL. Run this before any
+`process_data.py` command, because `process_data.py` reads `train.jsonl`,
+`dev.jsonl`, and `test.jsonl` from the formatted data directory.
 
 ## Environment
 
@@ -199,20 +219,20 @@ Llama:
 
 | Model family | Generated input | Train output |
 | --- | --- | --- |
-| Qwen | `datasets/train/spider_data/synid_aug_v2_lora_218/final_merged.jsonl` | `processed_data/spider_data/synid_privileged_lora_218/qwen/` |
-| Llama | `datasets/train/spider_data/llama_synid_aug_v2_lora_218/final_merged.jsonl` | `processed_data/spider_data/synid_privileged_lora_218/llama/` |
+| Qwen | `datasets/train/spider_data/synid_aug_v2_lora/final_merged.jsonl` | `processed_data/spider_data/synid_privileged_lora/qwen/` |
+| Llama | `datasets/train/spider_data/llama_synid_aug_v2_lora/final_merged.jsonl` | `processed_data/spider_data/synid_privileged_lora/llama/` |
 
 Build the Qwen variant:
 
 ```bash
-SYNID_QWEN_DIR=processed_data/spider_data/synid_privileged_lora_218/qwen
+SYNID_QWEN_DIR=processed_data/spider_data/synid_privileged_lora/qwen
 mkdir -p "${SYNID_QWEN_DIR}"
 cp datasets/train/spider_data/format_data/train.jsonl "${SYNID_QWEN_DIR}/train.jsonl"
 cp datasets/eval/spider_data/format_data/dev.jsonl "${SYNID_QWEN_DIR}/dev.jsonl"
 cp datasets/test/spider_data/format_data/test.jsonl "${SYNID_QWEN_DIR}/test.jsonl"
 
 python scripts/synid_augment/build_teacher_train_from_final_merged.py \
-  --input datasets/train/spider_data/synid_aug_v2_lora_218/final_merged.jsonl \
+  --input datasets/train/spider_data/synid_aug_v2_lora/final_merged.jsonl \
   --output "${SYNID_QWEN_DIR}/teacher_train.jsonl" \
   --train-output "${SYNID_QWEN_DIR}/train.jsonl"
 ```
@@ -224,8 +244,8 @@ for split in train valid test; do
   python process_data.py \
     --model-path Qwen/Qwen3-0.6B \
     --model-type qwen \
-    --data-dir processed_data/spider_data/synid_privileged_lora_218/qwen \
-    --processed-data-dir processed_data/spider_data/synid_privileged_lora_218 \
+    --data-dir processed_data/spider_data/synid_privileged_lora/qwen \
+    --processed-data-dir processed_data/spider_data/synid_privileged_lora \
     --split "${split}" \
     --max-length 2048 \
     --max-prompt-length 1536 \
@@ -238,14 +258,14 @@ done
 Build the Llama variant:
 
 ```bash
-SYNID_LLAMA_DIR=processed_data/spider_data/synid_privileged_lora_218/llama
+SYNID_LLAMA_DIR=processed_data/spider_data/synid_privileged_lora/llama
 mkdir -p "${SYNID_LLAMA_DIR}"
 cp datasets/train/spider_data/format_data/train.jsonl "${SYNID_LLAMA_DIR}/train.jsonl"
 cp datasets/eval/spider_data/format_data/dev.jsonl "${SYNID_LLAMA_DIR}/dev.jsonl"
 cp datasets/test/spider_data/format_data/test.jsonl "${SYNID_LLAMA_DIR}/test.jsonl"
 
 python scripts/synid_augment/build_teacher_train_from_final_merged.py \
-  --input datasets/train/spider_data/llama_synid_aug_v2_lora_218/final_merged.jsonl \
+  --input datasets/train/spider_data/llama_synid_aug_v2_lora/final_merged.jsonl \
   --output "${SYNID_LLAMA_DIR}/teacher_train.jsonl" \
   --train-output "${SYNID_LLAMA_DIR}/train.jsonl"
 ```
@@ -257,8 +277,8 @@ for split in train valid test; do
   python process_data.py \
     --model-path meta-llama/Llama-3.2-1B-Instruct \
     --model-type llama \
-    --data-dir processed_data/spider_data/synid_privileged_lora_218/llama \
-    --processed-data-dir processed_data/spider_data/synid_privileged_lora_218 \
+    --data-dir processed_data/spider_data/synid_privileged_lora/llama \
+    --processed-data-dir processed_data/spider_data/synid_privileged_lora \
     --split "${split}" \
     --max-length 2048 \
     --max-prompt-length 1536 \
@@ -271,12 +291,12 @@ done
 Expected SynID output examples:
 
 ```text
-processed_data/spider_data/synid_privileged_lora_218/qwen/train_0.bin
-processed_data/spider_data/synid_privileged_lora_218/qwen/train_0.idx
-processed_data/spider_data/synid_privileged_lora_218/qwen/teacher_train_0.bin
-processed_data/spider_data/synid_privileged_lora_218/qwen/teacher_train_0.idx
-processed_data/spider_data/synid_privileged_lora_218/llama/train_0.bin
-processed_data/spider_data/synid_privileged_lora_218/llama/train_0.idx
+processed_data/spider_data/synid_privileged_lora/qwen/train_0.bin
+processed_data/spider_data/synid_privileged_lora/qwen/train_0.idx
+processed_data/spider_data/synid_privileged_lora/qwen/teacher_train_0.bin
+processed_data/spider_data/synid_privileged_lora/qwen/teacher_train_0.idx
+processed_data/spider_data/synid_privileged_lora/llama/train_0.bin
+processed_data/spider_data/synid_privileged_lora/llama/train_0.idx
 ```
 
 ## Training
@@ -348,11 +368,11 @@ use the Llama `DATA_DIR` and Llama teacher adapter for the Llama distillation
 run.
 
 ```bash
-DATA_DIR=processed_data/spider_data/synid_privileged_lora_218/qwen \
+DATA_DIR=processed_data/spider_data/synid_privileged_lora/qwen \
 TEACHER_PEFT_PATH=<your_qwen_teacher_lora_adapter_path> \
   bash scripts/synid-sql/qwen3_to_qwen3_0.6b.sh
 
-DATA_DIR=processed_data/spider_data/synid_privileged_lora_218/llama \
+DATA_DIR=processed_data/spider_data/synid_privileged_lora/llama \
 TEACHER_PEFT_PATH=<your_llama_teacher_lora_adapter_path> \
   bash scripts/synid-sql/llama3_to_llama3_1b.sh
 ```
@@ -414,19 +434,59 @@ Override seeds if needed:
 export INFER_SEEDS=10,42,50,100,1234
 ```
 
-## Tests
+## Generate SynID Data
 
-Run all tests:
+Note: the checked-in `final_merged.jsonl` files are already generated. If you
+want to regenerate them, first follow the download/setup steps above and make
+sure the original Spider SQLite databases are available at
+`benchmarks/spider_data/database/`. The vLLM generator should be run on CUDA
+Linux/WSL.
+
+Generate the Qwen SynID data:
 
 ```bash
-python -m pytest tests
+export TEACHER_PEFT_PATH=<your_qwen_teacher_lora_adapter_path>
+
+python scripts/synid_augment/run_spider_aug_loops_v2.py \
+  --benchmark spider \
+  --root datasets/train/spider_data \
+  --output-root datasets/train/spider_data/synid_aug_v2_lora \
+  --db-root benchmarks/spider_data/database \
+  --model Qwen/Qwen3-4B-Instruct-2507 \
+  --teacher-peft-path "${TEACHER_PEFT_PATH}" \
+  --tensor-parallel-size 2 \
+  --similarity-threshold 0.9 \
+  --num-loops 5 \
+  --resume
+
+python scripts/synid_augment/overall_symthetic.py \
+  --base-dir datasets/train/spider_data/synid_aug_v2_lora
 ```
 
-For a quick check of the SynID augmentation components:
+Generate the Llama SynID data:
 
 ```bash
-python -m pytest tests/test_synid_augmentation.py
+export TEACHER_PEFT_PATH=<your_llama_teacher_lora_adapter_path>
+
+python scripts/synid_augment/run_spider_aug_loops_v2.py \
+  --benchmark spider \
+  --root datasets/train/spider_data \
+  --output-root datasets/train/spider_data/llama_synid_aug_v2_lora \
+  --db-root benchmarks/spider_data/database \
+  --model meta-llama/Llama-3.1-8B-Instruct \
+  --teacher-peft-path "${TEACHER_PEFT_PATH}" \
+  --tensor-parallel-size 2 \
+  --similarity-threshold 0.9 \
+  --num-loops 5 \
+  --resume
+
+python scripts/synid_augment/overall_symthetic.py \
+  --base-dir datasets/train/spider_data/llama_synid_aug_v2_lora
 ```
+
+After `final_merged.jsonl` is regenerated, run the commands in
+`SynID Train Data` to build `teacher_train.jsonl` and tokenize the Qwen/Llama
+processed data.
 
 ## Notes
 
