@@ -1,4 +1,4 @@
-#2 +a
+#1 +120
 #sql
 #v2
 
@@ -31,6 +31,20 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd ./text2sql_distillation_draft
-ls results -R
+# ls results -R
 # QWEN25_GPU_LIST=0,1,2,3,4,5,6,7 GPUS_PER_JOB=2 RUN_MODE=parallel \
 # BATCH_SIZE=4 GRAD_ACC=1 bash project_commands_qwen2.5.sh
+RUN_ROOT=results/qwen2.5 \
+RUN_GLOB='qwen2.5_*' \
+OUT_ROOT=results/infer/qwen2.5/latest_ckpt \
+LOG_DIR=run_logs/qwen2.5_infer/$(date +%Y%m%d_%H%M%S) \
+MODEL=Qwen/Qwen2.5-0.5B-Instruct \
+INFER_SCRIPT=scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/infer_multiseed.py \
+INFER_SEEDS=10,42,50,100,1234 \
+BENCHMARKS=spider_data,spider_syn,spider_realistic,spider_dk \
+SPLIT=test \
+DB=full \
+BATCH_SIZE=100 \
+GPU_LIST=0,1,2,3,4,5,6,7 \
+RUN_MODE=parallel \
+bash infer_command.sh
