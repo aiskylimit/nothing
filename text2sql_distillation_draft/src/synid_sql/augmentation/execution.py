@@ -96,26 +96,3 @@ def spider_exec_match(
     return bool(score)
 
 
-def bird_exec_match(
-    *,
-    db_path: Path,
-    gold_sql: str,
-    candidate_sql: str,
-    timeout_s: float = 60.0,
-) -> bool:
-    """Return BIRD evaluator execution match for a gold/candidate pair."""
-    try:
-        from bird_evaluation import execute_sql_pair
-    except ModuleNotFoundError as exc:
-        raise ModuleNotFoundError(
-            f"Missing BIRD evaluator dependency: {exc.name}. "
-            "Install project requirements before running augmentation filtering."
-        ) from exc
-
-    score, _error = execute_sql_pair(
-        predicted_sql=candidate_sql,
-        gold_sql=gold_sql,
-        db_path=str(db_path),
-        timeout=timeout_s,
-    )
-    return bool(score)

@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 import sys
 
@@ -29,12 +28,6 @@ BENCHMARKS = {
         "gold": None,
         "db": "benchmarks/spider_dk/database",
         "table": "benchmarks_2/spider_dk/tables.json",
-    },
-    "bird_dev": {
-        "gold": "benchmarks_2/bird/dev/dev.sql",
-        "db": "benchmarks/bird/dev/dev_databases",
-        "table": "benchmarks_2/bird/dev/dev_tables.json",
-        "diff": "benchmarks_2/bird/dev/dev.json",
     },
     "sparc_dev": {
         "gold": "benchmarks/sparc/dev_gold.txt",
@@ -103,7 +96,7 @@ def main():
     parser.add_argument(
         "--etype",
         default="exec",
-        choices=("all", "exec", "match", "ves"),
+        choices=("all", "exec", "match"),
         help="Evaluation type.",
     )
     parser.add_argument(
@@ -129,28 +122,6 @@ def main():
         type=int,
         default=None,
         help="Maximum seconds allowed for each SQL execution before marking it wrong.",
-    )
-    parser.add_argument(
-        "--ves_iterations",
-        type=int,
-        default=100,
-        help="Number of repeated timing runs for BIRD VES evaluation.",
-    )
-    parser.add_argument(
-        "--num_cpus",
-        type=int,
-        default=1,
-        help="Number of worker processes for BIRD EX/VES evaluation.",
-    )
-    parser.add_argument(
-        "--output",
-        default=None,
-        help="Optional JSONL file for BIRD per-query metric results.",
-    )
-    parser.add_argument(
-        "--exec_details_output",
-        default=None,
-        help="Optional MAC-SQL-style JSON detail file for BIRD EX results.",
     )
     parser.add_argument(
         "--skip_shape_check",
@@ -193,57 +164,6 @@ def main():
     if args.check_only:
         print("Prediction shape is valid.")
         return 0
-
-    if args.benchmark.startswith("bird"):
-        if args.etype == "match":
-            raise ValueError("BIRD does not use Spider exact-match parsing; use --etype exec, ves, or all.")
-        from bird_evaluation import (
-            evaluate_bird_execution,
-            evaluate_bird_ves,
-            print_bird_scores,
-            print_bird_ves,
-            save_bird_execution_details,
-        )
-
-        diff_path = resolve_repo_path(config["diff"]) if config.get("diff") else None
-        output_results = []
-        if args.etype in ("exec", "all"):
-            results = evaluate_bird_execution(
-                pred_path=pred_path,
-                gold_path=gold_path,
-                db_root_path=db_dir,
-                diff_json_path=diff_path,
-                timeout=args.exec_timeout,
-                show_progress=args.progress_bar_for_each_datapoint,
-                num_cpus=args.num_cpus,
-            )
-            print_bird_scores(results)
-            output_results.extend({"metric": "exec", **result} for result in results)
-            details_output = args.exec_details_output or os.path.join(os.path.dirname(pred_path), "eval_result_dev.json")
-            save_bird_execution_details(results, pred_path, gold_path, diff_path, details_output)
-            print(f"save BIRD EX details to {details_output}")
-        if args.etype in ("ves", "all"):
-            results = evaluate_bird_ves(
-                pred_path=pred_path,
-                gold_path=gold_path,
-                db_root_path=db_dir,
-                diff_json_path=diff_path,
-                iterate_num=args.ves_iterations,
-                timeout=args.exec_timeout,
-                show_progress=args.progress_bar_for_each_datapoint,
-                num_cpus=args.num_cpus,
-            )
-            print_bird_ves(results)
-            output_results.extend({"metric": "ves", **result} for result in results)
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as file:
-                for result in output_results:
-                    file.write(json.dumps(result, ensure_ascii=False) + "\n")
-            print(f"save BIRD metric results to {args.output}")
-        return 0
-
-    if args.etype == "ves":
-        raise ValueError("VES is only implemented for BIRD benchmarks.")
 
     try:
         from evaluation import evaluate, build_foreign_key_map_from_json

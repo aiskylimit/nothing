@@ -19,11 +19,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from infer import init_model
-from src.synid_sql.augmentation.bird_records import (
-    build_bird_teacher_user_prompt,
-    load_bird_teacher_templates,
-    load_bird_train_records,
-)
 from src.synid_sql.augmentation.io import read_jsonl, write_json, write_jsonl
 from src.synid_sql.augmentation.spider_records import (
     build_teacher_user_prompt,
@@ -36,7 +31,6 @@ from src.synid_sql.augmentation.validator import validate_candidate
 
 DEFAULT_TEACHER_PEFT_PATHS = {
     "spider": "hf://Dream-AI-HUST/baselines/qwen3/sft_sft_qwen3_4b_spider_lora/e5-bs4-lr0.0001-G4-N2-NN1-lora-32-64-0.1/1090",
-    "bird": "hf://distillation-sql/bird_baselines/qwen3/sft_sft_qwen3_4b_bird_lora/e5-bs2-lr0.0001-G8-N2-NN1-lora-32-64-0.1/1470",
 }
 
 REPAIR_INSTRUCTION = """Previous attempt:
@@ -85,7 +79,7 @@ REPAIR_GUIDANCE_BY_REASON = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--benchmark", choices=["spider", "bird"], default="spider")
+    parser.add_argument("--benchmark", choices=["spider"], default="spider")
     parser.add_argument("--root", type=Path, default=None)
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument("--db-root", type=Path, default=None)
@@ -110,15 +104,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if args.root is None:
-        args.root = Path("benchmarks_2/bird") if args.benchmark == "bird" else Path("benchmarks_2/spider_data")
+        args.root = Path("benchmarks_2/spider_data")
     if args.output_root is None:
         args.output_root = args.root / "synid_aug"
     if args.db_root is None:
-        args.db_root = (
-            Path("benchmarks/bird/train/train_databases")
-            if args.benchmark == "bird"
-            else Path("benchmarks/spider_data/database")
-        )
+        args.db_root = Path("benchmarks/spider_data/database")
     if args.teacher_peft_path is None:
         args.teacher_peft_path = DEFAULT_TEACHER_PEFT_PATHS[args.benchmark]
     return args
@@ -300,14 +290,9 @@ def main() -> None:
     if args.num_loops <= 0:
         raise ValueError("--num-loops must be positive")
 
-    if args.benchmark == "bird":
-        records = load_bird_train_records(args.root)
-        system_prompt, user_template = load_bird_teacher_templates()
-        user_prompt_builder = build_bird_teacher_user_prompt
-    else:
-        records = load_spider_train_records(args.root)
-        system_prompt, user_template = load_synid_teacher_templates(args.teacher_prompt_dir)
-        user_prompt_builder = build_teacher_user_prompt
+    records = load_spider_train_records(args.root)
+    system_prompt, user_template = load_synid_teacher_templates(args.teacher_prompt_dir)
+    user_prompt_builder = build_teacher_user_prompt
 
     source_total_records = len(records)
     if args.limit is not None:

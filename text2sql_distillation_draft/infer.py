@@ -23,8 +23,6 @@ logger = setup_logger(__name__, log_file=log_path)
 
 SPIDER_SYSTEM_PROMPT_PATH = Path("prompts/single_turn/generator/system_prompt.txt")
 SPIDER_USER_PROMPT_PATH = Path("prompts/single_turn/generator/user_prompt.txt")
-BIRD_SYSTEM_PROMPT_PATH = Path("prompts/single_turn/bird_generator/system_prompt.txt")
-BIRD_USER_PROMPT_PATH = Path("prompts/single_turn/bird_generator/user_prompt.txt")
 SPIDER_STYLE_BENCHMARKS = {
     "spider_data": {
         "splits": {
@@ -60,16 +58,6 @@ SPIDER_STYLE_BENCHMARKS = {
         },
         "tables": "../spider_data/tables.json",
         "question_fields": ("SpiderSynQuestion", "question", "SpiderQuestion"),
-    },
-    "bird": {
-        "splits": {
-            "dev": "dev/dev.json",
-        },
-        "tables": {
-            "dev": "dev/dev_tables.json",
-        },
-        "question_fields": ("question",),
-        "gold_sql_fields": ("SQL",),
     },
 }
 DIALOG_BENCHMARKS = {"sparc", "cosql_dataset"}
@@ -581,8 +569,6 @@ def load_prompt_templates() -> Tuple[str, str]:
 
 
 def load_single_turn_prompt_templates(benchmark: str) -> Tuple[str, str]:
-    if benchmark == "bird":
-        return load_text(BIRD_SYSTEM_PROMPT_PATH), load_text(BIRD_USER_PROMPT_PATH)
     return load_prompt_templates()
 
 

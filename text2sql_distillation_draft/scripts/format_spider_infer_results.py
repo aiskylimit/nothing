@@ -34,7 +34,6 @@ BENCHMARK_SPLIT_FILES = {
     ("spider_realistic", "test"): Path("benchmarks_2/spider_realistic/test.json"),
     ("spider_syn", "train"): Path("benchmarks_2/spider_syn/train_spider.json"),
     ("spider_syn", "test"): Path("benchmarks_2/spider_syn/test.json"),
-    ("bird", "dev"): Path("benchmarks_2/bird/dev/dev.json"),
 }
 
 

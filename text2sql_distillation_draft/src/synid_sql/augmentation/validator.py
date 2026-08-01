@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from .execution import SqlExecutionError, bird_exec_match, execute_sql, resolve_sqlite_path, spider_exec_match
+from .execution import SqlExecutionError, execute_sql, resolve_sqlite_path, spider_exec_match
 from .jaccard import sql_token_jaccard
 from .sql_normalize import normalize_sql
 
@@ -89,22 +89,14 @@ def validate_candidate(
         )
 
     try:
-        if benchmark == "spider":
-            execution_matches = spider_exec_match(
-                db_path=db_path,
-                gold_sql=gold_sql,
-                candidate_sql=candidate_sql,
-                timeout_s=timeout_s,
-            )
-        elif benchmark == "bird":
-            execution_matches = bird_exec_match(
-                db_path=db_path,
-                gold_sql=gold_sql,
-                candidate_sql=candidate_sql,
-                timeout_s=timeout_s,
-            )
-        else:
+        if benchmark != "spider":
             raise ValueError(f"Unsupported benchmark: {benchmark}")
+        execution_matches = spider_exec_match(
+            db_path=db_path,
+            gold_sql=gold_sql,
+            candidate_sql=candidate_sql,
+            timeout_s=timeout_s,
+        )
     except Exception as exc:
         return _reject(
             candidate,
