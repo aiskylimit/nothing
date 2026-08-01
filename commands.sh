@@ -1,4 +1,4 @@
-#1 +10
+#1 +120
 #sql
 #v1
 
@@ -15,12 +15,12 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-cd gpu_burn
-make CUDAPATH=/usr/local/cuda-13.0
-./gpu_burn 36000000000
+# cd gpu_burn
+# make CUDAPATH=/usr/local/cuda-13.0
+# ./gpu_burn 36000000000
 
-# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
-# sleep 5
+kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+sleep 5
 nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -29,39 +29,5 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd ./text2sql_distillation_draft
-# ls results
-# zip -r infer.zip results/infer
-# du -sh infer.zip
-
-# RUN_ROOT=results/qwen2.5 \
-# RUN_GLOB='sft_train_qwen2.5_0.5b_sft_spider_lm_*' \
-# OUT_ROOT=results/infer/qwen2.5/sft/latest_ckpt \
-# LOG_DIR=run_logs/qwen2.5_sft_infer/$(date +%Y%m%d_%H%M%S) \
-# MODEL=Qwen/Qwen2.5-0.5B-Instruct \
-# INFER_SCRIPT=scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/infer_multiseed.py \
-# INFER_SEEDS=10,42,50,100,1234 \
-# BENCHMARKS=spider_data,spider_syn,spider_realistic,spider_dk \
-# SPLIT=test \
-# DB=full \
-# BATCH_SIZE=200 \
-# GPU_LIST=0,1,2,3,4,5,6,7 \
-# RUN_MODE=sequential \
-# bash infer_command.sh
-
-# QWEN25_GPU_LIST=0,1,2,3,4,5,6,7 GPUS_PER_JOB=2 RUN_MODE=parallel \
-# BATCH_SIZE=4 GRAD_ACC=1 bash project_commands_qwen2.5.sh
-# RUN_ROOT=results/qwen2.5 \
-# RUN_GLOB='qwen2.5_*' \
-# OUT_ROOT=results/infer/qwen2.5/latest_ckpt \
-# LOG_DIR=run_logs/qwen2.5_infer/$(date +%Y%m%d_%H%M%S) \
-# MODEL=Qwen/Qwen2.5-0.5B-Instruct \
-# INFER_SCRIPT=scripts/qwen_updated_2/synid_ce_keywords_weight_lora_218/infer_multiseed.py \
-# INFER_SEEDS=10,42,50,100,1234 \
-# BENCHMARKS=spider_data,spider_syn,spider_realistic,spider_dk \
-# SPLIT=test \
-# DB=full \
-# BATCH_SIZE=100 \
-# GPU_LIST=0,1,2,3,4,5,6,7 \
-# RUN_MODE=parallel \
-# bash infer_command.sh
+cd regkd-vlm2vec
+bash ./project_commands.sh
