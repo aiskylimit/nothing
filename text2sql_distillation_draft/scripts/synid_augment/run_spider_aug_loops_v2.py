@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
         "--similarity-threshold",
         dest="gamma",
         type=float,
-        default=0.8,
+        default=0.9,
         help="Maximum allowed difflib.SequenceMatcher SQL similarity before retrying.",
     )
     parser.add_argument("--timeout", type=float, default=120.0)

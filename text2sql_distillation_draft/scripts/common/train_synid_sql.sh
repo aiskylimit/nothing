@@ -64,9 +64,24 @@ SYNID_POOLING="${SYNID_POOLING:-sc}"
 SYNID_USE_SYNTAX_WEIGHTS="${SYNID_USE_SYNTAX_WEIGHTS:-true}"
 SYNID_USE_CON1="${SYNID_USE_CON1:-true}"
 SYNID_USE_CON2="${SYNID_USE_CON2:-true}"
+SYNID_USE_PRIVILEGED_TEACHER_INPUT="${SYNID_USE_PRIVILEGED_TEACHER_INPUT:-true}"
 SYNID_STUDENT_LAYERS="${SYNID_STUDENT_LAYERS:--1}"
 SYNID_TEACHER_LAYERS="${SYNID_TEACHER_LAYERS:--1}"
 SYNID_LAYER_CONFIG="${SYNID_LAYER_CONFIG:-last_layer}"
+
+if [[ "${SYNID_USE_PRIVILEGED_TEACHER_INPUT}" =~ ^(1|true|yes|y)$ ]]; then
+  if [[ ! -f "${DATA_DIR}/teacher_train_0.bin" && -f "${DATA_DIR}/${MODEL_TYPE}/teacher_train_0.bin" ]]; then
+    DATA_DIR="${DATA_DIR}/${MODEL_TYPE}"
+  fi
+
+  if [[ ! -f "${DATA_DIR}/teacher_train_0.bin" || ! -f "${DATA_DIR}/teacher_train_0.idx" ]]; then
+    echo "Missing SynID teacher mmap files in DATA_DIR=${DATA_DIR}" >&2
+    echo "Expected: ${DATA_DIR}/teacher_train_0.bin and ${DATA_DIR}/teacher_train_0.idx" >&2
+    echo "For Qwen, expected data dir is: processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen" >&2
+    echo "Unset stale DATA_DIR or pass DATA_DIR=<correct path> before running this script." >&2
+    exit 1
+  fi
+fi
 
 LAYER_TAG="sl${SYNID_STUDENT_LAYERS//,/_}-tl${SYNID_TEACHER_LAYERS//,/_}"
 RUN_TAG="e${EPOCHS}-bs${BATCH_SIZE}-lr${LR}-G${GRAD_ACC}-N${GPUS_PER_NODE}-NN${NNODES}-kd${KD_RATIO}-${SYNID_KD_LOSS}-tau${SYNID_CONTRASTIVE_TAU}-a${SYNID_ALPHA}-b${SYNID_BETA}-${SYNID_LAYER_CONFIG}-${LAYER_TAG}-pool${SYNID_POOLING}-keywords-lambda${SYNID_SYNTAX_LAMBDA}-lora-${PEFT_LORA_R}-${PEFT_LORA_ALPHA}-${PEFT_LORA_DROPOUT}"
@@ -123,6 +138,7 @@ OPTS=(
   --synid-use-syntax-weights "${SYNID_USE_SYNTAX_WEIGHTS}"
   --synid-use-con1 "${SYNID_USE_CON1}"
   --synid-use-con2 "${SYNID_USE_CON2}"
+  --synid-use-privileged-teacher-input "${SYNID_USE_PRIVILEGED_TEACHER_INPUT}"
   --synid-student-layers "${SYNID_STUDENT_LAYERS}"
   --synid-teacher-layers "${SYNID_TEACHER_LAYERS}"
   --do-sample

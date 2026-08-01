@@ -94,7 +94,7 @@ def test_validate_candidate_keeps_execution_correct_high_similarity_for_final_se
             "candidate_sql": "SELECT name FROM users WHERE id = 1",
         },
         db_root=tmp_path / "database",
-        gamma=0.8,
+        gamma=0.9,
         timeout_s=5.0,
     )
 

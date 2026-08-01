@@ -83,7 +83,17 @@ python scripts/format_spider_synid_jsonl.py \
   --student-train benchmarks_2/spider_data/format_data/train.jsonl
 ```
 
-Tokenize each split before training. Example for Qwen:
+Tokenize each split before training. `process_data.py` writes mmap
+`*.bin/*.idx` files to `--processed-data-dir/<model-type>` unless the output
+path contains `generated`. The paths below match the default `DATA_DIR` values
+used by the training wrappers.
+
+For `--split train`, if `--data-dir` contains `teacher_train.jsonl`,
+`process_data.py` also writes privileged teacher mmap files:
+`teacher_train_0.bin` and `teacher_train_0.idx`. These teacher mmap files are
+not created for `valid` or `test`.
+
+Base Qwen data for Qwen teacher LoRA and Qwen student SFT:
 
 ```bash
 for split in train valid test; do
@@ -96,12 +106,43 @@ for split in train valid test; do
     --max-length 2048 \
     --max-prompt-length 1536 \
     --t-max-length 2048 \
-    --t-max-prompt-length 1800
+    --t-max-prompt-length 1800 \
+    --data-process-workers 8
 done
 ```
 
-The `valid` split reads `dev.jsonl`. For Llama runs, set `--model-path` and
-`--model-type llama`, and use the matching processed-data directory.
+Base Llama data for Llama teacher LoRA and Llama student SFT:
+
+```bash
+for split in train valid test; do
+  python process_data.py \
+    --model-path meta-llama/Llama-3.2-1B-Instruct \
+    --model-type llama \
+    --data-dir benchmarks_2/spider_data/format_data \
+    --processed-data-dir processed_data/spider_data \
+    --split "${split}" \
+    --max-length 2048 \
+    --max-prompt-length 1536 \
+    --t-max-length 2048 \
+    --t-max-prompt-length 1800 \
+    --data-process-workers 8
+done
+```
+
+The `valid` split reads `dev.jsonl`. Use a tokenizer compatible with the model
+pair that will consume the processed directory.
+
+After processing base Qwen train data, the expected files include:
+
+```text
+processed_data/benchmarks/spider_data/qwen/train_0.bin
+processed_data/benchmarks/spider_data/qwen/train_0.idx
+processed_data/benchmarks/spider_data/qwen/teacher_train_0.bin
+processed_data/benchmarks/spider_data/qwen/teacher_train_0.idx
+```
+
+After processing base Llama train data, the same files are written under
+`processed_data/spider_data/llama/`.
 
 ## SynID SQL Reformulation
 
@@ -113,7 +154,7 @@ Selection rule:
 1. Generate one candidate from the teacher.
 2. Discard and retry if it is not execution-equivalent to the gold SQL.
 3. Accept immediately if it is execution-equivalent and has normalized SQL
-   `difflib.SequenceMatcher` similarity below `0.8`.
+   `difflib.SequenceMatcher` similarity below `0.9`.
 4. Retry up to five times.
 5. If no candidate is accepted but execution-correct high-similarity candidates
    exist, keep the one with the lowest similarity.
@@ -128,7 +169,7 @@ python scripts/synid_augment/run_aug_loops.py \
   --db-root benchmarks/spider_data/database \
   --output-root benchmarks_2/spider_data/synid_aug \
   --num-loops 5 \
-  --similarity-threshold 0.8
+  --similarity-threshold 0.9
 ```
 
 Or use the vLLM backend:
@@ -141,7 +182,7 @@ python scripts/synid_augment/run_spider_aug_loops_v2.py \
   --output-root benchmarks_2/spider_data/synid_aug_v2_lora \
   --tensor-parallel-size 2 \
   --num-loops 5 \
-  --similarity-threshold 0.8
+  --similarity-threshold 0.9
 ```
 
 Merge accepted rows with recovered final rejections:
@@ -154,11 +195,76 @@ python scripts/synid_augment/overall_symthetic.py \
 Build SynID train files from the merged augmentation output:
 
 ```bash
+SYNID_QWEN_DIR=processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen
+mkdir -p "${SYNID_QWEN_DIR}"
+cp benchmarks_2/spider_data/format_data/train.jsonl "${SYNID_QWEN_DIR}/train.jsonl"
+cp benchmarks_2/spider_data/format_data/dev.jsonl "${SYNID_QWEN_DIR}/dev.jsonl"
+cp benchmarks_2/spider_data/format_data/test.jsonl "${SYNID_QWEN_DIR}/test.jsonl"
+
 python scripts/synid_augment/build_teacher_train_from_final_merged.py \
   --input benchmarks_2/spider_data/synid_aug_v2_lora/final_merged.jsonl \
-  --output processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen/teacher_train.jsonl \
-  --train-output processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen/train.jsonl
+  --output "${SYNID_QWEN_DIR}/teacher_train.jsonl" \
+  --train-output "${SYNID_QWEN_DIR}/train.jsonl"
 ```
+
+Tokenize the SynID Qwen data:
+
+```bash
+for split in train valid test; do
+  python process_data.py \
+    --model-path Qwen/Qwen3-0.6B \
+    --model-type qwen \
+    --data-dir processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen \
+    --processed-data-dir processed_data/benchmarks/spider_data/synid_privileged_lora_218 \
+    --split "${split}" \
+    --max-length 2048 \
+    --max-prompt-length 1536 \
+    --t-max-length 2048 \
+    --t-max-prompt-length 1800 \
+    --data-process-workers 8
+done
+```
+
+The `train` split command above writes both student and teacher mmap files to:
+
+```text
+processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen/train_0.bin
+processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen/train_0.idx
+processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen/teacher_train_0.bin
+processed_data/benchmarks/spider_data/synid_privileged_lora_218/qwen/teacher_train_0.idx
+```
+
+Build and tokenize the SynID Llama data:
+
+```bash
+SYNID_LLAMA_DIR=processed_data/spider_data/synid_privileged_lora_218/llama
+mkdir -p "${SYNID_LLAMA_DIR}"
+cp benchmarks_2/spider_data/format_data/train.jsonl "${SYNID_LLAMA_DIR}/train.jsonl"
+cp benchmarks_2/spider_data/format_data/dev.jsonl "${SYNID_LLAMA_DIR}/dev.jsonl"
+cp benchmarks_2/spider_data/format_data/test.jsonl "${SYNID_LLAMA_DIR}/test.jsonl"
+
+python scripts/synid_augment/build_teacher_train_from_final_merged.py \
+  --input benchmarks_2/spider_data/synid_aug_v2_lora/final_merged.jsonl \
+  --output "${SYNID_LLAMA_DIR}/teacher_train.jsonl" \
+  --train-output "${SYNID_LLAMA_DIR}/train.jsonl"
+
+for split in train valid test; do
+  python process_data.py \
+    --model-path meta-llama/Llama-3.2-1B-Instruct \
+    --model-type llama \
+    --data-dir processed_data/spider_data/synid_privileged_lora_218/llama \
+    --processed-data-dir processed_data/spider_data/synid_privileged_lora_218 \
+    --split "${split}" \
+    --max-length 2048 \
+    --max-prompt-length 1536 \
+    --t-max-length 2048 \
+    --t-max-prompt-length 1800 \
+    --data-process-workers 8
+done
+```
+
+The Llama SynID teacher mmap files are written under
+`processed_data/spider_data/synid_privileged_lora_218/llama/`.
 
 ## Training
 
