@@ -205,17 +205,28 @@ bash scripts/synid-sql/qwen3_to_qwen3_0.6b.sh
 bash scripts/synid-sql/llama3_to_llama3_1b.sh
 ```
 
-Default SynID-SQL hyperparameters:
+Default SynID-SQL objective and representation-alignment settings:
 
-- KD loss: `csd`
-- KD ratio: `0.7`
-- contrastive weights: `alpha=0.3`, `beta=0.3`
-- pooling temperature: `5`
-- contrastive temperature: `0.05`
-- syntax weighting: enabled
-- syntax lambda: `2.0`
-- Qwen3 layer pair: student `27`, teacher `35`
-- Llama3 layer pair: student `15`, teacher `31`
+| Hyperparameter | Value | Notes |
+| --- | --- | --- |
+| **Qwen3-4B-Instruct-2507 -> Qwen3-0.6B** | | |
+| Token-level KD loss | `CSD` | Concrete score distillation is used as the base KD objective. |
+| KD ratio | `0.7` | Weight assigned to the token-level KD objective. |
+| Prompt-anchor weight | `0.3` | Coefficient for prompt-to-anchor alignment. |
+| Response-anchor weight | `0.3` | Coefficient for response-to-anchor alignment. |
+| Pooling temperature | `5.0` | Temperature for syntax-guided pooling. |
+| Contrastive temperature | `0.05` | Temperature for the dual contrastive objectives. |
+| Syntax token weight | `2.0` | Upweights SQL keywords and schema-relevant tokens. |
+| Layer grid | last layer | Student layer 27 and teacher layer 35. |
+| **Llama-3.1-8B-Instruct -> Llama-3.2-1B-Instruct** | | |
+| Token-level KD loss | `CSD` | Concrete score distillation is used as the base KD objective. |
+| KD ratio | `0.7` | Weight assigned to the token-level KD objective. |
+| Prompt-anchor weight | `0.3` | Coefficient for prompt-to-anchor alignment. |
+| Response-anchor weight | `0.3` | Coefficient for response-to-anchor alignment. |
+| Pooling temperature | `5.0` | Temperature for syntax-guided pooling. |
+| Contrastive temperature | `0.05` | Temperature for the dual contrastive objectives. |
+| Syntax token weight | `2.0` | Upweights SQL keywords and schema-relevant tokens. |
+| Layer grid | last layer | Student layer 15 and teacher layer 31. |
 
 ## Inference and Evaluation
 
