@@ -1,4 +1,4 @@
-#2
+#2 -f-/home/ubuntu/aiskylimit_nothing/regkd-vlm2vec/MMEB-evaloutputs-json/ +a
 #sql
 #v1
 
