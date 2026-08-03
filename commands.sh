@@ -1,5 +1,5 @@
-#1 +120
-#vlm
+#1 +10
+#dpo
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_keywords_weight_lora_436/qwen_updated/collect/ +a
@@ -29,8 +29,8 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd Gen-DPO
-# CUDA_VISIBLE_DEVICES=6,7 bash ./project_commands.sh
+cd Gen-DPO
+CUDA_VISIBLE_DEVICES=6,7 bash ./project_commands.sh
 
-cd ./talas_vlm_embed
-bash ./project_commands.sh
+# cd ./talas_vlm_embed
+# bash ./project_commands.sh

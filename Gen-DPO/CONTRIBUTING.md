@@ -24,7 +24,6 @@ If you find a bug or have a suggestion for improvement:
 3. Make your changes
 4. Run tests to ensure your changes don't break existing functionality
 5. Commit your changes with a clear commit message
-6. Push to your fork
 7. Submit a pull request
 
 ### Pull Request Process
