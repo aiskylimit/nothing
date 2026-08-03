@@ -1,5 +1,5 @@
 #1 +120
-#sql
+#vlm
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_keywords_weight_lora_436/qwen_updated/collect/ +a
