@@ -1,0 +1,10 @@
+# do GenDPO preference-based training
+name: gendpo
+
+# gamma in omega(pi_theta(y_t)) = pi_theta(y_t)^2 / (pi_theta(y_t) + gamma)
+gamma: 0.1
+beta: 0.1
+alpha: 0.6
+
+
+token_level: false
