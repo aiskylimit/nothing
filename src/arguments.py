@@ -223,7 +223,7 @@ class TrainingArguments(TrainingArguments):
         default=True, metadata={"help": "[unused] legacy grounding bidirectional flag"},
     )
     wandb_api_key: str = field(
-        default="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",
+        default=None,
         metadata={"help": "Optional W&B API key for login (falls back to WANDB_API_KEY env or existing login)"},
     )
 
