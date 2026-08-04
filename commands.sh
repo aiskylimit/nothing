@@ -1,4 +1,4 @@
-#2 -0-3
+#1 +120
 #segd
 #v2
 
@@ -35,10 +35,10 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_commands.sh
 
 cd ./talas_vlm_embed
-ls
-ls training
-ls training/FastVLM-0.5B_talas_1.0_eos_norm_proj_cls
-# bash ./project_commands.sh
+# ls
+# ls training
+# ls training/FastVLM-0.5B_talas_1.0_eos_norm_proj_cls
+bash ./project_commands.sh
 
 # cd ./segd_distillation
 # bash ./project_commands.sh
