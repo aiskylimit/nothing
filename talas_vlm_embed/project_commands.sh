@@ -102,8 +102,8 @@ source vlm/bin/activate
 #     wait
 # done
 
-CUDA_VISIBLE_DEVICES=1 bash eval.sh &
-wait
+# CUDA_VISIBLE_DEVICES=1 bash eval.sh &
+# wait
 
 # =========================
 # 9. Copy JSON eval outputs
@@ -111,4 +111,4 @@ wait
 
 JSON_FILTER_DESTINATION="${JSON_FILTER_DESTINATION:-./MMEB-evaloutputs-json}"
 
-python json_filter.py ./MMEB-evaloutputs "${JSON_FILTER_DESTINATION}" --overwrite
+python json_filter.py ./MMEB-eval_outputs "${JSON_FILTER_DESTINATION}" --overwrite
