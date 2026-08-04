@@ -19,7 +19,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
 from accelerate import Accelerator
-from huggingface_hub import HfApi, HfFolder, Repository, create_repo
 from transformers import AutoConfig, AutoProcessor, AutoTokenizer, HfArgumentParser
 from transformers.integrations import HfDeepSpeedConfig
 # Todo
@@ -93,7 +92,6 @@ def finetune(
     accelerator = Accelerator(
         gradient_accumulation_steps=training_args.gradient_accumulation_steps,
         mixed_precision="bf16",
-        log_with="wandb" if "wandb" in training_args.report_to else None,
     )
     distiller, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         distiller, optimizer, train_dataloader, lr_scheduler
@@ -273,7 +271,6 @@ def finetune(
         
         print_rank(f"Final model saved at {final_ckpt_dir}")
         
-        # Push final model to hub
         if model_args.model_name:
             student_config = AutoConfig.from_pretrained(model_args.model_name)
             tokenizer = AutoTokenizer.from_pretrained(model_args.model_name)

@@ -1244,7 +1244,7 @@ class SEGDLoss(nn.Module):
             "t_text_nodes_pos": _metric(t_stats["text_nodes_p"]),
             "t_cluster_nodes_qry": _metric(n_q_sum_t),
             "t_cluster_nodes_pos": _metric(n_p_sum_t),
-            # Student nodes (aliases keep prior wandb keys)
+            # Student nodes (aliases keep prior metric keys)
             "batch_vision_nodes_qry": _metric(s_stats["vision_nodes_q"]),
             "batch_text_nodes_qry": _metric(s_stats["text_nodes_q"]),
             "batch_vision_nodes_pos": _metric(s_stats["vision_nodes_p"]),

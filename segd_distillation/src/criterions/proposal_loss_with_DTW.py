@@ -9,8 +9,6 @@ from tslearn.metrics import SoftDTWLossPyTorch
 
 logging.getLogger("numba").setLevel(logging.ERROR)
 
-import wandb
-
 class ProposalLossWithDTW(nn.Module):
     def __init__(self, args):
         super(ProposalLossWithDTW, self).__init__()

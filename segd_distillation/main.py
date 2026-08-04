@@ -2,7 +2,6 @@ import json
 import os
 import sys
 import logging
-import time
 from datetime import timedelta
 from typing import Dict, Optional, Tuple
 
@@ -17,7 +16,6 @@ from torch.utils.data import DataLoader, DistributedSampler, random_split, Seque
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
-import wandb
 from tqdm import tqdm
 from transformers import (
     AutoConfig,
@@ -66,7 +64,7 @@ def resolve_grounding_warmup_steps(
     return max(1, int(max_train_steps * ratio))
 
 
-# Full metric keys for logger / wandb (subset names without train/ prefix).
+# Full metric keys for logger (subset names without train/ prefix).
 KD_LOSS_METRIC_KEYS: Dict[str, Tuple[str, ...]] = {
     "sgd_loss": (
         "loss",
@@ -162,73 +160,6 @@ KD_LOSS_METRIC_KEYS: Dict[str, Tuple[str, ...]] = {
     "em_kd_llava_ov": ("loss", "contrastive_loss", "kd_loss"),
     "universal_logit": ("loss", "contrastive_loss", "kd_loss"),
 }
-
-
-def use_wandb(training_args: TrainingArguments) -> bool:
-    if not is_main_process():
-        return False
-    report_to = training_args.report_to
-    if report_to is None:
-        return False
-    if isinstance(report_to, str):
-        return report_to == "wandb" or "wandb" in report_to
-    return "wandb" in report_to
-
-
-def init_wandb(
-    training_args: TrainingArguments,
-    model_args: ModelArguments,
-    data_args: DataArguments,
-) -> None:
-    """Initialize W&B (cloud only, no terminal console capture)."""
-    api_key = training_args.wandb_api_key or os.getenv("WANDB_API_KEY")
-    if api_key:
-        wandb.login(key=api_key, relogin=True)
-    project = (
-        getattr(training_args, "project_name", None)
-        or os.getenv("WANDB_PROJECT")
-        or "vlm_distillation_segd_nothing"
-    )
-    run = wandb.init(
-        project=project,
-        name=training_args.run_name or f"run-{int(time.time())}",
-        config={
-            "model_args": vars(model_args),
-            "data_args": vars(data_args),
-            "training_args": {
-                k: v for k, v in vars(training_args).items()
-                if k not in ("wandb_api_key", "distributed_state", "__cached__setup_devices", "deepspeed_plugin")
-            },
-        },
-        settings=wandb.Settings(console="off"),
-        reinit=True,
-    )
-    # Smoke-check that history upload works (visible immediately on the run page).
-    wandb.log({"train/wandb_ready": 1}, step=0)
-    logger.info(
-        "W&B initialized (metrics only; console output disabled). "
-        f"project={project} run={run.name} id={run.id} url={run.url}"
-    )
-
-
-def log_wandb_metrics(metrics: dict, step: int) -> None:
-    """Log metrics to the active W&B run; warn instead of failing training."""
-    if wandb.run is None:
-        logger.warning(f"wandb.log skipped at step={step}: no active wandb.run")
-        return
-    try:
-        # Ensure JSON-serializable floats only
-        clean = {}
-        for k, v in metrics.items():
-            if isinstance(v, torch.Tensor):
-                clean[k] = float(v.detach().cpu().item())
-            elif isinstance(v, (float, int)):
-                clean[k] = float(v)
-            else:
-                continue
-        wandb.log(clean, step=step)
-    except Exception as exc:
-        logger.warning(f"wandb.log failed at step={step}: {exc}")
 
 
 def configure_student_params(distiller: Distiller, training_args: TrainingArguments) -> None:
@@ -543,7 +474,6 @@ def run_validation(
     training_args: TrainingArguments,
     best_val_loss: float,
     model_args: ModelArguments,
-    use_wandb_logging: bool,
 ) -> float:
     """Run validation, log metrics, and save best checkpoint if improved."""
     eval_metrics = evaluate(distiller, eval_dataloader, criterion, device)
@@ -551,8 +481,6 @@ def run_validation(
 
     if is_main_process():
         logger.info(format_eval_log_line(global_step, epoch, eval_metrics))
-        if use_wandb_logging:
-            log_wandb_metrics(eval_metrics, global_step)
 
         if val_loss < best_val_loss:
             logger.info(
@@ -593,10 +521,6 @@ def main():
     nan_debug_dir = configure_nan_debug_logging(output_dir)
     use_sgd_loss = is_sgd_loss(training_args)
     use_segd_loss = is_segd_loss(training_args)
-    wandb_enabled = use_wandb(training_args)
-
-    if wandb_enabled:
-        init_wandb(training_args, model_args, data_args)
 
     train_log_path = os.path.join(output_dir, "train.log")
     log_training_output_dirs(train_log_path, nan_debug_dir)
@@ -740,7 +664,6 @@ def main():
         logger.info(f"  Val split ratio = {data_args.val_split_ratio}")
         logger.info(f"  Eval step = {training_args.eval_steps}")
         logger.info(f"  Output dir = {training_args.output_dir}")
-        logger.info(f"  W&B enabled = {wandb_enabled}")
 
     global_step = 0
     best_val_loss = float('inf') # Track best loss
@@ -822,8 +745,6 @@ def main():
                         global_step, metrics, training_args.kd_loss_type
                     )
                     logger.info(detail_line)
-                    if wandb_enabled:
-                        log_wandb_metrics(metrics, global_step)
 
                 # Periodic validation
                 eval_steps = training_args.eval_steps or 0
@@ -842,7 +763,6 @@ def main():
                         training_args,
                         best_val_loss,
                         model_args,
-                        wandb_enabled,
                     )
                     last_eval_step = global_step
 
@@ -859,7 +779,6 @@ def main():
                 training_args,
                 best_val_loss,
                 model_args,
-                wandb_enabled,
             )
 
         # End of epoch Saving
@@ -890,9 +809,6 @@ def main():
     if dist.is_initialized():
         dist.barrier()  # <--- Crucial: Wait for Rank 0 to finish saving!
     # =========================================================================
-    
-    if wandb_enabled:
-        wandb.finish()
 
     cleanup_ddp()
 
