@@ -90,7 +90,6 @@ class TrainingArguments(TrainingArguments):
     image_encoder_freeze: bool = field(default=False, metadata={"help": "huggingface model name"})
     output_dir: str = field(default=None, metadata={"help": "directory for saving trained models"})
     resume_from: str = field(default="none", metadata={"help": "`auto` will detect if any previous checkpoints should be resumed. or specify specific step of the checkpoint."})
-    project_name: str = field(default=None, metadata={"help": "project name"})
     logging_steps: int = field(default=1, metadata={"help": "logging steps"})
     eval_steps: int = field(default=0, metadata={"help": "Run validation every N optimizer steps (0 = disabled; end-of-epoch validation still runs when val_split_ratio > 0)"},)
     num_train_epochs: int = field(default=1, metadata={"help": "number of training epochs"})
@@ -233,10 +232,6 @@ class TrainingArguments(TrainingArguments):
     )
     sekd_grounding_bidirectional: bool = field(
         default=True, metadata={"help": "[unused] legacy grounding bidirectional flag"},
-    )
-    wandb_api_key: str = field(
-        default=None,
-        metadata={"help": "Optional W&B API key for login (falls back to WANDB_API_KEY env or existing login)"},
     )
 
 @dataclass
