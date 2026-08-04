@@ -1,4 +1,4 @@
-#1 +10
+#1 +60
 #dpo
 #v1
 
@@ -15,12 +15,12 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-cd gpu_burn
-make CUDAPATH=/usr/local/cuda-13.0
-./gpu_burn 36000000000
+# cd gpu_burn
+# make CUDAPATH=/usr/local/cuda-13.0
+# ./gpu_burn 36000000000
 
-# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
-# sleep 5
+kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+sleep 5
 nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -29,8 +29,8 @@ export PATH=/usr/local/cuda/bin:$PATH
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
-# cd Gen-DPO
-# CUDA_VISIBLE_DEVICES=6,7 bash ./project_commands.sh
+cd Gen-DPO
+CUDA_VISIBLE_DEVICES=6,7 bash ./project_commands.sh
 
 # cd ./talas_vlm_embed
 # bash ./project_commands.sh

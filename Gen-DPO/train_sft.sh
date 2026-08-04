@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
 exec python -u train.py \
   model=llama8b \
   model.name_or_path="Llama-3.1-Tulu-3-8B-SFT" \

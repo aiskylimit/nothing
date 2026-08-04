@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
 #create train env
 source create_train_env_uv.sh
-
-uv pip install huggingface_hub
 
 #download model
 bash download_model.sh
@@ -29,8 +30,7 @@ if [[ -z "${MODEL_DIR}" ]]; then
 fi
 
 #eval sft model
-MODEL_NAME="$(basename "${MODEL_DIR}")"
-bash all.sh "${MODEL_NAME}"
+bash all.sh "${MODEL_DIR}"
 
 deactivate
 source .venv-tis-dpo/bin/activate
@@ -48,8 +48,7 @@ if [[ -z "${MODEL_DIR}" ]]; then
 fi
 
 #eval dpo model
-MODEL_NAME="$(basename "${MODEL_DIR}")"
-bash all.sh "${MODEL_NAME}"
+bash all.sh "${MODEL_DIR}"
 
 deactivate
 source .venv-tis-dpo/bin/activate
@@ -67,5 +66,4 @@ if [[ -z "${MODEL_DIR}" ]]; then
 fi
 
 # eval gen-dpo model
-MODEL_NAME="$(basename "${MODEL_DIR}")"
-bash all.sh "${MODEL_NAME}"
+bash all.sh "${MODEL_DIR}"

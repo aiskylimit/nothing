@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
 MODEL_ID="allenai/Llama-3.1-Tulu-3-8B-SFT"
 LOCAL_DIR="${LOCAL_DIR:-$PWD/Llama-3.1-Tulu-3-8B-SFT}"
 

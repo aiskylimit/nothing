@@ -1,13 +1,20 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 
 export CUDA_VISIBLE_DEVICES="0" # adapt
 
 export LM_EVAL_LOGLEVEL=DEBUG
 export VLLM_LOGLEVEL=INFO
 
-# Define variables
 MODEL_NAME="${MODEL_NAME:-}"
+if [[ -z "${MODEL_NAME}" ]]; then
+  echo "Usage: MODEL_NAME=<model path or id> bash qa.sh" >&2
+  exit 1
+fi
+
 TASKS="truthfulqa_mc2"                # Replace with your desired tasks
 TP_SIZE=1                             # Number of GPUs for tensor parallelism
                              # Number of model replicas
@@ -18,6 +25,7 @@ MAX_LEN=4096
 
 # Construct model arguments
 MODEL_ARGS="pretrained=${MODEL_NAME},tensor_parallel_size=${TP_SIZE},dtype=${DTYPE},gpu_memory_utilization=${GPU_UTIL},max_model_len=${MAX_LEN}"
+MODEL_SLUG="${MODEL_SLUG:-$(basename "${MODEL_NAME}")}"
 
 # Execute lm_eval
 lm_eval --model vllm \
@@ -25,6 +33,6 @@ lm_eval --model vllm \
         --tasks "${TASKS}" \
         --num_fewshot=0 \
         --batch_size "${BATCH_SIZE}" \
-        --output_path "output/${MODEL_NAME}/${TASKS}" \
+        --output_path "output/${MODEL_SLUG}/${TASKS}" \
         --log_samples \
         2>&1 | tee /tmp/lm_eval_debug.log
