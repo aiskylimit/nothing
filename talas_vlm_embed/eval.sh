@@ -5,7 +5,7 @@ SUBSETS=(
 )
 
 # MODEL=training/FastVLM-0.5B_cls_0.3_talas/checkpoint-final
-MODEL=training/FastVLM-0.5B_talas_1.0_eos_norm_proj_cls/checkpoint-epoch-0
+MODEL=training/FastVLM-0.5B_talas_1.0_eos_cls/checkpoint-epoch-0
 export CUDA_VISIBLE_DEVICES=1
 python eval_mmeb.py \
     --model_name $MODEL \

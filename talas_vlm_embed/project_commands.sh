@@ -45,13 +45,13 @@ source vlm/bin/activate
 # =========================
 # 5. Optional teacher output
 # =========================
-rm -rf caching
-hf download VoCuc/vlm-teacher-embedding \
-  B3_Qwen2_2B_cls.zip \
-  --repo-type dataset \
-  --local-dir .
+# rm -rf caching
+# hf download VoCuc/vlm-teacher-embedding \
+#   B3_Qwen2_2B_cls.zip \
+#   --repo-type dataset \
+#   --local-dir .
 
-unzip -o B3_Qwen2_2B_cls.zip 
+# unzip -o B3_Qwen2_2B_cls.zip 
 
 
 # =========================
@@ -71,8 +71,8 @@ unzip -o B3_Qwen2_2B_cls.zip
 # Uncomment to start training.
 
 # bash scripts/train_single.sh &
-bash scripts/train_distill_talas.sh &
-wait
+# bash scripts/train_distill_talas.sh &
+# wait
 
 
 
