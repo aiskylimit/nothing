@@ -7,7 +7,7 @@ Loss composition:
 Pipeline:
   Teacher/Student forward (native token hidden states + attentions @ ~80% depth)
     → assemble independent star-bridge graphs (batch-level)
-    → signed Laplacian → eigenspace
+    → signed Laplacian → full eigh → eigengap-selected k
     → cross-model projection P (FRA visual + char-overlap text)
     → subspace projector KD
   Contrastive reuses student mean-pooled super-node reps (R_q, R_p).
@@ -38,7 +38,6 @@ from src.criterions.sgd_loss import (
 logger = logging.getLogger(__name__)
 
 _EPS = 1e-8
-_LOBPCG_THRESHOLD = 1500
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +284,7 @@ def _intra_cluster_edges(
     mask: torch.Tensor,
     start_idx: int,
     topk: int = 16,
-    tau: float = 0.1,
+    tau: float = 1.0,
 ) -> None:
     with torch.no_grad():
         topk_idx = _build_attn_topk_index(attn, mask, k=topk)
@@ -309,7 +308,7 @@ def _local_to_global_edges(
     r: torch.Tensor,
     start_idx: int,
     super_idx: int,
-    tau: float = 0.1,
+    tau: float = 1.0,
 ) -> None:
     valid_idx = mask.nonzero(as_tuple=True)[0]
     if valid_idx.numel() == 0:
@@ -368,8 +367,8 @@ def assemble_graph(
     mask_q: List[torch.Tensor],
     mask_p: List[torch.Tensor],
     topk: int = 16,
-    tau_intra: float = 0.1,
-    tau_local: float = 0.1,
+    tau_intra: float = 1.0,
+    tau_local: float = 1.0,
     k_neg: int = 8,
     bridge_temperature: float = 1.0,
     lambda_neg: float = 0.3,
@@ -436,32 +435,52 @@ def build_signed_laplacian(w: torch.Tensor, n_total: int) -> torch.Tensor:
     return eye - w_norm
 
 
-def get_eigenspace(
-    lap: torch.Tensor,
-    n_total: int,
-    k: int = 32,
-    allow_lobpcg: bool = True,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+def get_eigenspace(lap: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """
-    Smallest-k eigenpairs of L.
-    lobpcg has no autograd — only used when L does not require grad.
-    """
-    k_use = max(1, min(k, max(n_total - 1, 1)))
-    use_lobpcg = (
-        allow_lobpcg
-        and n_total > _LOBPCG_THRESHOLD
-        and not lap.requires_grad
-    )
-    if use_lobpcg:
-        # lobpcg prefers sparse / float32 SPD-ish input
-        try:
-            eigvals, eigvecs = torch.lobpcg(lap, k=k_use, largest=False)
-            return eigvals, eigvecs
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("lobpcg failed (%s); falling back to eigh", exc)
+    Full eigendecomposition of L via ``torch.linalg.eigh``.
 
+    Returns eigenvalues (ascending) and the full eigenvector matrix.
+    k is chosen afterwards by ``select_k_by_eigengap``.
+    """
     eigvals, eigvecs = torch.linalg.eigh(lap)
-    return eigvals[:k_use], eigvecs[:, :k_use]
+    return eigvals, eigvecs
+
+
+def select_k_by_eigengap(
+    eigvals: torch.Tensor,
+    k_max: int = 0,
+    k_min: int = 16,
+) -> int:
+    """
+    Choose k = argmax_i (λ_{i+1} − λ_i) + 1 over consecutive ascending eigenvalues.
+
+    No special handling of null / near-zero eigenvalues.
+    ``k_min`` floors the chosen k (default 16) so tiny subspaces are avoided.
+    Search only considers gaps that yield k ∈ [k_min, max_k].
+    ``k_max > 0`` optionally caps so k ≤ k_max (and ≤ n−1); ``k_max ≤ 0`` = uncapped.
+    """
+    n = int(eigvals.numel())
+    if n <= 1:
+        return 1
+
+    hard_max = n - 1
+    if k_max > 0:
+        hard_max = min(hard_max, int(k_max))
+    hard_max = max(1, hard_max)
+
+    hard_min = max(1, min(int(k_min), hard_max))
+
+    ev = eigvals.detach().float().reshape(-1)
+    gaps = ev[1:] - ev[:-1]  # length n-1; gap i → keep first i+1 vectors
+
+    # Only gaps that produce k >= hard_min and k <= hard_max:
+    # gap index i ∈ [hard_min-1, hard_max-1]
+    lo = hard_min - 1
+    hi = hard_max  # exclusive end for slice of gaps
+    gaps_search = gaps[lo:hi]
+    i_local = int(torch.argmax(gaps_search).item())
+    k = (lo + i_local) + 1
+    return max(hard_min, min(k, hard_max))
 
 
 def project_teacher_eigenspace(u_t: torch.Tensor, p: torch.Tensor) -> torch.Tensor:
@@ -478,7 +497,7 @@ def spectral_kd_loss(
     k: int,
 ) -> torch.Tensor:
     """Frobenius distance between subspace projectors after FRA projection."""
-    k_use = min(k, u_t.size(1), u_s.size(1))
+    k_use = min(int(k), u_t.size(1), u_s.size(1))
     if k_use <= 0:
         return u_s.new_zeros(())
     u_t_proj = project_teacher_eigenspace(u_t[:, :k_use].detach(), p)
@@ -617,13 +636,14 @@ def _extract_side_bundle(
 
     # Attention at ~80% depth, sliced to cluster indices
     indices = _cluster_seq_indices(is_teacher, seq_len, num_vision, num_text)
+    layer_idxs = list(layer_idxs)  # from hidden path; keep if attentions missing
     if attentions is not None:
         attn_full, attn_layer_idxs = get_target_layer_attn_smoothed(
             attentions, depth_ratio=depth_ratio, window=attn_window,
         )
         attn_sample = attn_full[sample_idx]  # [S, S]
         attn = _extract_cluster_attn(attn_sample, indices, tokens)
-        # hidden and attention use the same depth window; log attention center.
+        # Prefer attention-window center for logging when attentions exist.
         layer_idxs = attn_layer_idxs
     else:
         attn = _fallback_attn_from_embeddings(tokens)
@@ -688,16 +708,18 @@ class SEGDLoss(nn.Module):
         self.kd_weight = float(getattr(args, "kd_weight", 1.0))
 
         self.depth_ratio = float(getattr(args, "segd_depth_ratio", 0.8))
-        self.attn_window = int(getattr(args, "segd_attn_window", 1))
+        self.attn_window = int(getattr(args, "segd_attn_window", 0))
         self.intra_topk = int(getattr(args, "segd_intra_topk", 16))
-        self.tau_intra = float(getattr(args, "segd_tau_intra", 0.1))
-        self.tau_local = float(getattr(args, "segd_tau_local", 0.1))
+        self.tau_intra = float(getattr(args, "segd_tau_intra", 1.0))
+        self.tau_local = float(getattr(args, "segd_tau_local", 1.0))
         self.lambda_neg = float(getattr(args, "segd_lambda_neg", 0.3))
         self.k_neg = int(getattr(args, "segd_k_neg", 8))
         self.bridge_temperature = float(getattr(args, "segd_bridge_temperature", 1.0))
-        self.k_eigen = int(getattr(args, "segd_k_eigen", getattr(args, "num_eigenvectors", 32)))
+        # Optional upper bound for eigengap-selected k (≤0 → uncapped besides n−1).
+        self.k_eigen_max = int(getattr(args, "segd_k_eigen", getattr(args, "num_eigenvectors", 0)))
+        self.k_eigen_min = int(getattr(args, "segd_k_eigen_min", 16))
         self.use_graph_reps_contrastive = bool(
-            getattr(args, "segd_use_graph_reps_contrastive", True)
+            getattr(args, "segd_use_graph_reps_contrastive", False)
         )
 
         self.teacher_patch_size = int(getattr(args, "teacher_patch_size", 28))
@@ -1145,17 +1167,31 @@ class SEGDLoss(nn.Module):
             n_total_t, n_total_s,
         )
 
-        # ----- Signed Laplacian + eigenspace -----
+        # ----- Signed Laplacian + full eigenspace + eigengap k -----
         with torch.no_grad():
             l_t = build_signed_laplacian(w_t, n_t)
-            _, u_t = get_eigenspace(l_t, n_t, k=self.k_eigen, allow_lobpcg=True)
-            u_t = u_t.detach()
+            evals_t, u_t_full = get_eigenspace(l_t)
+            k_t = select_k_by_eigengap(
+                evals_t, k_max=self.k_eigen_max, k_min=self.k_eigen_min,
+            )
 
         l_s = build_signed_laplacian(w_s, n_s)
-        _, u_s = get_eigenspace(l_s, n_s, k=self.k_eigen, allow_lobpcg=False)
+        evals_s, u_s_full = get_eigenspace(l_s)
+        k_s = select_k_by_eigengap(
+            evals_s, k_max=self.k_eigen_max, k_min=self.k_eigen_min,
+        )
+        # Shared subspace dim: floor at k_min, then clamp to available ranks.
+        k_avail = min(
+            max(u_t_full.size(1) - 1, 1),
+            max(u_s_full.size(1) - 1, 1),
+        )
+        k_use = min(k_avail, max(self.k_eigen_min, min(k_t, k_s)))
+        k_use = max(1, k_use)
+        u_t = u_t_full[:, :k_use].detach()
+        u_s = u_s_full[:, :k_use]
 
         p = self._build_projection_with_pos(batch_meta, n_t, n_s, device)
-        kd_loss = spectral_kd_loss(u_t, u_s, p, self.k_eigen)
+        kd_loss = spectral_kd_loss(u_t, u_s, p, k_use)
         if not torch.isfinite(kd_loss):
             logger.warning("spectral_kd_loss non-finite; replacing with 0")
             kd_loss = self._zero(device, rq_s.dtype)
@@ -1221,5 +1257,7 @@ class SEGDLoss(nn.Module):
             "s_cluster_nodes_pos": _metric(n_p_sum_s),
             # ----- spectral / layer -----
             "segd_attn_layer": _metric(s_stats["attn_layer_center"]),
-            "segd_k_eigen": _metric(float(min(self.k_eigen, u_s.size(1)))),
+            "segd_k_eigen": _metric(float(k_use)),
+            "segd_k_eigen_teacher": _metric(float(k_t)),
+            "segd_k_eigen_student": _metric(float(k_s)),
         }

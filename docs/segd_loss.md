@@ -696,15 +696,25 @@ Dùng trị tuyệt đối vì có cạnh âm (negative bridge) — signed Lapla
 
 ---
 
-## 5. Eigen-decomposition
+## 5. Eigen-decomposition + eigengap k
 
 ```python
-# Teacher (no grad): lobpcg nếu N > 1500, else eigh
-# Student (grad): luôn eigh — lobpcg không có autograd
-_, U = get_eigenspace(L, N_total, k=k_eigen)
+# Always full dense eigh (Teacher no_grad; Student keeps autograd)
+evals, U_full = get_eigenspace(L)          # torch.linalg.eigh
+k = select_k_by_eigengap(evals, k_max=...) # largest consecutive gap
+U = U_full[:, :k]
 ```
 
-Chạy độc lập cho 2 graph. Không ép $N_t = N_s$.
+`select_k_by_eigengap`:
+- eigenvalues ascending \(\lambda_0 \le \cdots \le \lambda_{n-1}\)
+- gaps \(\Delta_i = \lambda_{i+1}-\lambda_i\)
+- \(k = \arg\max_i \Delta_i + 1\)
+- optional `segd_k_eigen > 0` caps search so \(k \le\) that bound; `0` = uncapped (besides \(n-1\))
+- **no** special dropping of null / near-zero eigenvalues
+
+Teacher and Student each get their own eigengap \(k_t, k_s\); spectral KD uses \(k = \max(k_{\min}, \min(k_t, k_s))\) (clamped to graph size).
+
+Không ép $N_t = N_s$.
 
 ---
 
@@ -712,7 +722,7 @@ Chạy độc lập cho 2 graph. Không ép $N_t = N_s$.
 
 ### 6.1 Spectral KD — subspace projector matching (sau mapping)
 
-Sau khi có $U_t$, $U_s$ và $P$ (mục 3.4), lấy $k$ cột đầu ($k =$ `segd_k_eigen`):
+Sau khi có $U_t$, $U_s$ và $P$ (mục 3.4), lấy $k$ cột đầu ($k =$ eigengap, chung $\min(k_t,k_s)$):
 
 $$
 U_t^{(k)} = U_t[:, :k] \in \mathbb{R}^{N_T \times k}, \quad
@@ -793,14 +803,15 @@ Nguồn: [`src/arguments.py`](../src/arguments.py), script [`train_SEGD_fastvlm.
 |---------|-----|----------|---------|
 | `kd_weight` | `--kd_weight` | `1.0` | Scale spectral KD |
 | `segd_depth_ratio` | `--segd_depth_ratio` | `0.8` | Layer attention (~80% depth) |
-| `segd_attn_window` | `--segd_attn_window` | `1` | ±window layers (3 layer khi =1) |
+| `segd_attn_window` | `--segd_attn_window` | `0` | half-window; `0` = chỉ 1 layer tại `segd_depth_ratio` |
 | `segd_intra_topk` | `--segd_intra_topk` | `16` | Top-k neighbor intra-cluster (attention chọn index) |
-| `segd_tau_intra` | `--segd_tau_intra` | `0.1` | Softmax temperature cho weight intra-cluster (cosine) |
-| `segd_tau_local` | `--segd_tau_local` | `0.1` | Softmax temperature cho weight local-to-global (cosine) |
+| `segd_tau_intra` | `--segd_tau_intra` | `1.0` | Softmax temperature cho weight intra-cluster (cosine) |
+| `segd_tau_local` | `--segd_tau_local` | `1.0` | Softmax temperature cho weight local-to-global (cosine) |
 | `segd_lambda_neg` | `--segd_lambda_neg` | `0.3` | Scale + đổi dấu bridge âm |
 | `segd_k_neg` | `--segd_k_neg` | `8` | Hard-negatives mỗi Query (chọn theo cosine) |
 | `segd_bridge_temperature` | `--segd_bridge_temperature` | `1.0` | Softmax temperature cho weight bridge (cosine) |
-| `segd_k_eigen` | `--segd_k_eigen` | `32` | Số eigenvector KD |
+| `segd_k_eigen` | `--segd_k_eigen` | `0` | Optional **cap** on eigengap-selected $k$ (`0` = uncapped besides $n-1$) |
+| `segd_k_eigen_min` | `--segd_k_eigen_min` | `16` | **Floor** on eigengap $k$; search chỉ xét gap cho $k\ge$ min |
 | `segd_use_graph_reps_contrastive` | `--segd_use_graph_reps_contrastive` | `False` | `False` → contrastive = `encode_input` pooling (khớp eval); `True` → graph $R_q,R_p$ @ ~80% |
 | `pooling` | `--pooling` | `mean` (SEGD script) | Inference + encode_input: `mean` / `eos` / `last` |
 | `teacher_patch_size` | `--teacher_patch_size` | `28` | Infer grid Teacher |
@@ -834,7 +845,8 @@ Các flag legacy (`w_loss_cka`, `w_loss_grounding`, `sekd_*` cũ, …) vẫn par
 | `s_cluster_nodes_qry/pos` | Tổng node Student mỗi cụm |
 | `batch_vision/text_nodes_*` | Alias student (giữ tương thích) |
 | `segd_attn_layer` | Layer center attention đã chọn |
-| `segd_k_eigen` | $k$ eigenvector thực dùng |
+| `segd_k_eigen` | $k$ eigenvector thực dùng (`min(k_t, k_s)` sau eigengap) |
+| `segd_k_eigen_teacher` / `segd_k_eigen_student` | $k$ eigengap từng phía trước khi lấy min |
 
 ---
 
@@ -848,7 +860,7 @@ Các flag legacy (`w_loss_cka`, `w_loss_grounding`, `sekd_*` cũ, …) vẫn par
 | Edge weights (cosine softmax trên hidden) | ✓ (intra + local-to-global + bridge) |
 | Node hidden @ ~80% | ✓ (mean-pool $R_q,R_p$, weight mọi cạnh) |
 | Contrastive bidirectional | ✓ |
-| `eigh(L_s)` | ✓ (dense); `lobpcg` chỉ Teacher |
+| `eigh(L_s)` | ✓ (full dense); Teacher cũng full `eigh` trong `no_grad` |
 
 ---
 

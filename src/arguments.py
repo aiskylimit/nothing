@@ -150,25 +150,27 @@ class TrainingArguments(TrainingArguments):
         default=0.1,
         metadata={"help": "temperature for local cross-modal affinity softmax"},
     )
+    # ----------
     # SEGDLoss — Spectral KD + Star-Bridge graph
+    # ----------
     segd_depth_ratio: float = field(
         default=0.8,
         metadata={"help": "attention layer depth ratio for intra-cluster edges (~80%)"},
     )
     segd_attn_window: int = field(
-        default=1,
-        metadata={"help": "half-window of layers averaged around depth_ratio (window=1 → 3 layers)"},
+        default=0,
+        metadata={"help": "half-window of layers averaged around depth_ratio (window=0 → single layer)"},
     )
     segd_intra_topk: int = field(
         default=16,
         metadata={"help": "top-k neighbors per token for intra-cluster (attention selects index only)"},
     )
     segd_tau_intra: float = field(
-        default=0.1,
+        default=1.0,
         metadata={"help": "softmax temperature for intra-cluster cosine edge weights"},
     )
     segd_tau_local: float = field(
-        default=0.1,
+        default=1.0,
         metadata={"help": "softmax temperature for local-to-global cosine edge weights"},
     )
     segd_lambda_neg: float = field(
@@ -184,8 +186,18 @@ class TrainingArguments(TrainingArguments):
         metadata={"help": "softmax temperature for Query→{Pos,Neg} bridge attention weights"},
     )
     segd_k_eigen: int = field(
-        default=32,
-        metadata={"help": "number of Laplacian eigenvectors for spectral KD"},
+        default=0,
+        metadata={
+            "help": "Optional upper bound on eigengap-selected k for spectral KD "
+            "(0 = uncapped besides n-1). k itself is chosen by largest consecutive eigengap."
+        },
+    )
+    segd_k_eigen_min: int = field(
+        default=16,
+        metadata={
+            "help": "Lower bound on eigengap-selected k (avoids degenerate k=1 subspaces). "
+            "Search only considers gaps that yield k >= this value."
+        },
     )
     segd_use_graph_reps_contrastive: bool = field(
         default=False,

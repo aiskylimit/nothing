@@ -22,14 +22,10 @@ bash scripts/cls/train_SGD_fastvlm.sh
 
 
 
+# Chạy hết 1 lần 4 setting
+bash commands.sh
 
-
-
-
-total_loss = (
-    contrastive_loss
-    + (self.kd_weight / 10.0) * rkd_loss
-    + self.kd_weight * token_level_loss
-    + self.kd_weight * self.w_loss_batch * batch_level_loss
-)
-
+# Chạy 1 setting
+bash scripts/commands/setup.sh
+source vlm/bin/activate
+bash scripts/commands/1.sh

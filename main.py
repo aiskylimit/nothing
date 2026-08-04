@@ -111,6 +111,8 @@ KD_LOSS_METRIC_KEYS: Dict[str, Tuple[str, ...]] = {
         "batch_text_nodes_pos",
         "segd_attn_layer",
         "segd_k_eigen",
+        "segd_k_eigen_teacher",
+        "segd_k_eigen_student",
     ),
     "span_propose": (
         "loss",

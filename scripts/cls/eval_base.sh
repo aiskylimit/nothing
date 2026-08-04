@@ -56,7 +56,7 @@ fi
 if [ ! -d "eval_images" ] || [ -z "$(ls -A eval_images 2>/dev/null)" ]; then
     echo "Error: eval_images/ is missing or empty."
     echo "Download eval images first:"
-    echo "  bash scripts/cls/download_evaldata.sh"
+    echo "  bash scripts/download_evaldata.sh"
     exit 1
 fi
 
