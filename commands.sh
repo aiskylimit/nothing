@@ -1,4 +1,4 @@
-#2 +a
+#1 +10
 #talas
 #v1
 
@@ -35,5 +35,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_commands.sh
 
 cd ./talas_vlm_embed
-# ls
+ls caching/B3_Qwen2_2B_cls
 bash ./project_commands.sh
