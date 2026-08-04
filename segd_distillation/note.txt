@@ -1,0 +1,31 @@
+# Setup env (ensure u stay in VLM_Embed)
+uv python install 3.11
+alias python="$(uv python find 3.11)"
+python -m venv vlm
+source vlm/bin/activate
+pip install -r requirements.txt
+python fix_lib.py
+
+# Download train_data (for cls only)
+bash scripts/cls/download_traindata_cls.sh
+
+# Download eval_data (~7GB; faster than wget with hf_transfer)
+pip install hf_transfer
+export HF_HUB_ENABLE_HF_TRANSFER=1
+hf download TIGER-Lab/MMEB-eval images.zip --repo-type dataset --local-dir .
+mkdir -p eval_images
+unzip images.zip -d eval_images/
+# ImageNet-1K only: unzip images.zip "ImageNet-1K/*" -d eval_images/
+
+# Train
+bash scripts/cls/train_SGD_fastvlm.sh
+
+
+
+# Chạy hết 1 lần 4 setting
+bash commands.sh
+
+# Chạy 1 setting
+bash scripts/commands/setup.sh
+source vlm/bin/activate
+bash scripts/commands/1.sh
