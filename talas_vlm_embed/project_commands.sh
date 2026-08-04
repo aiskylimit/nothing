@@ -45,13 +45,13 @@ source vlm/bin/activate
 # =========================
 # 5. Optional teacher output
 # =========================
-# hf download VoCuc/vlm-teacher-embedding \
-#   B3_Qwen2_2B_cls.zip \
-#   --repo-type dataset \
-#   --local-dir .
+hf download VoCuc/vlm-teacher-embedding \
+  B3_Qwen2_2B_cls.zip \
+  --repo-type dataset \
+  --local-dir .
 
-# mkdir -p caching
-# unzip B3_Qwen2_2B_cls.zip -d caching/
+mkdir -p caching
+unzip -o B3_Qwen2_2B_cls.zip -d caching/
 
 
 # =========================
