@@ -1,6 +1,6 @@
-#1 +10
-#dpo
-#v2
+#1 +120
+#talas
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/text2sql_distillation_draft/results/eval/synid_ce_keywords_weight_lora_436/qwen_updated/collect/ +a
 # nvidia-smi
@@ -30,15 +30,15 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 
-cd Gen-DPO
-rm -rf .venv-tis-dpo
-CUDA_VISIBLE_DEVICES=2,3 bash ./project_commands.sh
+# cd Gen-DPO
+# rm -rf .venv-tis-dpo
+# CUDA_VISIBLE_DEVICES=2,3 bash ./project_commands.sh
 
-# cd ./talas_vlm_embed
+cd ./talas_vlm_embed
 # ls
 # ls training
 # ls training/FastVLM-0.5B_talas_1.0_eos_norm_proj_cls
-# bash ./project_commands.sh
+bash ./project_commands.sh
 
 # cd ./segd_distillation
 # bash ./project_commands.sh
