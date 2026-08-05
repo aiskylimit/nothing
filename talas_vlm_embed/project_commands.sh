@@ -71,8 +71,8 @@ source vlm/bin/activate
 # Uncomment to start training.
 
 # bash scripts/train_single.sh &
-# bash scripts/train_distill_talas.sh &
-# wait
+bash scripts/train_distill_talas.sh &
+wait
 
 
 
@@ -102,8 +102,8 @@ source vlm/bin/activate
 #     wait
 # done
 
-# CUDA_VISIBLE_DEVICES=1 bash eval.sh &
-# wait
+CUDA_VISIBLE_DEVICES=1 bash eval.sh &
+wait
 
 # =========================
 # 9. Copy JSON eval outputs
