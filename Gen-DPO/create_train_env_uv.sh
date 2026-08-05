@@ -8,6 +8,8 @@ ENV_DIR="${ENV_DIR:-.venv-tis-dpo}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.9}"
 TORCH_INDEX="${TORCH_INDEX:-https://download.pytorch.org/whl/cu128}"
 PYPI_INDEX="${PYPI_INDEX:-https://pypi.org/simple}"
+TORCH_VERSION="${TORCH_VERSION:-2.9.0}"
+TORCHVISION_VERSION="${TORCHVISION_VERSION:-0.24.0}"
 
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${SCRIPT_DIR}/.cache}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-${SCRIPT_DIR}/.local/share}"
@@ -78,7 +80,9 @@ python -m ensurepip --upgrade >/dev/null 2>&1 || true
 python -m pip install --upgrade "pip==23.0"
 
 echo "Installing PyTorch GPU wheels from ${TORCH_INDEX} ..."
-python -m pip install --index-url "${TORCH_INDEX}" torch torchvision
+python -m pip install --index-url "${TORCH_INDEX}" \
+  "torch==${TORCH_VERSION}" \
+  "torchvision==${TORCHVISION_VERSION}"
 
 echo "Installing project dependencies from ${PYPI_INDEX} ..."
 python -m pip install --index-url "${PYPI_INDEX}" \
