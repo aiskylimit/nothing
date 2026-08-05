@@ -21,25 +21,40 @@ mkdir -p "${HF_HOME}" "${HF_HUB_CACHE}" "${TRANSFORMERS_CACHE}"
 
 if [[ -n "${PYTHON_BIN:-}" ]]; then
   PYTHON_SPEC="${PYTHON_BIN}"
-elif command -v python3.10 >/dev/null 2>&1; then
-  PYTHON_SPEC="$(command -v python3.10)"
-elif command -v python3.9 >/dev/null 2>&1; then
-  PYTHON_SPEC="$(command -v python3.9)"
-elif command -v python3 >/dev/null 2>&1; then
-  PYTHON_SPEC="$(command -v python3)"
+elif command -v "python${PYTHON_VERSION}" >/dev/null 2>&1; then
+  PYTHON_SPEC="$(command -v "python${PYTHON_VERSION}")"
 else
   PYTHON_SPEC="${PYTHON_VERSION}"
 fi
 
+UV_VENV_FLAGS=(--clear --seed)
+PY_VENV_FLAGS=(--clear)
+
 echo "Creating virtual environment at ${ENV_DIR} ..."
 if command -v uv >/dev/null 2>&1; then
-  if ! uv venv "${ENV_DIR}" --python "${PYTHON_SPEC}"; then
-    echo "uv venv failed, falling back to python3 -m venv ..." >&2
-    python3 -m venv "${ENV_DIR}"
+  if ! uv venv "${UV_VENV_FLAGS[@]}" "${ENV_DIR}" --python "${PYTHON_SPEC}"; then
+    echo "uv venv failed, falling back to python${PYTHON_VERSION} -m venv ..." >&2
+    if command -v "python${PYTHON_VERSION}" >/dev/null 2>&1; then
+      "python${PYTHON_VERSION}" -m venv "${PY_VENV_FLAGS[@]}" "${ENV_DIR}"
+    elif [[ -x "${PYTHON_SPEC}" ]]; then
+      "${PYTHON_SPEC}" -m venv "${PY_VENV_FLAGS[@]}" "${ENV_DIR}"
+    else
+      echo "Could not create ${ENV_DIR}: Python ${PYTHON_VERSION} was not found locally and uv could not create it." >&2
+      echo "Install Python ${PYTHON_VERSION}, fix uv downloads, or set PYTHON_BIN=/path/to/python${PYTHON_VERSION}." >&2
+      exit 1
+    fi
   fi
 else
-  echo "uv not found, using python3 -m venv ..." >&2
-  python3 -m venv "${ENV_DIR}"
+  echo "uv not found, using python${PYTHON_VERSION} -m venv ..." >&2
+  if command -v "python${PYTHON_VERSION}" >/dev/null 2>&1; then
+    "python${PYTHON_VERSION}" -m venv "${PY_VENV_FLAGS[@]}" "${ENV_DIR}"
+  elif [[ -x "${PYTHON_SPEC}" ]]; then
+    "${PYTHON_SPEC}" -m venv "${PY_VENV_FLAGS[@]}" "${ENV_DIR}"
+  else
+    echo "Could not create ${ENV_DIR}: uv is missing and Python ${PYTHON_VERSION} was not found locally." >&2
+    echo "Install uv/Python ${PYTHON_VERSION}, or set PYTHON_BIN=/path/to/python${PYTHON_VERSION}." >&2
+    exit 1
+  fi
 fi
 
 if [[ -f "${ENV_DIR}/bin/activate" ]]; then
@@ -49,6 +64,15 @@ else
   echo "Could not find ${ENV_DIR}/bin/activate" >&2
   exit 1
 fi
+
+python - <<'PY'
+import sys
+if not ((3, 8) <= sys.version_info[:2] < (3, 12)):
+    raise SystemExit(
+        f"Unsupported Python {sys.version.split()[0]}. "
+        "Use Python >=3.8 and <3.12 for this training environment."
+    )
+PY
 
 python -m ensurepip --upgrade >/dev/null 2>&1 || true
 python -m pip install --upgrade "pip==23.0"
