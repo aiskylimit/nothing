@@ -1,4 +1,4 @@
-#2
+#2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #dpo
 #v1
 
