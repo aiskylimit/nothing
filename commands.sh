@@ -1,5 +1,5 @@
-#2
-#talas
+#1 +10
+#dpo
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
