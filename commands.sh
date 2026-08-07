@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
+#1 +10
 #dpo
 #v1
 
@@ -15,9 +15,9 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-# cd gpu_burn
-# make CUDAPATH=/usr/local/cuda-13.0
-# ./gpu_burn 36000000000
+cd gpu_burn
+make CUDAPATH=/usr/local/cuda-13.0
+./gpu_burn 36000000000
 
 # kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 # sleep 5
@@ -30,9 +30,9 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 
-cd Gen-DPO
-rm -rf .venv-tis-dpo
-CUDA_VISIBLE_DEVICES=2,3 bash ./project_commands.sh
+# cd Gen-DPO
+# rm -rf .venv-tis-dpo
+# CUDA_VISIBLE_DEVICES=2,3 bash ./project_commands.sh
 
 # cd ./talas_vlm_embed
 # ls
