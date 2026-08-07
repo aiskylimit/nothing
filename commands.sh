@@ -30,8 +30,9 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 
-cd Gen-DPO/eval
-uv sync
+cd Gen-DPO
+ls
+ls output -R
 # CUDA_VISIBLE_DEVICES=2,3 bash ./project_commands.sh
 
 # cd ./talas_vlm_embed
