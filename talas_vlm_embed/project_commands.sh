@@ -71,7 +71,7 @@ source vlm/bin/activate
 # Uncomment to start training.
 
 # bash scripts/train_single.sh &
-bash scripts/train_distill_talas.sh &
+bash scripts/train_distill_talas_vqa.sh &
 wait
 
 
@@ -102,7 +102,7 @@ wait
 #     wait
 # done
 
-CUDA_VISIBLE_DEVICES=1 bash eval.sh &
+CUDA_VISIBLE_DEVICES=0 bash eval.sh &
 wait
 
 # =========================
