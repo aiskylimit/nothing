@@ -19,8 +19,8 @@
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
-# sleep 5
+kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+sleep 5
 nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -31,9 +31,15 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd Gen-DPO
-ls
-ls output -R
+source eval/.venv/bin/activate
+CUDA_VISIBLE_DEVICES=6,7 bash all.sh output/dpo_Llama-3.1-Tulu-3-8B-SFT_ultra-feedback_08-06_15-06
+CUDA_VISIBLE_DEVICES=6,7 bash all.sh output/gendpo_Llama-3.1-Tulu-3-8B-SFT_ultra-feedback_08-06_21-05
+CUDA_VISIBLE_DEVICES=6,7 bash all.sh output/sft_Llama-3.1-Tulu-3-8B-SFT_ultra-feedback_08-06_11-52
 # CUDA_VISIBLE_DEVICES=2,3 bash ./project_commands.sh
+
+cd ../gpu_burn
+make CUDAPATH=/usr/local/cuda-13.0
+./gpu_burn 36000000000
 
 # cd ./talas_vlm_embed
 # ls
