@@ -1,6 +1,6 @@
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #dpo
-#v2
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 # nvidia-smi
