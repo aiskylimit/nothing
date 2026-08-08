@@ -48,5 +48,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./segd_distillation
 # bash ./project_commands.sh
 
-cd ./gen_data
-bash ./project_commands.sh
+# cd ./gen_data
+# bash ./project_commands.sh
