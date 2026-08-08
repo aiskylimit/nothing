@@ -1,15 +1,15 @@
 SUBSETS=(
-  # "ImageNet-1K" "N24News" "HatefulMemes" "VOC2007" "SUN397" 
-  # "Place365" "ImageNet-A" "ImageNet-R" "ObjectNet" "Country211"
-  "OK-VQA" "A-OKVQA" "DocVQA" "InfographicsVQA" "ChartQA" "Visual7W"
-  "ScienceQA" "VizWiz" "GQA" "TextVQA"
+  "ImageNet-1K" "N24News" "HatefulMemes" "VOC2007" "SUN397" 
+  "Place365" "ImageNet-A" "ImageNet-R" "ObjectNet" "Country211"
+  # "OK-VQA" "A-OKVQA" "DocVQA" "InfographicsVQA" "ChartQA" "Visual7W"
+  # "ScienceQA" "VizWiz" "GQA" "TextVQA"
 )
 
 # MODEL=training/FastVLM-0.5B_cls_0.3_talas/checkpoint-final
-MODEL=training/FastVLM-0.5B_base_16_eos_vqa/checkpoint-epoch-0
+MODEL=training/FastVLM-0.5B_base_16_eos_cls
 python eval_mmeb.py \
     --model_name $MODEL \
-    --encode_output_path ./MMEB-eval_outputs/FastVLM-0.5B_base_16_eos_vqa/ \
+    --encode_output_path ./MMEB-eval_outputs/FastVLM-0.5B_base_16_eos_cls/ \
     --lora True --lora_r 64 --lora_alpha 64 \
     --pooling eos \
     --model_backbone llava_qwen2 \

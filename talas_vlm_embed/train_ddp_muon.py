@@ -10,6 +10,7 @@ import sys
 from tqdm import tqdm 
 import math
 # import wandb 
+import re
 
 import torch
 import torch.nn as nn 
@@ -29,8 +30,24 @@ import random
 import numpy as np
 
 
+ADAMW_LORA_LAYERS = {0, 23}
+# Example: ADAMW_LORA_LAYERS = {20, 21, 22, 23}
+
+
+def get_transformer_layer_idx(name):
+    match = re.search(r"(?:^|\.)(?:layers|blocks|h)\.(\d+)\.", name)
+    return int(match.group(1)) if match else None
+
+
 def should_use_muon(name, param):
-    return param.requires_grad and param.ndim == 2 and "lora" in name.lower()
+    if not (param.requires_grad and param.ndim == 2 and "lora" in name.lower()):
+        return False
+
+    if ADAMW_LORA_LAYERS is None:
+        return True
+
+    layer_idx = get_transformer_layer_idx(name)
+    return layer_idx not in ADAMW_LORA_LAYERS
 
 
 def is_adamw_projector(name):

@@ -1,14 +1,11 @@
 #!/bin/bash
 
-# Số lượng GPU trên mỗi node (máy)
+# Số lượng GPU trên mỗi node
 NUM_GPUS_PER_NODE=1
 
-# Đường dẫn tới file script training của bạn
+# Đường dẫn tới file script training
 TRAIN_SCRIPT="train_ddp.py"
 
-# =========================================================================
-# Dùng torchrun để khởi chạy
-# =========================================================================
 torchrun --standalone \
     --nproc_per_node=$NUM_GPUS_PER_NODE $TRAIN_SCRIPT \
     --model_name apple/FastVLM-0.5B \
@@ -23,11 +20,11 @@ torchrun --standalone \
     --model_backbone "llava_qwen2" \
     --pooling "eos" \
     --dataset_name "TIGER-Lab/MMEB-train" \
-    --subset_name "OK-VQA" "A-OKVQA" "DocVQA" "InfographicsVQA" "ChartQA" "Visual7W" \
+    --subset_name "ImageNet_1K" "N24News" "HatefulMemes" "VOC2007" "SUN397" \
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
     --percent_data 1.0 \
-    --output_dir "training/FastVLM-0.5B_talas_1.0_eos_constant_0.05scheduler_vqa" \
+    --output_dir "training/FastVLM-0.5B_smd_1.0_eos_constant_0.05scheduler_cls" \
     --per_device_train_batch_size 16 \
     --gradient_accumulation_steps 1 \
     --learning_rate 1e-4 \
@@ -43,10 +40,7 @@ torchrun --standalone \
     --lr_scheduler_type "constant" \
     --warmup_ratio 0.05 \
     --kd_weight 1.0 \
-    --caching_dir "caching/B3_Qwen2_2B_vqa" \
-    --kd_loss_type "talas" \
+    --caching_dir "caching/B3_Qwen2_2B_cls" \
+    --kd_loss_type "similarity_matrix_distillation" \
     --image_resolution "low" \
-    --num_projectors 1 \
-    --num_self_kd_layers 3 \
-    --projector_lr 5e-5 \
     --report_to None
