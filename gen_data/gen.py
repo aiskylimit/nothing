@@ -23,7 +23,7 @@ def main():
         trust_remote_code=True,
         gpu_memory_utilization=0.9,  
         tensor_parallel_size=4,  
-        max_model_len=10240
+        max_model_len=12240
     )
     
     tokenizer = llm.get_tokenizer()
