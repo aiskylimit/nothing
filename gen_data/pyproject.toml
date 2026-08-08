@@ -3,12 +3,17 @@ name = "my_vllm"
 version = "0.1.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = "==3.11.*"
 license = "Apache-2.0"
+
 dependencies = [
     "datasets",
-    "vllm"
+    "torch==2.10.0",
+    "vllm==0.19.1",
 ]
 
 [tool.uv]
-package = false
+index-url = "https://pypi.org/simple"
+extra-index-url = ["https://download.pytorch.org/whl/cu128"]
+index-strategy = "unsafe-best-match"
+
