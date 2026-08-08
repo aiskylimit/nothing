@@ -21,8 +21,9 @@ def main():
     llm = LLM(
         model=model_id,
         gpu_memory_utilization=0.9,  
-        tensor_parallel_size=6,  
-        max_model_len=12240
+        tensor_parallel_size=4,  
+        max_model_len=12240,
+        language_model_only=True,
     )
     
     tokenizer = llm.get_tokenizer()
