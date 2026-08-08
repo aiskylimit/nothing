@@ -12,8 +12,8 @@ TRAIN_SCRIPT="train_ddp.py"
 # )
 
 SUBSETS=(
-  "ImageNet_1K" "N24News" "HatefulMemes" "VOC2007" "SUN397"
-#   "OK-VQA" "A-OKVQA" "DocVQA" "InfographicsVQA" "ChartQA" "Visual7W"
+  # "ImageNet_1K" "N24News" "HatefulMemes" "VOC2007" "SUN397"
+  "OK-VQA" "A-OKVQA" "DocVQA" "InfographicsVQA" "ChartQA" "Visual7W"
 )
 
 # =========================================================================
@@ -31,7 +31,7 @@ torchrun --nproc_per_node=$NUM_GPUS_PER_NODE \
     --subset_name "${SUBSETS[@]}" \
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
-    --output_dir "training/FastVLM-0.5B_base_16_eos_cls" \
+    --output_dir "training/FastVLM-0.5B_base_16_eos_vqa" \
     --per_device_train_batch_size 16 \
     --gradient_accumulation_steps 1 \
     --learning_rate 1e-4 \

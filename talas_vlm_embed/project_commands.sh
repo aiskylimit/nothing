@@ -17,7 +17,7 @@ set -e
 # 2. Create Python env and install requirements
 # =========================
 export UV_PROJECT_ENVIRONMENT=vlm
-# uv sync
+uv sync
 source vlm/bin/activate
 
 
@@ -40,7 +40,7 @@ source vlm/bin/activate
 # bash download_traindata.sh
 # bash download_traindata_2.sh
 
-# python download.py
+python download.py
 
 # =========================
 # 5. Optional teacher output
@@ -70,8 +70,8 @@ source vlm/bin/activate
 #
 # Uncomment to start training.
 
-# bash scripts/train_single.sh &
-bash scripts/train_distill_talas_vqa.sh &
+bash scripts/train_single_vqa.sh &
+# bash scripts/train_distill_talas_vqa.sh &
 wait
 
 
