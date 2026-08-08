@@ -20,7 +20,6 @@ def main():
     print(f"Đang tải mô hình {model_id}...")
     llm = LLM(
         model=model_id,
-        trust_remote_code=True,
         gpu_memory_utilization=0.9,  
         tensor_parallel_size=6,  
         max_model_len=12240
