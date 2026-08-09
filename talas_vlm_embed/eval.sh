@@ -6,7 +6,7 @@ SUBSETS=(
 )
 
 # MODEL=training/FastVLM-0.5B_cls_0.3_talas/checkpoint-final
-MODEL=training/FastVLM-0.5B_base_16_eos_cls
+MODEL=training/FastVLM-0.5B_base_16_eos_cls/checkpoint-epoch-0
 python eval_mmeb.py \
     --model_name $MODEL \
     --encode_output_path ./MMEB-eval_outputs/FastVLM-0.5B_base_16_eos_cls/ \
