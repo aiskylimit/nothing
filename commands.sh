@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
+#1 +120
 #gendata
 #v1
 
@@ -42,11 +42,11 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-cd ./talas_vlm_embed
-bash ./project_commands.sh
+# cd ./talas_vlm_embed
+# bash ./project_commands.sh
 
 # cd ./segd_distillation
 # bash ./project_commands.sh
 
-# cd ./gen_data
-# bash ./project_commands.sh
+cd ./gen_data
+bash ./project_commands.sh

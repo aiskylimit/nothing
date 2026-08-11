@@ -22,7 +22,7 @@ def main():
         model=model_id,
         gpu_memory_utilization=0.9,  
         tensor_parallel_size=4,  
-        max_model_len=12240,
+        max_model_len=32768,
         language_model_only=True,
     )
     
@@ -32,7 +32,7 @@ def main():
         temperature=0.7,
         top_p=0.9,
         top_k=20,
-        max_tokens=10240,
+        max_tokens=32768,
         repetition_penalty=1.0
     )
 
