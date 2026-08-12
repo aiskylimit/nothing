@@ -1,4 +1,4 @@
-#2
+#1 +10
 #talas_vlm_embed
 #v1
 
@@ -49,6 +49,6 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # bash ./project_commands.sh
 
 cd ./gen_data
-ls deepseek_output -R
-ls output -R
+ls -lh deepseek_output
+ls -lh output
 # bash ./project_commands.sh
