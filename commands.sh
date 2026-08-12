@@ -1,4 +1,4 @@
-#2
+#1 +10
 #gendata
 #v1
 
@@ -49,4 +49,6 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # bash ./project_commands.sh
 
 cd ./gen_data
-bash ./project_commands.sh
+ls deepseek_output -R
+ls output -R
+# bash ./project_commands.sh
