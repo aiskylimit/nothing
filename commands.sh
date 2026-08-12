@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/gen_data/deepseek_output/Distill_Qwen_32B_generated_outputs_part_1.zip +a
+#1 +30
 #talas_vlm_embed
 #v1
 
@@ -49,6 +49,12 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # bash ./project_commands.sh
 
 cd ./gen_data
-ls -lh deepseek_output
-ls -lh output
+cd deepseek_output
+mkdir -p split
+
+for f in *.zip; do
+    split -b 24M -d -a 3 "$f" "split/${f}.part_"
+done
+
+ls -R
 # bash ./project_commands.sh
