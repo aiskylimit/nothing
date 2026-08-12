@@ -1,4 +1,4 @@
-#1 +30
+#2 -f-/home/ubuntu/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_1.zip.part_000 +a
 #chi
 #v1
 
