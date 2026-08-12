@@ -77,9 +77,8 @@ unzip -o B3_Qwen2_2B_vqa.zip
 #
 # Uncomment to start training.
 
-# bash scripts/train_single_vqa.sh &
-# bash scripts/train_distill_talas_vqa.sh &
-# wait
+CUDA_VISIBLE_DEVICES=0 bash scripts/train_distill_talas_cls.sh &
+wait
 
 
 
