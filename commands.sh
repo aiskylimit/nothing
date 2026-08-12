@@ -1,4 +1,4 @@
-#1 +10
+#2 -f-/home/ubuntu/aiskylimit_nothing/gen_data/deepseek_output/Distill_Qwen_32B_generated_outputs_part_1.zip +a
 #talas_vlm_embed
 #v1
 
