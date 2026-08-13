@@ -17,9 +17,16 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-cd gpu_burn
-make CUDAPATH=/usr/local/cuda-13.0
-./gpu_burn 36000000000
+# cd gpu_burn
+# make CUDAPATH=/usr/local/cuda-13.0
+# ./gpu_burn 36000000000
+
+# Find the actual CUDA installation/header
+find /usr/local/cuda* -name cublas_v2.h 2>/dev/null
+
+# Check CUDA versions
+nvcc --version
+ls -l /usr/local/ | grep cuda
 
 # kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 # sleep 5
