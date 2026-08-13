@@ -1,4 +1,4 @@
-#2
+#1 +10
 #main
 #v1
 
@@ -10,7 +10,7 @@
 ## wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
 ## sudo dpkg -i cuda-keyring_1.1-1_all.deb
 # sudo apt update
-sudo apt-get install -y cuda-toolkit-13-0
+# sudo apt-get install -y cuda-toolkit-13-0
 # sudo apt install -y zip unzip
 # echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
 # echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
@@ -20,13 +20,6 @@ sudo apt-get install -y cuda-toolkit-13-0
 # cd gpu_burn
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
-
-# Find the actual CUDA installation/header
-find /usr/local/cuda* -name cublas_v2.h 2>/dev/null
-
-# Check CUDA versions
-nvcc --version
-ls -l /usr/local/ | grep cuda
 
 # kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 # sleep 5
@@ -66,5 +59,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls -R
 # bash ./project_commands.sh
 
-# cd ./reward-guidance-main
-# bash ./project_command.sh
+cd ./reward-guidance-main
+bash ./project_command.sh
