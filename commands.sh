@@ -1,5 +1,5 @@
 #1 +10
-#main
+#gendata
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
@@ -48,16 +48,15 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./segd_distillation
 # bash ./project_commands.sh
 
-# cd ./gen_data
-# cd deepseek_output
-# mkdir -p split
+cd ./gen_data
+bash ./project_commands.sh
+cd deepseek_output
+mkdir -p split
+for f in *.zip; do
+    split -b 24M -d -a 3 "$f" "split/${f}.part_"
+done
+ls -R
 
-# for f in *.zip; do
-#     split -b 24M -d -a 3 "$f" "split/${f}.part_"
-# done
 
-# ls -R
-# bash ./project_commands.sh
-
-cd ./reward-guidance-main
-bash ./project_command.sh
+# cd ./reward-guidance-main
+# bash ./project_command.sh
