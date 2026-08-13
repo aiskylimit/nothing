@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/training/B3_Qwen2_2B_centroid_cls/checkpoint-final/centroid.pt +a
+#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_2.zip.part_005 +a
 #chi
 #v1
 
