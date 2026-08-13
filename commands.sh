@@ -1,5 +1,5 @@
 #1 +10
-#gendata
+#talas
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
@@ -42,20 +42,20 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-# cd ./talas_vlm_embed
-# bash ./project_commands.sh
+cd ./talas_vlm_embed
+bash ./project_commands.sh
 
 # cd ./segd_distillation
 # bash ./project_commands.sh
 
-cd ./gen_data
-bash ./project_commands.sh
-cd deepseek_output
-mkdir -p split
-for f in *.zip; do
-    split -b 24M -d -a 3 "$f" "split/${f}.part_"
-done
-ls -R
+# cd ./gen_data
+# bash ./project_commands.sh
+# cd deepseek_output
+# mkdir -p split
+# for f in *.zip; do
+#     split -b 24M -d -a 3 "$f" "split/${f}.part_"
+# done
+# ls -R
 
 
 # cd ./reward-guidance-main
