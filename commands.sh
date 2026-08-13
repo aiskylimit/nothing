@@ -1,4 +1,4 @@
-#2 -0-10
+#2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/training/B3_Qwen2_2B_centroid_cls/checkpoint-final/centroid.pt +a
 #chi
 #v1
 
