@@ -176,31 +176,31 @@ class Talas(nn.Module):
         tamd /= (2 * self.args.num_projectors)
 
         lasd = 0.0
-        # for i in range(num_stu_layer - 1 - self.args.num_self_kd_layers,
-        #                num_stu_layer - 1):
+        for i in range(num_stu_layer - 1 - self.args.num_self_kd_layers,
+                       num_stu_layer - 1):
             
-        #     last_stu_qry_hidden_state_i = pooling(student_qry_hidden_states[i],
-        #                                         student_qry_input['attention_mask'],
-        #                                         mode='eos',
-        #                                         normalize=False)
-        #     last_stu_qry_hidden_state_i1 = pooling(student_qry_hidden_states[i+1],
-        #                                         student_qry_input['attention_mask'],
-        #                                         mode='eos',
-        #                                         normalize=False)
-        #     lasd += self.structure_loss(last_stu_qry_hidden_state_i, last_stu_qry_hidden_state_i1)
+            last_stu_qry_hidden_state_i = pooling(student_qry_hidden_states[i],
+                                                student_qry_input['attention_mask'],
+                                                mode='eos',
+                                                normalize=False)
+            last_stu_qry_hidden_state_i1 = pooling(student_qry_hidden_states[i+1],
+                                                student_qry_input['attention_mask'],
+                                                mode='eos',
+                                                normalize=False)
+            lasd += self.structure_loss(last_stu_qry_hidden_state_i, last_stu_qry_hidden_state_i1)
 
 
-        #     last_stu_pos_hidden_state_i = pooling(student_pos_hidden_states[i],
-        #                                         student_pos_input['attention_mask'],
-        #                                         mode='eos',
-        #                                         normalize=False)
-        #     last_stu_pos_hidden_state_i1 = pooling(student_pos_hidden_states[i+1],
-        #                                         student_pos_input['attention_mask'],
-        #                                         mode='eos',
-        #                                         normalize=False)
-        #     lasd += self.structure_loss(last_stu_pos_hidden_state_i, last_stu_pos_hidden_state_i1)
+            last_stu_pos_hidden_state_i = pooling(student_pos_hidden_states[i],
+                                                student_pos_input['attention_mask'],
+                                                mode='eos',
+                                                normalize=False)
+            last_stu_pos_hidden_state_i1 = pooling(student_pos_hidden_states[i+1],
+                                                student_pos_input['attention_mask'],
+                                                mode='eos',
+                                                normalize=False)
+            lasd += self.structure_loss(last_stu_pos_hidden_state_i, last_stu_pos_hidden_state_i1)
 
-        # lasd /= (2 * self.args.num_self_kd_layers)
+        lasd /= (2 * self.args.num_self_kd_layers)
         
         loss_distill = tamd + lasd
 
