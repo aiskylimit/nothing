@@ -1,10 +1,10 @@
-#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_3.zip.part_004 +a
+#2 -0-5 +a
 #chi
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
-#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_1.zip.part_002 +a
+#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_3.zip.part_004 +a
 
 
 # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
@@ -17,9 +17,9 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-# cd gpu_burn
-# make CUDAPATH=/usr/local/cuda-13.0
-# ./gpu_burn 36000000000
+cd gpu_burn
+make CUDAPATH=/usr/local/cuda-13.0
+./gpu_burn 36000000000
 
 # kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 # sleep 5
@@ -60,5 +60,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls -R
 # bash ./project_commands.sh
 
-cd ./reward-guidance-main
-bash ./project_command.sh
+# cd ./reward-guidance-main
+# bash ./project_command.sh
