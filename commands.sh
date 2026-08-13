@@ -1,4 +1,4 @@
-#1 +10
+#2
 #main
 #v1
 
@@ -7,8 +7,8 @@
 #2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_3.zip.part_004 +a
 
 
-# wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
-# sudo dpkg -i cuda-keyring_1.1-1_all.deb
+## wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+## sudo dpkg -i cuda-keyring_1.1-1_all.deb
 # sudo apt update
 sudo apt-get install -y cuda-toolkit-13-0
 # sudo apt install -y zip unzip
