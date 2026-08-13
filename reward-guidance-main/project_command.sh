@@ -24,7 +24,7 @@ FLUX_COMMON="--num-steps 28 --height 512 --width 512 --cfg-scale 3.5 --snr-facto
 export CUDA_VISIBLE_DEVICES="6,7"
 
 # Mảng chứa các lệnh chạy FLUX để sau đó phân bổ song song cho các GPU
-rm -f flux_commands.txt
+rm -f flux/flux_commands.txt
 
 # Helper: lưu 1 condition cho 1 figure vào file thay vì chạy ngay
 run_flux() {
@@ -69,7 +69,7 @@ if ! command -v uv &> /dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH="$HOME/.cargo/bin:$PATH"
 fi
-uv venv --clear
+uv venv
 source .venv/bin/activate
 uv pip install -r pyproject.toml
 
@@ -90,9 +90,9 @@ echo ""
 echo "=== 3. Mode selection 1D ==="
 cd mode_selection/
 python sample.py --reward step     --num-samples 2000 --max-n 16 --lam 5.0 \
-    --record-trajectories --output-dir results/step_lam5.0
+    --record-trajectories --output-dir results
 python sample.py --reward gaussian --num-samples 2000 --max-n 16 --lam 5.0 \
-    --record-trajectories --output-dir results/gaussian_lam5.0
+    --record-trajectories --output-dir results
 python make_overview_figure.py
 python make_trajectory_figures.py
 cd ..
@@ -564,13 +564,8 @@ for base in ['data', 'flux/results']:
 PYEOF
 
 # Copy figures (PDF/PNG)
-for fig_dir in figures gaussian_mixture mode_selection checkerboard; do
-    if [ -d "$fig_dir/figures" ]; then
-        mkdir -p "$EXPORT_DIR/$fig_dir/figures"
-        find "$fig_dir/figures" \( -name "*.pdf" -o -name "*.png" \) \
-            -exec cp {} "$EXPORT_DIR/$fig_dir/figures/" \;
-    fi
-done
+mkdir -p "$EXPORT_DIR"
+find figures gaussian_mixture mode_selection checkerboard -type f \( -name "*.pdf" -o -name "*.png" \) -print0 2>/dev/null | tar -cf - --null -T - | tar -xf - -C "$EXPORT_DIR"
 
 cp reward_summary.json "$EXPORT_DIR/"
 

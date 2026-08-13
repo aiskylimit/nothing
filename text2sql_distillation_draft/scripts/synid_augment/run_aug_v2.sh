@@ -1,1 +1,0 @@
-python scripts/synid_augment/run_spider_aug_loops_v2.py --benchmark spider --tensor-parallel-size 2
