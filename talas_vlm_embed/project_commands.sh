@@ -53,12 +53,12 @@ source vlm/bin/activate
 
 # unzip -o B3_Qwen2_2B_cls.zip 
 
-# hf download VoCuc/vlm-teacher-embedding \
-#   B3_Qwen2_2B_vqa.zip \
-#   --repo-type dataset \
-#   --local-dir .
+hf download VoCuc/vlm-teacher-embedding \
+  B3_Qwen2_2B_vqa.zip \
+  --repo-type dataset \
+  --local-dir .
 
-# unzip -o B3_Qwen2_2B_vqa.zip 
+unzip -o B3_Qwen2_2B_vqa.zip 
 
 
 # =========================
@@ -77,7 +77,7 @@ source vlm/bin/activate
 #
 # Uncomment to start training.
 
-CUDA_VISIBLE_DEVICES=0,1,2,3 bash scripts/train_centroid_cls.sh &
+CUDA_VISIBLE_DEVICES=0 bash scripts/train_distill_talas_cls.sh &
 wait
 
 
@@ -87,8 +87,7 @@ wait
 # =========================
 # Run 4 eval scripts in parallel for each batch size, each one on a different GPU.
 
-rm -rf MMEB-eval_outputs &
-CUDA_VISIBLE_DEVICES=0 bash eval_centroid_cls.sh &
+CUDA_VISIBLE_DEVICES=0 bash eval.sh &
 wait
 
 # =========================
