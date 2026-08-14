@@ -18,7 +18,6 @@ This repository is used to fine-tune and distill Vision-Language Models (VLMs) w
 | --- | --- |
 | `train.py` | Main training entry point. Initializes model, processor, criterion, dataset, trainer, and resume checkpoint handling. |
 | `requirements.txt` | Python dependencies for the repository. |
-| `.env.example` | Example environment variables for WandB and Hugging Face Hub. |
 | `config/` | Projector configs for specific KD methods, such as `dskd_v2_projectors.json`, `dwa_kd_projectors.json`, and `mcw_kd_projectors.json`. |
 | `configs/` | Runtime configs, including DeepSpeed ZeRO-2 and evaluation configs. |
 | `docs/` | Technical notes and plans, for example the unit-aligned distillation training plan. |
@@ -81,7 +80,7 @@ Mapped `--kd_loss_type` values include: `ce_only`, `default`, `default_distillat
 | `script_train/dwa_kd/` | DWA-KD recipes. |
 | `script_train/dskd_v2/` | DSKD v2 recipes. The currently open file, `train_qwen3_teacher_4b_fastvlm_student_05b_dskd_v2_with_eta.sh`, lives here. |
 | `script_train/mcw_kd/` | MCW-KD recipes. |
-| `script_train/_common.sh` | Shared helper for loading `.env`, enabling WandB, and setting Hugging Face Hub push flags when tokens are available. |
+
 
 For example, `script_train/dskd_v2/train_qwen3_teacher_4b_fastvlm_student_05b_dskd_v2_with_eta.sh` uses `FastVLM-0.5B` as the student and `Qwen3-VL-4B-Instruct` as the teacher. It uses `config/dskd_v2_projectors.json`, trains on `train_data/llava_v1_5_mix665k.json`, and writes outputs to `outputs/qwen3_teacher_4b_fastvlm_student_05b_dskd_v2_with_eta`.
 

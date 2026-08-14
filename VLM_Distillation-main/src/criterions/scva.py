@@ -335,10 +335,6 @@ class SCVACriterion(nn.Module):
         student_inputs: Dict[str, Any],
         teacher_inputs: Dict[str, Any],
     ) -> torch.Tensor:
-        # Track per-call validity counts; surfaced via _scalarize_counts so the
-        # trainer.log() hook can write `train/scva_valid`, `train/scva_skipped_*`
-        # to WandB. If `scva_valid` stays at 0 for the whole smoke, SCVA is
-        # silently inactive — that's the methodology blocker we want to detect.
         counts: Dict[str, int] = {
             "valid": 0,
             "skipped_mask": 0,
