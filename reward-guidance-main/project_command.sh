@@ -52,6 +52,10 @@ uv sync --frozen
 source .venv/bin/activate
 python -c "import diffusers, torch, transformers"
 
+RAW="TwXoDncyxhVSoTFklwVXpsPaXzVipMJavD"
+export HF_TOKEN="hf_${RAW}"
+hf auth login --token "hf_${RAW}"
+
 # ──────────────────────────────────────────────────────────────────────────────
 # 2. GAUSSIAN MIXTURE (CPU, ~10s)
 # ──────────────────────────────────────────────────────────────────────────────

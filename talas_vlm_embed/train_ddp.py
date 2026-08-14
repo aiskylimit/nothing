@@ -164,6 +164,7 @@ class Trainer:
 
         progress_bar = tqdm(total=steps_per_epoch, 
                             desc=f"Epoch {epoch}",
+                            dynamic_ncols=True,
                             disable=not dist.get_rank() == 0)
         for batch_idx, batch in enumerate(self.train_data):
             batch = to_device(batch, self.device)
