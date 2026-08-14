@@ -45,5 +45,4 @@ fi
   --dataloader_num_workers 2 \
   --max_len 2048 \
   --image_resolution low \
-  --resume_from none \
-  --report_to none
+  --resume_from none

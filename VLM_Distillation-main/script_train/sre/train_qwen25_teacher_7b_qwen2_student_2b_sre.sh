@@ -58,7 +58,6 @@ source "${PROJECT_DIR}/script_train/_common.sh"
   --max_len 2048 \
   --image_resolution low \
   --resume_from none \
-  --report_to "${REPORT_TO}" \
   --seed 1337 \
   --kd_loss_type sre \
   --sre_use_projector true \

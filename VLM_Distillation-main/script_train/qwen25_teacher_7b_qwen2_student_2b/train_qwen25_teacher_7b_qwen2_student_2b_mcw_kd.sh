@@ -56,7 +56,6 @@ fi
   --max_len 2048 \
   --image_resolution low \
   --resume_from none \
-  --report_to none \
   --kd_loss_type "mcw_kd" \
   --kd_objective "forward_kl" \
   --ce_rate 1.0 \

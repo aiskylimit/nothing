@@ -13,7 +13,3 @@ if [[ -f "${ENV_FILE}" ]]; then
   source "${ENV_FILE}"
   set +a
 fi
-
-
-
-export REPORT_TO

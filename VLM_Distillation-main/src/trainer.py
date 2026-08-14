@@ -91,7 +91,7 @@ class DistillTrainer(Trainer):
 
         HF Trainer's `_maybe_log_save_evaluate` calls `self.log(logs)` at
         `args.logging_steps`. We hook here so SCVA / CGKD / hard_loss /
-        validity counters land in WandB at every visible step.
+        validity counters are available at every visible step.
         """
         if self._kd_metric_count > 0:
             for key, total in self._kd_metric_sums.items():
