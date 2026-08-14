@@ -116,10 +116,6 @@ class DistillTrainer(Trainer):
             else:
                 loss = loss_output
 
-            # Accumulate component metrics (everything in the dict except "loss")
-            # for the next call to `log()`. This is how SCVA/CGKD/hard_loss/
-            # scva_valid_* surface in WandB and verifies the headline method is
-            # actually contributing, not silently zeroed.
             if isinstance(loss_output, dict):
                 for key, value in loss_output.items():
                     if key == "loss":
