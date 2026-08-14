@@ -150,61 +150,77 @@ class TrainingArguments(TrainingArguments):
         metadata={"help": "temperature for local cross-modal affinity softmax"},
     )
     # ----------
-    # SEGDLoss — Spectral KD + Star-Bridge graph
+    # SEGDLoss — 3-node semantic graph, multi-layer spectral + L_sim
     # ----------
-    segd_depth_ratio: float = field(
-        default=0.8,
-        metadata={"help": "attention layer depth ratio for intra-cluster edges (~80%)"},
-    )
-    segd_attn_window: int = field(
-        default=0,
-        metadata={"help": "half-window of layers averaged around depth_ratio (window=0 → single layer)"},
-    )
-    segd_intra_topk: int = field(
-        default=16,
-        metadata={"help": "top-k neighbors per token for intra-cluster (attention selects index only)"},
-    )
-    segd_tau_intra: float = field(
+    segd_lambda_sim: float = field(
         default=1.0,
-        metadata={"help": "softmax temperature for intra-cluster cosine edge weights"},
+        metadata={"help": "weight of representation cosine loss L_sim (checkpoint × type × cluster)"},
     )
-    segd_tau_local: float = field(
+    segd_lambda_spectral: float = field(
         default=1.0,
-        metadata={"help": "softmax temperature for local-to-global cosine edge weights"},
+        metadata={"help": "weight of multi-checkpoint spectral projector KD (replaces kd_weight for SEGD)"},
     )
-    segd_lambda_neg: float = field(
-        default=0.3,
-        metadata={"help": "scale (and sign flip) for negative bridge edge weights"},
-    )
-    segd_k_neg: int = field(
-        default=8,
-        metadata={"help": "number of hard-negative bridges per query in star-bridge graph"},
-    )
-    segd_bridge_temperature: float = field(
+    segd_tau_graph: float = field(
         default=1.0,
-        metadata={"help": "softmax temperature for Query→{Pos,Neg} bridge attention weights"},
+        metadata={"help": "softmax temperature for full-graph cosine edge weights (shared across checkpoints)"},
+    )
+    segd_num_align_layers: int = field(
+        default=4,
+        metadata={
+            "help": "Split depth into N equal segments; take N-1 internal checkpoints at "
+            "1/N, 2/N, …, (N-1)/N (default N=4 → 25/50/75%). Shared by graph, spectral, and L_sim."
+        },
     )
     segd_k_eigen: int = field(
         default=0,
         metadata={
             "help": "Optional upper bound on eigengap-selected k for spectral KD "
-            "(0 = uncapped besides n-1). k itself is chosen by largest consecutive eigengap."
+            "(0 = uncapped besides n-1). Applied independently at each checkpoint."
         },
     )
     segd_k_eigen_min: int = field(
         default=16,
         metadata={
             "help": "Lower bound on eigengap-selected k (avoids degenerate k=1 subspaces). "
-            "Search only considers gaps that yield k >= this value."
+            "Search only considers gaps that yield k >= this value. Per checkpoint."
         },
+    )
+    # Unused by current SEGDLoss (Star-Bridge / ~80% window); kept so old CLIs still parse.
+    segd_depth_ratio: float = field(
+        default=0.8,
+        metadata={"help": "[unused] legacy ~80% depth ratio"},
+    )
+    segd_attn_window: int = field(
+        default=0,
+        metadata={"help": "[unused] legacy attention layer window"},
+    )
+    segd_intra_topk: int = field(
+        default=16,
+        metadata={"help": "[unused] legacy intra-cluster top-k"},
+    )
+    segd_tau_intra: float = field(
+        default=1.0,
+        metadata={"help": "[unused] legacy intra-cluster cosine temperature"},
+    )
+    segd_tau_local: float = field(
+        default=1.0,
+        metadata={"help": "[unused] legacy local-to-global cosine temperature"},
+    )
+    segd_lambda_neg: float = field(
+        default=0.3,
+        metadata={"help": "[unused] legacy signed-bridge negative scale"},
+    )
+    segd_k_neg: int = field(
+        default=8,
+        metadata={"help": "[unused] legacy hard-negative bridge count"},
+    )
+    segd_bridge_temperature: float = field(
+        default=1.0,
+        metadata={"help": "[unused] legacy bridge softmax temperature"},
     )
     segd_use_graph_reps_contrastive: bool = field(
         default=False,
-        metadata={
-            "help": "If True, contrastive uses star-bridge mean-pool R_q/R_p (~80% depth cluster). "
-            "If False (default), uses encode_input pooling — match inference "
-            "(recommend --pooling mean for train+eval)."
-        },
+        metadata={"help": "[unused] contrastive always uses encode_input last-layer pooling"},
     )
     # Legacy SEKD flags (kept for CLI compat; unused by current SEGDLoss)
     w_loss_cka: float = field(
