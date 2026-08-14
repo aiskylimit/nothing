@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
+#1 +120
 #vlm
 #v1
 
