@@ -1,6 +1,6 @@
 #2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_5.zip.part_007 +a
 #talas
-#v1
+#v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
