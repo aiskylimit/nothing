@@ -1,6 +1,6 @@
-#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_5.zip.part_007 +a
-#talas
-#v2
+#1 +10
+#chi
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
@@ -41,8 +41,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-cd ./talas_vlm_embed
-bash ./project_commands.sh
+# cd ./talas_vlm_embed
+# bash ./project_commands.sh
 
 # cd ./segd_distillation
 # bash ./project_commands.sh
@@ -57,8 +57,8 @@ bash ./project_commands.sh
 # ls -R
 
 
-# cd ./reward-guidance-main
-# CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
+cd ./reward-guidance-main
+CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
 # cd ./VLM_Distillation-main
 # bash project_commands.sh
