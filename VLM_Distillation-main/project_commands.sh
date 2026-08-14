@@ -1,4 +1,4 @@
-#conda create -n vlm python=3.11 -y
+conda create -n vlm python=3.11 -y
 conda activate vlm
 
 #rm -rf ./vlm
