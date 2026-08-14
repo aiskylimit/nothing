@@ -110,6 +110,21 @@ class Talas(nn.Module):
 
         return F.relu(student_violation)[valid].mean()
 
+    def get_score_diff(self, embedding):
+        scores = torch.matmul(embedding, embedding.T)
+        scores = scores[torch.triu(torch.ones_like(scores), diagonal=1).bool()]
+        score_diff = scores.reshape((1, -1)) - scores.reshape((-1, 1))
+        score_diff = score_diff[torch.triu(torch.ones_like(score_diff), diagonal=1).bool()]
+        return score_diff
+
+    def compute_triplet_loss(self, student_embeddings, teacher_embeddings, triplet_margin=0.015):
+        teacher_embeddings = F.normalize(teacher_embeddings, p=2, dim=-1)
+        student_embeddings = F.normalize(student_embeddings, p=2, dim=-1)
+        triplet_label = torch.where(self.get_score_diff(teacher_embeddings) < 0, 1, -1)
+        loss = F.relu(self.get_score_diff(student_embeddings) * triplet_label + triplet_margin).mean()
+        return loss
+
+
     def forward(self, model_wrapper, input_data):
         student_model = model_wrapper.model
         projectors = model_wrapper.projectors        
@@ -200,10 +215,10 @@ class Talas(nn.Module):
                                                 normalize=False)
             # lasd += self.structure_loss(last_stu_pos_hidden_state_i, last_stu_pos_hidden_state_i1)
 
-            lasd += self.relative_qp_self_kd(
-                last_stu_qry_hidden_state_i, last_stu_pos_hidden_state_i,
-                last_stu_qry_hidden_state_i1, last_stu_pos_hidden_state_i1,
-            ) / self.args.num_self_kd_layers
+            self.compute_triplet_loss(
+                torch.cat([last_stu_qry_hidden_state_i, last_stu_pos_hidden_state_i], dim=0),
+                torch.cat([last_stu_qry_hidden_state_i1, last_stu_pos_hidden_state_i1], dim=0),
+            )
 
         # lasd /= (2 * self.args.num_self_kd_layers)
         
