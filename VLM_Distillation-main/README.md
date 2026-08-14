@@ -81,7 +81,7 @@ Mapped `--kd_loss_type` values include: `ce_only`, `default`, `default_distillat
 | `script_train/dwa_kd/` | DWA-KD recipes. |
 | `script_train/dskd_v2/` | DSKD v2 recipes. The currently open file, `train_qwen3_teacher_4b_fastvlm_student_05b_dskd_v2_with_eta.sh`, lives here. |
 | `script_train/mcw_kd/` | MCW-KD recipes. |
-| `script_train/_common.sh` | Shared helper for loading `.env`, enabling WandB, and setting Hugging Face Hub push flags when tokens are available. |
+
 
 For example, `script_train/dskd_v2/train_qwen3_teacher_4b_fastvlm_student_05b_dskd_v2_with_eta.sh` uses `FastVLM-0.5B` as the student and `Qwen3-VL-4B-Instruct` as the teacher. It uses `config/dskd_v2_projectors.json`, trains on `train_data/llava_v1_5_mix665k.json`, and writes outputs to `outputs/qwen3_teacher_4b_fastvlm_student_05b_dskd_v2_with_eta`.
 
