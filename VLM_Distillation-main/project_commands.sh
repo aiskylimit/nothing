@@ -1,0 +1,13 @@
+conda create -n vlm python=3.11 -y
+conda activate vlm
+
+#rm -rf ./vlm
+#python -m venv vlm 
+#source vlm/bin/activate
+pip install -r requirements.txt
+
+bash download_datatrain.sh
+
+export CUDA_VISIBLE_DEVICES=4,5
+
+bash run_baseline.sh

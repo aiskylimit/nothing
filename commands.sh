@@ -24,20 +24,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # pkill -f gpu_burn 2>/dev/null || true
 nvidia-smi
 
-conda create -n vlm python=3.11 -y
-conda activate vlm
-
 cd VLM_Distillation-main
 
-#rm -rf ./vlm
-#python -m venv vlm 
-#source vlm/bin/activate
-pip install -r requirements.txt
-
-bash download_datatrain.sh
-
-export CUDA_VISIBLE_DEVICES=4,5
-
-bash run_baseline.sh
+bash project_commands.sh
 
 #9
