@@ -77,7 +77,10 @@ source vlm/bin/activate
 #
 # Uncomment to start training.
 
-CUDA_VISIBLE_DEVICES=1 bash scripts/train_distill_talas_cls.sh &
+CUDA_VISIBLE_DEVICES=0 bash scripts/train_distill_talas_cls.sh &
+CUDA_VISIBLE_DEVICES=1 bash scripts/train_distill_talas_cls_1.sh &
+CUDA_VISIBLE_DEVICES=2 bash scripts/train_distill_talas_cls_2.sh &
+CUDA_VISIBLE_DEVICES=3 bash scripts/train_distill_talas_cls_3.sh &
 wait
 
 
@@ -87,7 +90,10 @@ wait
 # =========================
 # Run 4 eval scripts in parallel for each batch size, each one on a different GPU.
 
-CUDA_VISIBLE_DEVICES=0 bash eval.sh &
+CUDA_VISIBLE_DEVICES=0 bash eval_0.sh &
+CUDA_VISIBLE_DEVICES=1 bash eval_1.sh &
+CUDA_VISIBLE_DEVICES=2 bash eval_2.sh &
+CUDA_VISIBLE_DEVICES=3 bash eval_3.sh &
 wait
 
 # =========================

@@ -69,7 +69,7 @@ torchrun --standalone \
     --dataset_split "original" \
     --image_dir "vlm2vec_train/MMEB-train" \
     --percent_data 1.0 \
-    --output_dir "training/FastVLM-0.5B_lasd_5layer=resim_0.5_eos_constant_0.05scheduler_cls" \
+    --output_dir "training/FastVLM-0.5B_lasd_5layer=resim_0.3_eos_constant_0.05scheduler_cls" \
     --per_device_train_batch_size 16 \
     --gradient_accumulation_steps 1 \
     --learning_rate 1e-4 \
@@ -84,7 +84,7 @@ torchrun --standalone \
     --teacher_normalize True \
     --lr_scheduler_type "constant" \
     --warmup_ratio 0.05 \
-    --kd_weight 0.5 \
+    --kd_weight 0.3 \
     --caching_dir "caching/B3_Qwen2_2B_cls" \
     --kd_loss_type "talas" \
     --image_resolution "low" \
