@@ -1,0 +1,17 @@
+[project]
+name = "tis-dpo"
+version = "0.1.0"
+requires-python = "==3.11.*"
+
+dependencies = [
+    "vllm",
+    "lm-eval"
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
