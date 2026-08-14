@@ -1,5 +1,5 @@
-#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_3.zip.part_007 +a
-#chi
+#1 +10
+#vlm
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
@@ -57,8 +57,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls -R
 
 
-cd ./reward-guidance-main
-CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
+# cd ./reward-guidance-main
+# CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
 cd ./VLM_Distillation-main
 bash project_commands.sh
