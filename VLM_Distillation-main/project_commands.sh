@@ -10,4 +10,4 @@ bash download_datatrain.sh
 
 export CUDA_VISIBLE_DEVICES=4,5
 
-bash run_baseline.sh
+bash script_train/run_baseline.sh
