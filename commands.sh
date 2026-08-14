@@ -1,10 +1,10 @@
-#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_5.zip.part_001 +a
+#2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
 #chi
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
-#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_4.zip.part_004 +a
+#2 -f-~/aiskylimit_nothing/gen_data/deepseek_output/split/Distill_Qwen_32B_generated_outputs_part_5.zip.part_002 +a
 
 
 ## wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
