@@ -1,4 +1,6 @@
 source ~/miniconda3/etc/profile.d/conda.sh
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 conda create -n vlm python=3.11 -y
 conda activate vlm
 
