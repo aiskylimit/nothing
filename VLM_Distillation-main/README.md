@@ -18,7 +18,6 @@ This repository is used to fine-tune and distill Vision-Language Models (VLMs) w
 | --- | --- |
 | `train.py` | Main training entry point. Initializes model, processor, criterion, dataset, trainer, and resume checkpoint handling. |
 | `requirements.txt` | Python dependencies for the repository. |
-| `.env.example` | Example environment variables for WandB and Hugging Face Hub. |
 | `config/` | Projector configs for specific KD methods, such as `dskd_v2_projectors.json`, `dwa_kd_projectors.json`, and `mcw_kd_projectors.json`. |
 | `configs/` | Runtime configs, including DeepSpeed ZeRO-2 and evaluation configs. |
 | `docs/` | Technical notes and plans, for example the unit-aligned distillation training plan. |
