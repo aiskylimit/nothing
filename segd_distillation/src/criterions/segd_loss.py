@@ -8,7 +8,7 @@ Pipeline:
   Graph / spectral: relative-depth checkpoints (default N=4 → 25/50/75%).
   Graph nodes: R_txt/R_vis = mean-pool; R_all = last token of [vision | text] (both models).
   L_sim: last-layer encode_input embeddings only — Teacher last-token vs Student mean (qry + pos).
-  Contrastive: Student encode_input mean-pool last layer (Teacher unused).
+  Contrastive: one-way InfoNCE q→p on Student encode_input mean-pool last layer (not symmetric).
 """
 
 from __future__ import annotations
@@ -312,19 +312,18 @@ def representation_sim_loss(r_t: torch.Tensor, r_s: torch.Tensor) -> torch.Tenso
     return 1.0 - (rt * rs).sum(dim=-1)
 
 
-def bidirectional_infonce_loss(
+def infonce_loss(
     r_q: torch.Tensor,
     r_p: torch.Tensor,
     temperature: float,
+    student_model,
 ) -> torch.Tensor:
-    """Symmetric InfoNCE: 0.5 * (CE(q→p) + CE(p→q)) on L2-normalized reps."""
-    r_q = F.normalize(r_q, dim=-1)
-    r_p = F.normalize(r_p, dim=-1)
-    logits = r_q @ r_p.t() / max(temperature, _EPS)
-    labels = torch.arange(r_q.size(0), device=r_q.device, dtype=torch.long)
-    loss_q2p = F.cross_entropy(logits, labels)
-    loss_p2q = F.cross_entropy(logits.t(), labels)
-    return 0.5 * (loss_q2p + loss_p2q)
+    """One-way InfoNCE (q→p only), same as SGD / span contrastive. Not symmetric."""
+    scores = student_model.compute_similarity(r_q, r_p)
+    scores = scores.view(r_q.size(0), -1)
+    target = torch.arange(scores.size(0), device=scores.device, dtype=torch.long)
+    target = target * (r_q.size(0) // max(r_p.size(0), 1))
+    return F.cross_entropy(scores / max(temperature, _EPS), target)
 
 
 def _checkpoint_spectral(
@@ -537,7 +536,7 @@ class SEGDLoss(nn.Module):
             representation_sim_loss(teacher_pos_reps, student_pos_reps),
         ], dim=0).mean()
 
-        # Contrastive: Student last-layer encode_input (--pooling mean). Teacher unused.
+        # Contrastive: Student last-layer mean (--pooling mean), one-way q→p (not symmetric).
         cq, cp = student_qry_reps, student_pos_reps
         if self.world_size > 1:
             all_q = self._dist_gather_tensor(cq)
@@ -545,8 +544,10 @@ class SEGDLoss(nn.Module):
         else:
             all_q, all_p = cq, cp
 
-        c_loss = bidirectional_infonce_loss(
-            all_q, all_p, temperature=float(distiller.temperature),
+        c_loss = infonce_loss(
+            all_q, all_p,
+            temperature=float(distiller.temperature),
+            student_model=student_model,
         )
 
         sim_weighted = self.lambda_sim * sim_loss

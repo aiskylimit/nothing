@@ -4,7 +4,7 @@ Tài liệu theo dõi cấu trúc loss hiện tại của [`src/criterions/segd_
 
 Mỗi sample (mỗi cụm query / positive) được rút xuống **3 super-node semantic cố định** (`R_txt`, `R_vis`, `R_all`) tại **cùng bộ checkpoint layer theo relative depth**. Teacher và Student có cùng số node, cùng ý nghĩa, cùng thứ tự → correspondence 1-1, **không cần ma trận chiếu $P$**.
 
-`contrastive_loss` và $\mathcal{L}_{\text{sim}}$ dùng **last-layer** `encode_input` (không checkpoint): Student mean-pool, Teacher last-token. Contrastive chỉ InfoNCE phía Student; $\mathcal{L}_{\text{sim}}$ so hai embedding T↔S.
+`contrastive_loss` và $\mathcal{L}_{\text{sim}}$ dùng **last-layer** `encode_input` (không checkpoint): Student mean-pool, Teacher last-token. Contrastive là InfoNCE **một chiều** q→p phía Student (không symmetric); $\mathcal{L}_{\text{sim}}$ so hai embedding T↔S.
 
 Script train mẫu: [`scripts/cls/train_SEGD_fastvlm.sh`](../scripts/cls/train_SEGD_fastvlm.sh).
 
@@ -18,7 +18,7 @@ $$
 
 | Thành phần | Trọng số mặc định | Mô tả ngắn |
 |------------|-------------------|------------|
-| `contrastive_loss` | 1.0 (implicit) | Symmetric InfoNCE (q→p + p→q) trên Student `encode_input` (`--pooling mean`). Teacher không tham gia. |
+| `contrastive_loss` | 1.0 (implicit) | InfoNCE một chiều q→p trên Student `encode_input` (`--pooling mean`). Không symmetric. Teacher không tham gia. |
 | $\mathcal{L}_{\text{sim}}$ | `segd_lambda_sim` | $1-\cos$ hai embedding last-layer: Teacher **last-token** vs Student **mean-pool** (qry + pos) |
 | $\mathcal{L}_{\text{spectral}}$ | `segd_lambda_spectral` | Trung bình projector Frobenius trên 3 graph checkpoint (không $P$) |
 
@@ -36,7 +36,7 @@ $$
                                       ├─ graph FC cosine-softmax (riêng từng m) ─► L unsigned ─► eigh ─► Π
                                       ├─ L_spectral = mean_m ||Π_t − Π_s||_F² / N
 encode_input last layer ── Student mean + Teacher last-token ──────────────► L_sim (1-cos)
-Student encode_input mean-pool ────────────────────────────────────────────► InfoNCE (Teacher không dùng)
+Student encode_input mean-pool ────────────────────────────────────────────► InfoNCE q→p (không sym)
 ```
 
 ```mermaid
@@ -70,7 +70,7 @@ flowchart TB
     end
 
     subgraph sg_ctr ["6. Contrastive"]
-        CE["InfoNCE Student last-layer mean-pool"]
+        CE["InfoNCE q→p Student last-layer mean"]
     end
 
     TOTAL["total = ctr + λ_sim L_sim + λ_spectral L_spectral"]
@@ -167,7 +167,7 @@ Thứ tự stack (giống Teacher và Student, 1-1 không $P$):
 sample i:  txt_q, vis_q?, all_q, txt_p, vis_p?, all_p
 ```
 
-`vis` chỉ thêm khi **cả hai phía** đều có vision token. Tính độc lập từng checkpoint $m$.
+`vis` chỉ được thêm vào graph khi **cả Teacher lẫn Student** đều có vision token cho **cùng cụm** (query hoặc positive riêng). Nếu một bên không có ảnh → bỏ `R_vis` ở **cả hai** graph để index vẫn 1-1. Query và positive xét độc lập (query có ảnh, positive không → chỉ `vis_q`, không `vis_p`). Lặp lại giống nhau ở mọi checkpoint $m$.
 
 ---
 
@@ -242,19 +242,18 @@ Cosine yêu cầu **cùng hidden dim** Teacher/Student; không có projector tro
 
 ---
 
-## 6. Contrastive — Student mean, Teacher không tham gia
+## 6. Contrastive — Student mean, một chiều q→p (bản cũ)
 
-`--pooling mean` (Student `encode_input` last layer). Teacher embedding last-token **chỉ** dùng cho $\mathcal{L}_{\text{sim}}$, không vào InfoNCE.
+`--pooling mean` (Student `encode_input` last layer). Khớp SGD / span: `compute_similarity` + `CrossEntropyLoss`, **chỉ q→p**, không cộng p→q.
+
+Teacher last-token **chỉ** dùng cho $\mathcal{L}_{\text{sim}}$, không vào contrastive.
 
 $$
 \mathcal{L}_{\mathrm{ctr}}
-= \tfrac{1}{2}\Big[
-\mathrm{CE}\!\left(\frac{\hat{R}_q \hat{R}_p^{\top}}{\tau}, \mathrm{arange}(B)\right)
-+ \mathrm{CE}\!\left(\frac{\hat{R}_p \hat{R}_q^{\top}}{\tau}, \mathrm{arange}(B)\right)
-\Big]
+= \mathrm{CE}\!\left(\frac{R_q R_p^{\top}}{\tau},\; \mathrm{arange}(B)\right)
 $$
 
-`bidirectional_infonce_loss` — L2-normalize; temperature `distiller.temperature`. Reps từ Student **last hidden layer**, không dùng $R$ checkpoint.
+`infonce_loss` — temperature `distiller.temperature`. $R_q,R_p$ từ Student last layer mean-pool. DDP: all-gather reps trước khi tính scores.
 
 ---
 
@@ -299,7 +298,7 @@ Nguồn: [`src/arguments.py`](../src/arguments.py), script [`train_SEGD_fastvlm.
 | Key | Ý nghĩa |
 |-----|---------|
 | `loss` | Total = contrastive + λ_sim L_sim + λ_spectral L_spectral |
-| `contrastive_loss` | Symmetric InfoNCE student |
+| `contrastive_loss` | InfoNCE một chiều q→p, Student mean last-layer |
 | `sim_loss` | $\mathcal{L}_{\text{sim}}$ raw |
 | `segd_loss` / `spectral_kd_loss` | $\mathcal{L}_{\text{spectral}}$ raw (trung bình 3 checkpoint) |
 | `sim_weighted` / `spectral_weighted` | Đóng góp thực vào total |
@@ -354,5 +353,5 @@ Không còn attention, không còn $P$.
 | Topology | Intra top-k attn, local-to-global, signed bridge | Fully-connected cosine-softmax / checkpoint |
 | Laplacian | Signed ($D_{ii}=\sum|W_{ij}|$) | Unsigned ($D_{ii}=\sum W_{ij}$) |
 | $\mathcal{L}_{\text{sim}}$ | Không có | $1-\cos$ embedding last-layer: Teacher last-token vs Student mean (qry+pos) |
-| Contrastive | Last-layer mean (không đổi) | Student last-layer mean; Teacher không tham gia |
+| Contrastive | Last-layer mean (không đổi) | Student last-layer mean, InfoNCE q→p (không sym); Teacher không tham gia |
 | Scale loss | `kd_weight` | `segd_lambda_sim` + `segd_lambda_spectral` |
