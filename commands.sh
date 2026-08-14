@@ -58,5 +58,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls -R
 
 
-# cd ./reward-guidance-main
-# CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
+cd ./reward-guidance-main
+CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
