@@ -1,5 +1,5 @@
 #1 +120
-#vlm
+#chi
 #v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
@@ -57,8 +57,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls -R
 
 
-# cd ./reward-guidance-main
-# CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
+cd ./reward-guidance-main
+CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
-cd ./VLM_Distillation-main
-bash project_commands.sh
+# cd ./VLM_Distillation-main
+# bash project_commands.sh
