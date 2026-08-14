@@ -4,7 +4,7 @@ conda activate vlm
 #rm -rf ./vlm
 #python -m venv vlm 
 #source vlm/bin/activate
-#pip install -r requirements.txt
+pip install -r requirements.txt
 
 #bash download_datatrain.sh
 
