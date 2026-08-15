@@ -1,4 +1,5 @@
 .venv/
+vlm_distill/
 __pycache__/
 .env
 .env.local
