@@ -1,6 +1,6 @@
-#1 +10
+#1 +30
 #vlm
-#v2
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
@@ -20,8 +20,8 @@
 # make CUDAPATH=/usr/local/cuda-13.0
 # ./gpu_burn 36000000000
 
-kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
-sleep 5
+# kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
+# sleep 5
 nvidia-smi
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -66,5 +66,4 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
 cd ./VLM_Distillation-main
-ls
-# bash project_commands.sh
+bash project_commands.sh
