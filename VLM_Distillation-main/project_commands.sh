@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-uv python install 3.10
-
 export UV_PROJECT_ENVIRONMENT=vlm_distill
 uv sync --locked
 
