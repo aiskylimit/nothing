@@ -58,10 +58,11 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 
 cd ./reward-guidance-main
-mkdir -p split
-for f in *.tar.gz; do
-    split -b 24M -d -a 2 "$f" "split/${f}.part_"
-done
+# mkdir -p split
+# for f in *.tar.gz; do
+#     split -b 24M -d -a 2 "$f" "split/${f}.part_"
+# done
+ls split -R
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
 # cd ./VLM_Distillation-main
