@@ -38,8 +38,7 @@ unzip images.zip -d eval_images/
 
 ```bash
 cd VLM_Embed
-bash download_traindata.sh
-bash download_traindata_2.sh
+python scripts/download_traindata.py
 ```
 
 1. Fix some line code

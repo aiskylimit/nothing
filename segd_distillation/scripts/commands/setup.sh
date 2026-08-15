@@ -29,8 +29,7 @@ pip install -r requirements.txt
 python fix_lib.py
 
 echo "==> [setup] full MMEB-train images"
-bash scripts/download_traindata/download_traindata.sh
-bash scripts/download_traindata/download_traindata_2.sh
+python scripts/download_traindata.py
 
 echo "==> [setup] full MMEB-eval images"
 bash scripts/download_evaldata.sh
