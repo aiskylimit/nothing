@@ -1,11 +1,11 @@
 #!/bin/bash
-# SEGD v2 FastVLM classification train — 3-node semantic graph, multi-layer.
-# Hyperparams overridable via env. Do not reuse train_SEGD_fastvlm.sh (Star-Bridge / P / kd_weight).
+# SEGD FastVLM classification train — 3-node semantic graph, multi-layer.
+# Hyperparams and EXP_NAME overridable via env.
 #
 # Example:
-#   CUDA_VISIBLE_DEVICES=4 EXP_SUFFIX=v2 \
+#   CUDA_VISIBLE_DEVICES=0 EXP_SUFFIX=s1 \
 #     SEGD_LAMBDA_SIM=1.0 SEGD_LAMBDA_SPECTRAL=1.0 \
-#     bash scripts/cls/train_SEGD_v2_fastvlm.sh
+#     bash scripts/cls/train_SEGD_fastvlm.sh
 
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -22,6 +22,7 @@ GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-1}"
 NUM_TRAIN_EPOCHS="${NUM_TRAIN_EPOCHS:-1}"
 PERCENT_DATA="${PERCENT_DATA:-1.0}"
 LEARNING_RATE="${LEARNING_RATE:-1e-4}"
+PROJECTOR_LR="${PROJECTOR_LR:-5e-4}"
 
 SEGD_LAMBDA_SIM="${SEGD_LAMBDA_SIM:-1.0}"
 SEGD_LAMBDA_SPECTRAL="${SEGD_LAMBDA_SPECTRAL:-1.0}"
@@ -30,12 +31,12 @@ SEGD_NUM_ALIGN_LAYERS="${SEGD_NUM_ALIGN_LAYERS:-4}"
 SEGD_K_EIGEN="${SEGD_K_EIGEN:-0}"
 SEGD_K_EIGEN_MIN="${SEGD_K_EIGEN_MIN:-16}"
 
-EXP_SUFFIX="${EXP_SUFFIX:-v2}"
-EXP_NAME="${EXP_NAME:-SEGD_v2_FastVLM_cls_r${LORA_R}_bs${BATCH_SIZE}_${EXP_SUFFIX}}"
+EXP_SUFFIX="${EXP_SUFFIX:-run}"
+EXP_NAME="${EXP_NAME:-$EXP_SUFFIX}"
 USE_FULLSET="${USE_FULLSET:-true}"
 
 echo "========================================================="
-echo "SEGD v2 Training (3-node multi-layer)"
+echo "SEGD Training (3-node multi-layer)"
 echo "  EXP_NAME=$EXP_NAME"
 echo "  CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
 echo "  λ_sim=$SEGD_LAMBDA_SIM  λ_spectral=$SEGD_LAMBDA_SPECTRAL"
@@ -71,6 +72,7 @@ torchrun --standalone --nproc_per_node="$NUM_GPUS_PER_NODE" --master_port="$MAST
   --per_device_train_batch_size "$BATCH_SIZE" \
   --gradient_accumulation_steps "$GRADIENT_ACCUMULATION_STEPS" \
   --learning_rate "$LEARNING_RATE" \
+  --projector_lr "$PROJECTOR_LR" \
   --num_train_epochs "$NUM_TRAIN_EPOCHS" \
   --bf16 \
   --save_total_limit 2 \

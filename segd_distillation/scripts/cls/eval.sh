@@ -1,23 +1,19 @@
 #!/bin/bash
-
-# =========================================================================
-# Classification evaluation on MMEB-eval
-# Run from repo root:
+# Classification evaluation on MMEB-eval.
+# LoRA / batch / exp name follow env (same defaults as train_SEGD_fastvlm.sh).
+#
 #   bash scripts/cls/eval.sh
 #   bash scripts/cls/eval.sh [MODEL_PATH] [OUTPUT_DIR] [SUBSET]
-#   bash scripts/cls/eval.sh training/SGD_FastVLM_full_cls_r32_bs16/checkpoint-final eval_outputs/SGD_FastVLM_full_cls_r32_bs16 all
-# SUBSET: space-separated subset names, or "all" for full MMEB-eval list
-# =========================================================================
-
+#   EXP_NAME=s1 bash scripts/cls/eval.sh
+# SUBSET: space-separated names, or "all" for full MMEB-eval list
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-# GPU per node — keep in sync with scripts/cls/train_SGD_fastvlm.sh
-NUM_GPUS_PER_NODE=1
-LORA_R=32
-LORA_A=64
-BATCH_SIZE=16
-EXP_NAME="SGD_FastVLM_full_cls_r${LORA_R}_bs${BATCH_SIZE}"
+NUM_GPUS_PER_NODE="${NUM_GPUS_PER_NODE:-1}"
+LORA_R="${LORA_R:-64}"
+LORA_A="${LORA_A:-64}"
+BATCH_SIZE="${BATCH_SIZE:-16}"
+EXP_NAME="${EXP_NAME:-${EXP_SUFFIX:-run}}"
 
 MODEL_PATH="${1:-training/${EXP_NAME}/checkpoint-final}"
 OUTPUT_DIR="${2:-eval_outputs/${EXP_NAME}}"
@@ -41,6 +37,7 @@ echo "Starting Evaluation"
 echo "Model:  ${MODEL_PATH}"
 echo "Output: ${OUTPUT_DIR}"
 echo "Subset: ${SUBSETS[*]}"
+echo "LoRA:   r=${LORA_R} alpha=${LORA_A}"
 echo "========================================================="
 
 echo "Detected ${NUM_GPUS_PER_NODE} GPU(s)"

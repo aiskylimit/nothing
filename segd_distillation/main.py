@@ -608,12 +608,17 @@ def main():
         eps=training_args.adam_epsilon,
     )
 
-    if (
-        model_args.projector_config_path is not None
+    # SEGD L_sim uses s→t projector when hidden dims differ; include those params.
+    segd_needs_sim_proj = (
+        use_segd_loss
+        and int(model_args.student_hidden_dim) != int(model_args.teacher_hidden_dim)
+    )
+    should_add_projectors = (
+        hasattr(distiller, "add_optimizer_param_group")
         and not use_sgd_loss
-        and not use_segd_loss
-        and hasattr(distiller, "add_optimizer_param_group")
-    ):
+        and (segd_needs_sim_proj or (model_args.projector_config_path is not None and not use_segd_loss))
+    )
+    if should_add_projectors:
         optimizer = distiller.add_optimizer_param_group(optimizer)
 
     # Move to device and wrap DDP

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Entry: setup once, then 4 SEGD settings on GPUs 4–7.
+# Entry: setup once, then 4 SEGD settings on GPUs 0–3.
 #
-#   bash commands.sh
-#   SKIP_SETUP=1 bash commands.sh
+#   bash project_commands.sh
+#   SKIP_SETUP=1 bash project_commands.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -39,6 +39,6 @@ wait "$pid4" || fail=1
 
 echo "========================================================="
 echo "Sweep finished (fail=$fail)"
-ls -1 results/SEGD_FastVLM_cls_r32_bs16_s*_eval_summary.txt 2>/dev/null || true
+ls -1 results/*_eval_summary.txt 2>/dev/null || true
 echo "========================================================="
 exit "$fail"

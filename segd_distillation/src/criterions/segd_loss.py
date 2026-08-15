@@ -7,7 +7,8 @@ Loss composition:
 Pipeline:
   Graph / spectral: relative-depth checkpoints (default N=4 → 25/50/75%).
   Graph nodes: R_txt/R_vis = mean-pool; R_all = last token of [vision | text] (both models).
-  L_sim: last-layer encode_input embeddings only — Teacher last-token vs Student mean (qry + pos).
+  L_sim: last-layer encode_input embeddings — Teacher last-token vs Student mean (qry + pos);
+         if hidden dims differ, student reps go through distiller Linear s→t first.
   Contrastive: one-way InfoNCE q→p on Student encode_input mean-pool last layer (not symmetric).
 """
 
@@ -53,11 +54,15 @@ def get_align_layer_indices(
     L = max(int(num_hidden_states) - 1, 1)
     n = max(int(num_align_layers), 2)
     idxs: List[int] = []
+    seen = set()
     for i in range(1, n):
         r = i / n
         idx = round(r * L)
         # Skip embeddings (0); last transformer output lives at index L.
         idx = min(max(int(idx), 1), L)
+        if idx in seen:
+            continue
+        seen.add(idx)
         idxs.append(idx)
     return idxs
 
@@ -234,6 +239,7 @@ def build_full_cosine_graph(nodes: torch.Tensor, tau: float = 1.0) -> torch.Tens
 def build_normalized_laplacian(w: torch.Tensor) -> torch.Tensor:
     """Unsigned normalized Laplacian L = I - D^{-1/2} W D^{-1/2}, D_ii = Σ_j W_ij."""
     w = w.float()
+    n = int(w.size(0))
     deg = w.sum(dim=1)
     deg_inv_sqrt = deg.pow(-0.5)
     w_norm = deg_inv_sqrt.unsqueeze(1) * w * deg_inv_sqrt.unsqueeze(0)
@@ -300,16 +306,54 @@ def spectral_projector_loss(
 
 
 def representation_sim_loss(r_t: torch.Tensor, r_s: torch.Tensor) -> torch.Tensor:
-    """1 − cos(Teacher last-token detach, Student mean-pool) over leading dim."""
+    """1 − cos(Teacher detach, Student) over leading dim. Dims must already match."""
     if r_t.size(-1) != r_s.size(-1):
         raise ValueError(
             f"L_sim cosine requires equal hidden dims, got teacher={r_t.size(-1)} "
-            f"student={r_s.size(-1)}. Intermediate-layer representations are compared "
-            "directly (no projector in this loss)."
+            f"student={r_s.size(-1)}. Project student→teacher before calling this."
         )
     rt = F.normalize(r_t.detach().float(), dim=-1)
     rs = F.normalize(r_s.float(), dim=-1)
     return 1.0 - (rt * rs).sum(dim=-1)
+
+
+def project_student_reps_for_sim(distiller, student_reps: torch.Tensor, teacher_dim: int) -> torch.Tensor:
+    """Map student last-layer reps to teacher dim when needed (Linear s→t on distiller)."""
+    if student_reps.size(-1) == teacher_dim:
+        return student_reps
+
+    in_dim = int(student_reps.size(-1))
+    projectors = getattr(distiller, "projectors", None)
+    if projectors is None or len(projectors) == 0:
+        raise ValueError(
+            f"L_sim needs student→teacher projector for dims {in_dim}→{teacher_dim}, "
+            "but distiller.projectors is empty. Ensure Distiller creates at least one "
+            "Linear(student_hidden_dim, teacher_hidden_dim)."
+        )
+
+    if isinstance(projectors, nn.ModuleDict):
+        candidates = []
+        if "s2t" in projectors:
+            candidates.append(projectors["s2t"])
+        candidates.extend(projectors.values())
+    else:
+        candidates = list(projectors)
+
+    proj = None
+    for cand in candidates:
+        linear = cand if isinstance(cand, nn.Linear) else next(
+            (m for m in cand.modules() if isinstance(m, nn.Linear)), None
+        )
+        if linear is not None and linear.in_features == in_dim and linear.out_features == teacher_dim:
+            proj = cand
+            break
+    if proj is None:
+        raise ValueError(
+            f"No distiller projector maps student dim {in_dim} → teacher dim {teacher_dim}."
+        )
+
+    proj_param = next(proj.parameters())
+    return proj(student_reps.to(dtype=proj_param.dtype)).to(dtype=student_reps.dtype)
 
 
 def infonce_loss(
@@ -531,9 +575,13 @@ class SEGDLoss(nn.Module):
             spectral_loss = self._zero(device)
 
         # L_sim: last-layer sequence embeddings only (not graph txt/vis nodes).
+        # FastVLM(896)↔Qwen2(1536) needs distiller s→t projector; same-dim skips it.
+        t_dim = int(teacher_qry_reps.size(-1))
+        s_qry_for_sim = project_student_reps_for_sim(distiller, student_qry_reps, t_dim)
+        s_pos_for_sim = project_student_reps_for_sim(distiller, student_pos_reps, t_dim)
         sim_loss = torch.cat([
-            representation_sim_loss(teacher_qry_reps, student_qry_reps),
-            representation_sim_loss(teacher_pos_reps, student_pos_reps),
+            representation_sim_loss(teacher_qry_reps, s_qry_for_sim),
+            representation_sim_loss(teacher_pos_reps, s_pos_for_sim),
         ], dim=0).mean()
 
         # Contrastive: Student last-layer mean (--pooling mean), one-way q→p (not symmetric).

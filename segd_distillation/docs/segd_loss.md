@@ -238,7 +238,7 @@ $$
 
 trung bình trên batch. Không checkpoint, không tách modal.
 
-Cosine yêu cầu **cùng hidden dim** Teacher/Student; không có projector trong loss này.
+Cosine trên embedding last-layer. Khi `hidden_dim` Teacher ≠ Student (vd. FastVLM 896 vs Qwen2 1536), Student được chiếu bằng `distiller.projectors[0]` (Linear s→t, learnable). Cùng dim → không projector.
 
 ---
 
@@ -265,7 +265,7 @@ $$
 | $R_{\text{all}}$ khi không vision | Graph: last text token (khác $R_{\text{txt}}$ = mean text). $\mathcal{L}_{\text{sim}}$ không dùng node này. |
 | $\mathcal{L}_{\text{sim}}$ | Chỉ embedding last-layer; không phụ thuộc có/không ảnh |
 | Graph $N<2$ | Bỏ spectral tại checkpoint đó (loss 0) |
-| Hidden dim Teacher ≠ Student | $\mathcal{L}_{\text{sim}}$ cosine không tính được — raise rõ ràng (spectral vẫn cùng $N$ node) |
+| Hidden dim Teacher ≠ Student | \(\mathcal{L}_{\text{sim}}\) chiếu Student→Teacher qua `distiller.projectors[0]`; spectral không cần (cùng số node) |
 
 ---
 

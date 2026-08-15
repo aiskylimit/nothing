@@ -202,7 +202,16 @@ class Distiller(nn.Module):
                         seq.append(layer)
                 self.projectors[name] = seq
         else:
-            for _ in range(len(self.training_args.teacher_layer_mapping)):
+            n_proj = len(self.training_args.teacher_layer_mapping)
+            # SEGD L_sim compares last-layer T↔S cosine; different hidden dims
+            # (e.g. FastVLM 896 vs Qwen2 1536) need at least one s→t Linear.
+            if (
+                n_proj == 0
+                and getattr(self.training_args, "kd_loss_type", "") == "segd_loss"
+                and int(self.student_hidden_dim) != int(self.teacher_hidden_dim)
+            ):
+                n_proj = 1
+            for _ in range(n_proj):
                 projector = nn.Linear(
                     self.student_hidden_dim,
                     self.teacher_hidden_dim,
@@ -215,7 +224,11 @@ class Distiller(nn.Module):
     
     def add_optimizer_param_group(self, optimizer):
         if hasattr(self, 'projectors') and self.projectors is not None:
-            lr = getattr(self.training_args, "projector_lr", None) or self.training_args.learning_rate
+            lr = (
+                getattr(self.model_args, "projector_lr", None)
+                or getattr(self.training_args, "projector_lr", None)
+                or self.training_args.learning_rate
+            )
             optimizer.add_param_group({
                 "params": self.projectors.parameters(),
                 "lr": lr

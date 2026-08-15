@@ -13,7 +13,11 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}
 : "${EXP_SUFFIX:?set EXP_SUFFIX}"
 : "${MASTER_PORT:?set MASTER_PORT}"
 
-EXP_NAME="SEGD_FastVLM_cls_r32_bs16_${EXP_SUFFIX}"
+export LORA_R="${LORA_R:-64}"
+export LORA_A="${LORA_A:-64}"
+export BATCH_SIZE="${BATCH_SIZE:-16}"
+export EXP_NAME="${EXP_NAME:-$EXP_SUFFIX}"
+
 CKPT="training/${EXP_NAME}/checkpoint-final"
 EVAL_OUT="eval_outputs/${EXP_NAME}"
 SUMMARY_TXT="results/${EXP_NAME}_eval_summary.txt"
@@ -32,10 +36,10 @@ python scripts/summarize_eval.py "$EVAL_OUT" \
   --meta "gpu=${CUDA_VISIBLE_DEVICES}" \
   --meta "exp=${EXP_NAME}" \
   --meta "ckpt=${CKPT}" \
-  --meta "kd_weight=${KD_WEIGHT:-}" \
-  --meta "k_eigen_min=${SEGD_K_EIGEN_MIN:-}" \
-  --meta "tau_intra=${SEGD_TAU_INTRA:-}" \
-  --meta "tau_local=${SEGD_TAU_LOCAL:-}" \
-  --meta "lambda_neg=${SEGD_LAMBDA_NEG:-}"
+  --meta "lambda_sim=${SEGD_LAMBDA_SIM:-}" \
+  --meta "lambda_spectral=${SEGD_LAMBDA_SPECTRAL:-}" \
+  --meta "tau_graph=${SEGD_TAU_GRAPH:-}" \
+  --meta "num_align_layers=${SEGD_NUM_ALIGN_LAYERS:-}" \
+  --meta "k_eigen_min=${SEGD_K_EIGEN_MIN:-}"
 
 echo "==> [${EXP_SUFFIX}] done → $SUMMARY_TXT"

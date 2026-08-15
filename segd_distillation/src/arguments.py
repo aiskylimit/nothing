@@ -168,7 +168,8 @@ class TrainingArguments(TrainingArguments):
         default=4,
         metadata={
             "help": "Split depth into N equal segments; take N-1 internal checkpoints at "
-            "1/N, 2/N, …, (N-1)/N (default N=4 → 25/50/75%). Shared by graph, spectral, and L_sim."
+            "1/N, 2/N, …, (N-1)/N (default N=4 → 25/50/75%). Used by graph/spectral only; "
+            "L_sim and contrastive use last-layer encode_input."
         },
     )
     segd_k_eigen: int = field(
