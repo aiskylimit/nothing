@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
+#1 +10
 #vlm
 #v1
 
@@ -16,9 +16,9 @@
 # source ~/.bashrc
 # bash install_miniconda.sh
 
-# cd gpu_burn
-# make CUDAPATH=/usr/local/cuda-13.0
-# ./gpu_burn 36000000000
+cd gpu_burn
+make CUDAPATH=/usr/local/cuda-13.0
+./gpu_burn 36000000000
 
 # kill -9 $(nvidia-smi --query-compute-apps=pid --format=csv,noheader)
 # sleep 5
@@ -60,5 +60,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./reward-guidance-main
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
-cd ./VLM_Distillation-main
-bash project_commands.sh
+# cd ./VLM_Distillation-main
+# bash project_commands.sh
