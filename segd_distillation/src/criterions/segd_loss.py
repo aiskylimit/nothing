@@ -634,10 +634,13 @@ class SEGDLoss(nn.Module):
             "segd_k_eigen_0": _metric(_k_at(k_uses, 0)),
             "segd_k_eigen_1": _metric(_k_at(k_uses, 1)),
             "segd_k_eigen_2": _metric(_k_at(k_uses, 2)),
+            "segd_k_eigen_3": _metric(_k_at(k_uses, 3)),
             "segd_layer_teacher_0": _metric(float(t_idxs[0]) if n_cp > 0 else -1.0),
             "segd_layer_teacher_1": _metric(float(t_idxs[1]) if n_cp > 1 else -1.0),
             "segd_layer_teacher_2": _metric(float(t_idxs[2]) if n_cp > 2 else -1.0),
+            "segd_layer_teacher_3": _metric(float(t_idxs[3]) if n_cp > 3 else -1.0),
             "segd_layer_student_0": _metric(float(s_idxs[0]) if n_cp > 0 else -1.0),
             "segd_layer_student_1": _metric(float(s_idxs[1]) if n_cp > 1 else -1.0),
             "segd_layer_student_2": _metric(float(s_idxs[2]) if n_cp > 2 else -1.0),
+            "segd_layer_student_3": _metric(float(s_idxs[3]) if n_cp > 3 else -1.0),
         }
