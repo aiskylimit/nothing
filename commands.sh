@@ -1,4 +1,4 @@
-#1 +30
+#1 +10
 #vlm
 #v2
 
@@ -66,4 +66,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
 cd ./VLM_Distillation-main
-bash project_commands.sh
+ls
+# bash project_commands.sh
