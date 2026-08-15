@@ -2,8 +2,7 @@
 # Phase 5: masked SFT -- SPECTRAL, Qwen3-1.7B track (LoRA, DDP across both GPUs).
 set -euo pipefail
 
-GPUS=(2 3)
-export CUDA_VISIBLE_DEVICES=$(IFS=,; echo "${GPUS[*]}")
+
 export TOKENIZERS_PARALLELISM=false
 export HF_HUB_DISABLE_SYMLINKS_WARNING=1
 
