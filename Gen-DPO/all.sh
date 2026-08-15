@@ -1,13 +1,17 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-MODEL_NAME="${1:-$MODEL_NAME}"
-if [[ -z "$MODEL_NAME" ]]; then
-  echo "Usage: bash run_all.sh <MODEL_NAME>"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
+
+MODEL_PATH="${1:-${MODEL_PATH:-${MODEL_NAME:-}}}"
+if [[ -z "${MODEL_PATH}" ]]; then
+  echo "Usage: bash run_all.sh <MODEL_PATH_OR_ID>"
   exit 1
 fi
 
-export MODEL_NAME
+export MODEL_NAME="${MODEL_PATH}"
+export MODEL_SLUG="$(basename "${MODEL_PATH}")"
 
 bash arc.sh
 bash mmlu.sh

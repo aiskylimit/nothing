@@ -118,17 +118,7 @@ class Trainer:
         
         self.model_wrapper = DDP(self.model_wrapper, device_ids=[self.gpu_id], find_unused_parameters=True)
 
-        # <--- [THÊM] Logic kiểm tra report_to="wandb"
-        # self.use_wandb = False
-        # if is_main_process():
-        #     # Kiểm tra xem report_to có tồn tại và chứa wandb không
-        #     report_to = getattr(training_args, "report_to", [])
-        #     if report_to is None: report_to = []
-        #     if isinstance(report_to, str):
-        #         report_to = [report_to]
-            
-        #     if "wandb" in report_to:
-        #         self.use_wandb = True
+
     
     def _debug_batch_devices(self, obj, prefix=""):
         if obj is None:
@@ -164,6 +154,7 @@ class Trainer:
 
         progress_bar = tqdm(total=steps_per_epoch, 
                             desc=f"Epoch {epoch}",
+                            dynamic_ncols=True,
                             disable=not dist.get_rank() == 0)
         for batch_idx, batch in enumerate(self.train_data):
             batch = to_device(batch, self.device)
