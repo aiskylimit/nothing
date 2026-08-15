@@ -1,4 +1,4 @@
-#2 -f-~//aiskylimit_nothing/reward-guidance-main/split/export_results.tar.gz.part_03 +a
+#1 +10
 #vlm
 #v1
 
@@ -57,13 +57,13 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls -R
 
 
-cd ./reward-guidance-main
+# cd ./reward-guidance-main
 # mkdir -p split
 # for f in *.tar.gz; do
 #     split -b 24M -d -a 2 "$f" "split/${f}.part_"
 # done
-ls split -R
+# ls split -R
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
-# cd ./VLM_Distillation-main
-# bash project_commands.sh
+cd ./VLM_Distillation-main
+bash project_commands.sh
