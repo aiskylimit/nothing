@@ -13,7 +13,7 @@ PROJECT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 #source "${VENV_ACTIVATE}"
 
 RUNNERS=(
-  "run_qwen3_teacher_4b_fastvlm_student_05b.sh"
+  # "run_qwen3_teacher_4b_fastvlm_student_05b.sh"
   "run_qwen3_teacher_8b_qwen25_student_3b.sh"
 )
 

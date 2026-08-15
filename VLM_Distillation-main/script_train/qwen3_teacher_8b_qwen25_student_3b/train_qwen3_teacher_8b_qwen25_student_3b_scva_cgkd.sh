@@ -25,7 +25,7 @@ cd "${PROJECT_DIR}"
 [[ -x "${TORCHRUN}" ]] || TORCHRUN="torchrun"
 
 # shellcheck disable=SC1091
-source "${PROJECT_DIR}/script_train/_common.sh"
+# source "${PROJECT_DIR}/script_train/_common.sh"
 
 "${TORCHRUN}" \
   --nproc_per_node "${NPROC_PER_NODE}" \
