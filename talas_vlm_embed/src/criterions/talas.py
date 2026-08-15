@@ -173,27 +173,27 @@ class Talas(nn.Module):
                                                 student_qry_input['attention_mask'], 
                                                 mode='eos',
                                                 normalize=True)
-            # student_qry_proj = projectors[proj_idx](last_stu_qry_hidden_state)
-            # tamd += self.cosine_loss(student_qry_proj, teacher_qry_reps)
+            student_qry_proj = projectors[proj_idx](last_stu_qry_hidden_state)
+            tamd += self.cosine_loss(student_qry_proj, teacher_qry_reps)
 
             last_stu_pos_hidden_state = pooling(student_pos_hidden_states[i], 
                                                 student_pos_input['attention_mask'], 
                                                 mode='eos',
                                                 normalize=True)
-            # student_pos_proj = projectors[proj_idx](last_stu_pos_hidden_state)
-            # tamd += self.cosine_loss(student_pos_proj, teacher_pos_reps)
+            student_pos_proj = projectors[proj_idx](last_stu_pos_hidden_state)
+            tamd += self.cosine_loss(student_pos_proj, teacher_pos_reps)
 
             # tamd += self.relative_qp_self_kd(
             #     student_qry_proj, student_pos_proj,
             #     teacher_qry_reps, teacher_pos_reps,
             # )
 
-            tamd += self.structure_loss(
-                torch.cat([last_stu_qry_hidden_state, last_stu_pos_hidden_state], dim=0),
-                torch.cat([teacher_qry_reps, teacher_pos_reps], dim=0),
-            ) / self.args.num_projectors
+            # tamd += self.structure_loss(
+            #     torch.cat([last_stu_qry_hidden_state, last_stu_pos_hidden_state], dim=0),
+            #     torch.cat([teacher_qry_reps, teacher_pos_reps], dim=0),
+            # ) / self.args.num_projectors
 
-        # tamd /= (2 * self.args.num_projectors)
+        tamd /= (2 * self.args.num_projectors)
 
         lasd = 0.0
         for i in range(num_stu_layer - 1 - self.args.num_self_kd_layers,
@@ -220,10 +220,10 @@ class Talas(nn.Module):
                                                 normalize=False)
             # lasd += self.structure_loss(last_stu_pos_hidden_state_i, last_stu_pos_hidden_state_i1)
 
-            self.compute_triplet_loss(
+            lasd += self.compute_triplet_loss(
                 torch.cat([last_stu_qry_hidden_state_i, last_stu_pos_hidden_state_i], dim=0),
                 torch.cat([last_stu_qry_hidden_state_i1, last_stu_pos_hidden_state_i1], dim=0),
-            )
+            ) / self.args.num_self_kd_layers
 
         # lasd /= (2 * self.args.num_self_kd_layers)
         
