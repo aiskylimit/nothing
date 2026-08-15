@@ -1,13 +1,11 @@
-#conda create -n vlm python=3.11 -y
-#conda activate vlm
+#!/usr/bin/env bash
 
-rm -rf ./vlm
-python -m venv vlm 
-source vlm/bin/activate
-pip install -r requirements.txt
+uv python install 3.10
 
-#bash download_datatrain.sh
+export UV_PROJECT_ENVIRONMENT=vlm_distill
+uv sync --locked
+
+source vlm_distill/bin/activate
 
 export CUDA_VISIBLE_DEVICES=4,5
-
 bash script_train/run_baseline.sh
