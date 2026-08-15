@@ -1,6 +1,6 @@
-#2
-#vlm
-#v2
+#1 +120
+#segd
+#v1
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
@@ -44,8 +44,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./talas_vlm_embed
 # bash ./project_commands.sh
 
-# cd ./segd_distillation
-# bash ./project_commands.sh
+cd ./segd_distillation
+bash ./project_commands.sh
 
 # cd ./gen_data
 # bash ./project_commands.sh
@@ -65,5 +65,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # ls split -R
 # CUDA_VISIBLE_DEVICES=6,7 bash ./project_command.sh
 
-cd ./VLM_Distillation-main
-bash project_commands.sh
+# cd ./VLM_Distillation-main
+# bash project_commands.sh
