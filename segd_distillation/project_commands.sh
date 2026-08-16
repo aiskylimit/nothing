@@ -38,10 +38,10 @@ echo "Logs: logs/commands_{1,2}.log"
 echo "Waiting..."
 
 fail=0
-wait "$pid1" || fail=1
-wait "$pid2" || fail=1
-# wait "$pid3" || fail=1
-# wait "$pid4" || fail=1
+# wait "$pid1" || fail=1
+# wait "$pid2" || fail=1
+wait "$pid3" || fail=1
+wait "$pid4" || fail=1
 
 echo "========================================================="
 echo "Sweep finished (fail=$fail)"
