@@ -10,11 +10,7 @@ export HF_HUB_DISABLE_SYMLINKS_WARNING=1
 
 BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 if [[ -z "${VIRTUAL_ENV:-}" ]]; then
-  if [[ -f "${BASE_PATH}/.venv-eval/bin/activate" ]]; then
-    source "${BASE_PATH}/.venv-eval/bin/activate"
-  elif [[ -f "${BASE_PATH}/.venv/bin/activate" ]]; then
-    source "${BASE_PATH}/.venv/bin/activate"
-  fi
+  [[ -f "${BASE_PATH}/.venv/bin/activate" ]] && source "${BASE_PATH}/.venv/bin/activate"
 fi
 export PYTHONPATH="${BASE_PATH}/src"
 mkdir -p "${BASE_PATH}/logs"

@@ -6,13 +6,14 @@ transformers>=4.56,<5   # Qwen3 support; `dtype=` arg (replaces torch_dtype). <5
 peft>=0.13              # optional LoRA fine-tuning path in train_sft.py (--use-lora)
 datasets>=2.20
 accelerate>=1.0
-numpy>=2.0              # pandas wheels are built against numpy 2; numpy 1.x raises a dtype ABI error
+numpy>=2.0,<2.2         # pandas wheels are built against numpy 2 (numpy 1.x raises a dtype ABI
+                        # error); <2.2 because vllm's numba dep hard-requires it (repinned again
+                        # in setup.sh after this file installs, since datasets/pandas pull 2.4+)
 pandas>=2.2
 pyarrow
 pyyaml
 tqdm                    # progress bars (already a transformers dep; pinned here as a direct one)
 math-verify
 pytest
-# GPU-server only (skip on local CPU machine):
-# flash-attn        # optional, SDPA fallback supported via config
-# vllm>=0.8         # eval generation
+# GPU-server only (skip on local CPU machine): flash-attn and vllm are installed by
+# scripts/setup.sh directly (pinned versions, matching CUDA_TAG index), not from this file.
