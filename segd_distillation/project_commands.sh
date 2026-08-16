@@ -9,26 +9,29 @@ cd "$(dirname "$0")"
 
 mkdir -p logs results
 
-if [[ "${SKIP_SETUP:-0}" != "1" ]]; then
-  echo "==> running shared setup"
-  bash scripts/commands/setup.sh
-else
-  echo "==> SKIP_SETUP=1 — assuming venv + data already ready"
-  # shellcheck disable=SC1091
-  source vlm/bin/activate
-fi
+# if [[ "${SKIP_SETUP:-0}" != "1" ]]; then
+#   echo "==> running shared setup"
+#   bash scripts/commands/setup.sh
+# else
+#   echo "==> SKIP_SETUP=1 — assuming venv + data already ready"
+#   # shellcheck disable=SC1091
+#   source vlm/bin/activate
+# fi
+
+source vlm/bin/activate
 
 echo "==> launching slots 1..2 (GPUs 0, 1)"
-bash scripts/commands/1.sh > logs/commands_1.log 2>&1 &
-pid1=$!
-bash scripts/commands/2.sh > logs/commands_2.log 2>&1 &
-pid2=$!
-# bash scripts/commands/3.sh > logs/commands_3.log 2>&1 &
-# pid3=$!
-# bash scripts/commands/4.sh > logs/commands_4.log 2>&1 &
-# pid4=$!
+# bash scripts/commands/1.sh > logs/commands_1.log 2>&1 &
+# pid1=$!
+# bash scripts/commands/2.sh > logs/commands_2.log 2>&1 &
+# pid2=$!
+bash scripts/commands/3.sh > logs/commands_3.log 2>&1 &
+pid3=$!
+bash scripts/commands/4.sh > logs/commands_4.log 2>&1 &
+pid4=$!
 
-echo "PIDs: 1=$pid1 2=$pid2"
+# echo "PIDs: 1=$pid1 2=$pid2"
+echo "PIDs: 1=$pid3 2=$pid4"
 # echo "PIDs: 1=$pid1 2=$pid2 3=$pid3 4=$pid4"
 echo "Logs: logs/commands_{1,2}.log"
 # echo "Logs: logs/commands_{1,2,3,4}.log"

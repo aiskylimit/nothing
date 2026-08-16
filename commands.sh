@@ -1,4 +1,4 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
+#1 +120
 #sgl
 #v1
 
@@ -44,8 +44,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./talas_vlm_embed
 # bash ./project_commands.sh
 
-# cd ./segd_distillation
-# bash ./project_commands.sh
+cd ./segd_distillation
+bash ./project_commands.sh
 
 # cd ./gen_data
 # bash ./project_commands.sh
