@@ -5,6 +5,11 @@ set -euo pipefail
 GPUS=(2 3)
 export CUDA_VISIBLE_DEVICES=$(IFS=,; echo "${GPUS[*]}")
 
+if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+  [[ -f .venv/bin/activate ]] || bash ./scripts/setup.sh
+fi
+source .venv/bin/activate
+
 BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # qwen3-1.7b: vanilla + spectral

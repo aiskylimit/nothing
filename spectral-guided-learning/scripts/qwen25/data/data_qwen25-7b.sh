@@ -4,10 +4,7 @@ set -euo pipefail
 
 BASE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "${BASE_PATH}"
-if [[ -z "${VIRTUAL_ENV:-}" ]]; then
-  [[ -f .venv/bin/activate ]] || ./scripts/setup.sh
-  source .venv/bin/activate
-fi
+
 export PYTHONPATH="${BASE_PATH}/src"
 mkdir -p logs "data/qwen25-7b"
 
