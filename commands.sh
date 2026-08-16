@@ -1,4 +1,4 @@
-#2 -0-3
+#1 +120
 #sgl
 #v1
 
@@ -69,4 +69,4 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # bash project_commands.sh
 
 cd ./spectral-guided-learning
-bash project_commands.sh
+bash project_command.sh
