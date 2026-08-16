@@ -1,4 +1,4 @@
-#1 +120
+#2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #sgl
 #v1
 
@@ -68,5 +68,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./VLM_Distillation-main
 # bash project_commands.sh
 
-cd ./spectral-guided-learning
-bash project_command.sh
+# cd ./spectral-guided-learning
+# bash project_command.sh
