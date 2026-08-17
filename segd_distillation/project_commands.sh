@@ -21,25 +21,27 @@ mkdir -p logs results
 source vlm/bin/activate
 
 echo "==> launching slots 1..2 (GPUs 0, 1)"
-# bash scripts/commands/1.sh > logs/commands_1.log 2>&1 &
-# pid1=$!
-# bash scripts/commands/2.sh > logs/commands_2.log 2>&1 &
-# pid2=$!
-bash scripts/commands/3.sh > logs/commands_3.log 2>&1 &
+bash scripts/commands/1.sh > logs/commands_last_1.log 2>&1 &
+pid1=$!
+bash scripts/commands/2.sh > logs/commands_last_2.log 2>&1 &
+pid2=$!
+bash scripts/commands/3.sh > logs/commands_last_3.log 2>&1 &
 pid3=$!
-bash scripts/commands/4.sh > logs/commands_4.log 2>&1 &
+bash scripts/commands/4.sh > logs/commands_last_4.log 2>&1 &
 pid4=$!
 
 # echo "PIDs: 1=$pid1 2=$pid2"
-echo "PIDs: 1=$pid3 2=$pid4"
-# echo "PIDs: 1=$pid1 2=$pid2 3=$pid3 4=$pid4"
-echo "Logs: logs/commands_{1,2}.log"
-# echo "Logs: logs/commands_{1,2,3,4}.log"
+# echo "PIDs: 1=$pid3 2=$pid4"
+# echo "Logs: logs/commands_{1,2}.log"
+# echo "Waiting..."
+
+echo "PIDs: 1=$pid1 2=$pid2 3=$pid3 4=$pid4"
+echo "Logs: logs/commands_{1,2,3,4}.log"
 echo "Waiting..."
 
 fail=0
-# wait "$pid1" || fail=1
-# wait "$pid2" || fail=1
+wait "$pid1" || fail=1
+wait "$pid2" || fail=1
 wait "$pid3" || fail=1
 wait "$pid4" || fail=1
 

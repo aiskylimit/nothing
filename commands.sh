@@ -1,5 +1,5 @@
-#2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
-#sgl
+#1 +120
+#segd
 #v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
@@ -44,8 +44,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./talas_vlm_embed
 # bash ./project_commands.sh
 
-# cd ./segd_distillation
-# bash ./project_commands.sh
+cd ./segd_distillation
+bash ./project_commands.sh
 
 # cd ./gen_data
 # bash ./project_commands.sh
@@ -68,7 +68,5 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./VLM_Distillation-main
 # bash project_commands.sh
 
-cd ./spectral-guided-learning
-ls
-ls results -R
+# cd ./spectral-guided-learning
 # bash project_command.sh
