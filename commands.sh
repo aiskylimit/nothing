@@ -1,4 +1,4 @@
-#2 -0-3
+#1 +10
 #sgl
 #v1
 
@@ -44,8 +44,8 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 # cd ./talas_vlm_embed
 # bash ./project_commands.sh
 
-cd ./segd_distillation
-bash ./project_commands.sh
+# cd ./segd_distillation
+# bash ./project_commands.sh
 
 # cd ./gen_data
 # bash ./project_commands.sh
@@ -68,5 +68,7 @@ bash ./project_commands.sh
 # cd ./VLM_Distillation-main
 # bash project_commands.sh
 
-# cd ./spectral-guided-learning
+cd ./spectral-guided-learning
+ls
+ls result -R
 # bash project_command.sh
