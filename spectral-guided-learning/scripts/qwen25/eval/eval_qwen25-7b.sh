@@ -32,6 +32,7 @@ GPU_MEM_UTIL=0.9
 SEED=42
 CHAT_TEMPLATE=true
 ENABLE_THINKING=false
+ENFORCE_EAGER=true
 LORA_R=16
 RESULTS_DIR="${BASE_PATH}/results"
 
@@ -45,6 +46,7 @@ OPTS+=" --n-samples ${N_SAMPLES}"
 OPTS+=" --max-tokens ${MAX_TOKENS}"
 OPTS+=" --max-model-len ${MAX_MODEL_LEN}"
 OPTS+=" --gpu-memory-utilization ${GPU_MEM_UTIL}"
+[[ "${ENFORCE_EAGER}" == true ]] && OPTS+=" --enforce-eager" || OPTS+=" --no-enforce-eager"
 OPTS+=" --seed ${SEED}"
 [[ "${CHAT_TEMPLATE}" == true ]] && OPTS+=" --chat-template" || OPTS+=" --no-chat-template"
 [[ "${ENABLE_THINKING}" == true ]] && OPTS+=" --enable-thinking" || OPTS+=" --no-enable-thinking"
