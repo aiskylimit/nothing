@@ -1,4 +1,4 @@
-#1 +120
+#2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #segd
 #v2
 
