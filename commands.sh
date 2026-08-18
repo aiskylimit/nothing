@@ -1,6 +1,6 @@
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #segd
-#v1
+#v2
 
 #2 -f-/home/ubuntu/aiskylimit_nothing/segd_distillation/logs/ +a
 #2 -f-/home/ubuntu/aiskylimit_nothing/talas_vlm_embed/MMEB-evaloutputs-json/ +a
