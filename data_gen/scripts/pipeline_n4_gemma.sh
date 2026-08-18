@@ -10,9 +10,9 @@ micromamba activate pad
 # 超参数定义
 N=4  # 选项数量
 TEMPERATURE=1  # 温度参数
-TEACHER_MODEL=../huggingface/google/gemma-2-9b-it
-TEACHER_ID=gemma
-STUDENT_DIR=data/generated/ultrafeedback/gemma-2b-it
+TEACHER_MODEL=${TEACHER_MODEL:-../huggingface/google/gemma-2-9b-it}
+TEACHER_ID=${TEACHER_ID:-gemma}
+STUDENT_DIR=${STUDENT_DIR:-data/generated/ultrafeedback/gemma-2b-it}
 
 # 聚合数据
 python data_gen/gen/agg.py --generation_file_dir $STUDENT_DIR -n $N
