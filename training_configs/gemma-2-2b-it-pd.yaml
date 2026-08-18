@@ -5,11 +5,11 @@ attn_implementation: eager
 
 # Data training arguments
 dataset_mixer:
-  pvdhihihi/ultra-feedback: 1.0
+  data/generated/ultrafeedback/my-student/pkd-dataset-teacher-my-teacher-n4: 1.0
 dataset_splits:
-- train_prefs
-- test_prefs
-local_dataset: false
+- train
+- test
+local_dataset: true
 preprocessing_num_workers: 12
 dataset_num_proc: 12
 
