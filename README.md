@@ -1,27 +1,86 @@
 # Capturing Nuanced Preferences: Preference-Aligned Distillation for Small Language Models
 
 ## Setup
-Try the following commands to install the environment:
+Create the environment:
+
 ```sh
 mamba env create -f environment.yml
 ```
 
-## Data Generation
-Try the following commands to generate the dataset:
+Activate it before running the code:
+
 ```sh
-bash scripts/sampling.sh
-bash scripts/pipeline_n4_gemma.sh
+mamba activate pad
+```
+
+## Dataset
+This codebase is configured to train directly from the Hugging Face dataset:
+
+```text
+pvdhihihi/ultra-feedback
+```
+
+The active training config is:
+
+```text
+training_configs/gemma-2-2b-it-pd.yaml
+```
+
+The relevant dataset settings are:
+
+```yaml
+dataset_mixer:
+  pvdhihihi/ultra-feedback: 1.0
+dataset_splits:
+- train_prefs
+- test_prefs
+local_dataset: false
+```
+
+If the dataset is private or gated, log in to Hugging Face first:
+
+```sh
+huggingface-cli login
+```
+
+If `pvdhihihi/ultra-feedback` uses `train` and `test` instead of `train_prefs` and `test_prefs`, update the same config file to:
+
+```yaml
+dataset_splits:
+- train
+- test
 ```
 
 ## Training
-Try following commands to train PAD model:
+After setup, run training directly:
+
 ```sh
 bash run_ppd.sh
 ```
-You can find the trained model under `outputs/*`.
 
-Please ensure that the file paths in the following file match your configuration:
-**File:** `training_configs/gemma-2-2b-it-pd.yaml`
+The trained model will be saved under:
+
+```text
+outputs/*
+```
+
+Before launching a long run, check these paths in `training_configs/gemma-2-2b-it-pd.yaml`:
+
+- `model_name_or_path`: local path or Hugging Face id for the student model.
+- `dataset_mixer`: dataset id to train on.
+- `output_dir`: where checkpoints and final outputs are written.
+
+## Optional: Regenerate Local PAD Data
+The original repository generated a local PAD dataset before training. This is no longer required for the current Hugging Face dataset workflow.
+
+Only run these commands if you want to recreate the original local generated dataset:
+
+```sh
+bash data_gen/scripts/sampling.sh
+bash data_gen/scripts/pipeline_n4_gemma.sh
+```
+
+If you switch back to a locally generated dataset, also update `training_configs/gemma-2-2b-it-pd.yaml` so `dataset_mixer` points to the local dataset directory and `local_dataset` is `true`.
 
 ## Evaluation
 
@@ -37,6 +96,8 @@ We follow the official implementation for evaluation on AlpacaEval 2, Arena-Hard
 
 
 ## Training Report
+
+The report below is from the original Gemma PAD experiment and is kept as a reference.
 
 ### Overview
 This part contains training logs and comparative analysis of three preference alignment methods: SimPO, DPO, and PAD. We document the training process, implementation details, and performance metrics for each approach.
@@ -86,4 +147,3 @@ You can find the training log under `gemma-log/*`.
 #### Analysis
 - **Training Efficiency**: PAD and SimPO require similar computational resources, while DPO demands notably more. This efficiency difference is primarily because DPO requires loading an additional reference model during training, whereas PAD and SimPO do not.
 - **Performance**: PAD outperforms both SimPO and DPO in terms of win rate, which aligns with the findings reported in the submission paper.
-

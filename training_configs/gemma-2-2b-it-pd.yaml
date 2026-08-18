@@ -5,11 +5,11 @@ attn_implementation: eager
 
 # Data training arguments
 dataset_mixer:
-  data/generated/ultrafeedback/gemma-2b-it/pkd-dataset-teacher-gemma-n4: 1.0
+  pvdhihihi/ultra-feedback: 1.0
 dataset_splits:
-- train
-- test
-local_dataset: true
+- train_prefs
+- test_prefs
+local_dataset: false
 preprocessing_num_workers: 12
 dataset_num_proc: 12
 

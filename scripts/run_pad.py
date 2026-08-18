@@ -50,6 +50,35 @@ logger = logging.getLogger(__name__)
 MISTRAL_CHAT_TEMPLATE = "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'].strip() + '\n\n' %}{% else %}{% set loop_messages = messages %}{% set system_message = '' %}{% endif %}{% for message in loop_messages %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %}"
 
 
+def get_preference_scores(row):
+    chosen_score = row.get("score_chosen", row.get("chosen_score", None))
+    rejected_score = row.get("score_rejected", row.get("rejected_score", None))
+    if chosen_score is None or rejected_score is None:
+        return [0.0, -18.4207]
+
+    scores = np.array([float(chosen_score), float(rejected_score)])
+    scores = scores - np.max(scores)
+    probs = np.exp(scores) / np.exp(scores).sum()
+    return np.log(probs).tolist()
+
+
+def as_user_message(prompt):
+    if isinstance(prompt, list):
+        return prompt
+    return [{"role": "user", "content": prompt}]
+
+
+def as_preference_chat(row, response_key):
+    response = row[response_key]
+    if isinstance(response, list):
+        if response and response[0].get("role") == "user":
+            return response
+        return as_user_message(row["prompt"]) + response
+    if isinstance(response, str):
+        return as_user_message(row["prompt"]) + [{"role": "assistant", "content": response}]
+    raise ValueError(f"{response_key} should be a str or OpenAI-style message list but got {type(response)}")
+
+
 def process(row, tokenizer, pairwise=False):
     responses_chat = []
     if 'responses' in row:
@@ -76,10 +105,14 @@ def process(row, tokenizer, pairwise=False):
                 ]
             )
     elif 'chosen' in row and 'rejected' in row:
-        responses_chat.append(row['chosen'])
-        responses_chat.append(row['rejected'])
-        if 'scores' not in row:
-            row['scores'] = [0., -18.4207]
+        responses_chat.append(as_preference_chat(row, 'chosen'))
+        responses_chat.append(as_preference_chat(row, 'rejected'))
+        if 'scores_mcq' not in row:
+            row['scores_mcq'] = get_preference_scores(row)
+        if 'scores_avglogp' not in row:
+            row['scores_avglogp'] = row['scores_mcq']
+        if 'scores_logp' not in row:
+            row['scores_logp'] = row['scores_mcq']
         if 'repr' not in row:
             row['repr'] = [[0, 0], [0, 0]]
     else:
@@ -142,7 +175,9 @@ def main():
         configs=data_args.dataset_configs,
         columns_to_keep=["messages", "chosen", "rejected", "prompt", "completion",
                          "label", "responses", "scores", "scores_mcq", "scores_logp",
-                         "scores_avglogp", "repr", "scores_logp_ref", "scores_avglogp_ref"],
+                         "scores_avglogp", "score_chosen", "score_rejected",
+                         "chosen_score", "rejected_score", "repr",
+                         "scores_logp_ref", "scores_avglogp_ref"],
         local=data_args.local_dataset,
     )
     if training_args.debug:
