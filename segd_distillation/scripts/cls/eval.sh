@@ -51,7 +51,7 @@ EVAL_ARGS=(
     --per_device_eval_batch_size "${BATCH_SIZE}"
     --image_dir "eval_images/"
     --image_resolution "low"
-    --pooling "mean"
+    --pooling "eos"
     --model_backbone "llava_qwen2"
     --normalize True
     --bf16

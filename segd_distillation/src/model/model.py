@@ -126,8 +126,7 @@ class MMEBModel(nn.Module):
             output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
             attention_matrix = hidden_states.attentions if output_attentions and hasattr(hidden_states, 'attentions') else None
-            pool_mask = self._resolve_pool_mask(last_hidden_state, input, hidden_states)
-            pooled_output = self._pooling(last_hidden_state, pool_mask)
+            pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
             return pooled_output, image_features, attention_matrix, output_hidden_states
         elif getattr(self, "model_backbone", None) in [LLAVA_QWEN2, QWEN2_VL]:
             # print("Encoding input for FastVLM model backbone")
@@ -139,8 +138,7 @@ class MMEBModel(nn.Module):
             output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
             attention_matrix = hidden_states.attentions if output_attentions and hasattr(hidden_states, 'attentions') else None
-            pool_mask = self._resolve_pool_mask(last_hidden_state, input, hidden_states)
-            pooled_output = self._pooling(last_hidden_state, pool_mask)
+            pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
 
             return pooled_output, image_features, attention_matrix, output_hidden_states
         else:
@@ -153,10 +151,9 @@ class MMEBModel(nn.Module):
             output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
             attention_matrix = hidden_states.attentions if output_attentions and hasattr(hidden_states, 'attentions') else None
-            pool_mask = self._resolve_pool_mask(last_hidden_state, input, hidden_states)
-            pooled_output = self._pooling(last_hidden_state, pool_mask)
+            pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
 
-            all_layers_embeds = torch.stack([self._pooling(hidden_state, pool_mask)
+            all_layers_embeds = torch.stack([self._pooling(hidden_state, input['attention_mask'])
                                             for hidden_state in hidden_states.hidden_states]).permute(1, 0, 2)
             
             return pooled_output, image_features, attention_matrix, output_hidden_states
@@ -168,36 +165,6 @@ class MMEBModel(nn.Module):
             - image_features: (batch, num_image_tokens, embed_dim), 
             - attention_matrix: list of (batch, num_heads, num_tokens, num_tokens)
         """
-
-    def _resolve_pool_mask(self, last_hidden_state, input, model_output=None):
-        """
-        Prefer the post-multimodal (expanded) attention mask when available.
-
-        LLaVA/FastVLM replaces the image placeholder with many patch tokens, so
-        ``input['attention_mask']`` (pre-expand) no longer matches
-        ``last_hidden_state`` seq length. The encoder forward returns the expanded
-        mask on the output when supported.
-        """
-        seq_len = last_hidden_state.size(1)
-        candidates = []
-        if model_output is not None and getattr(model_output, "attention_mask", None) is not None:
-            candidates.append(model_output.attention_mask)
-        if isinstance(input, dict) and input.get("attention_mask", None) is not None:
-            candidates.append(input["attention_mask"])
-
-        for mask in candidates:
-            if mask is None:
-                continue
-            if mask.dim() == 2 and mask.size(1) == seq_len:
-                return mask
-
-        # Fallback: treat all expanded positions as valid (no pad info available).
-        return torch.ones(
-            last_hidden_state.size(0),
-            seq_len,
-            device=last_hidden_state.device,
-            dtype=torch.long,
-        )
 
     def _pooling(self, last_hidden_state, attention_mask):
         if self.pooling == 'last' or self.pooling == 'eos':
@@ -216,13 +183,19 @@ class MMEBModel(nn.Module):
                 reps = last_hidden_state[
                     torch.arange(batch_size, device=last_hidden_state.device), eos_indices_positive]
         elif self.pooling == 'mean':
-            # Masked mean over all non-padding tokens (vision + text).
+            if attention_mask.size(1) != last_hidden_state.size(1):
+                hid_len = last_hidden_state.size(1)
+                left_padding = (attention_mask[:, -1].sum() == attention_mask.shape[0])
+                n_pad = (attention_mask == 0).long().sum(dim=1).clamp(max=max(hid_len - 1, 0))
+                idx = torch.arange(hid_len, device=last_hidden_state.device).unsqueeze(0)
+                if left_padding:
+                    attention_mask = (idx >= n_pad.unsqueeze(1)).to(dtype=attention_mask.dtype)
+                else:
+                    attention_mask = (idx < (hid_len - n_pad).unsqueeze(1)).to(dtype=attention_mask.dtype)
             mask = attention_mask.unsqueeze(-1).to(dtype=last_hidden_state.dtype)
             reps = (last_hidden_state * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1e-8)
         else:
-            raise NotImplementedError(
-                f"Unsupported pooling={self.pooling!r}; choose 'last', 'eos', or 'mean'."
-            )
+            raise NotImplementedError
         if self.normalize:
             reps = torch.nn.functional.normalize(reps, p=2, dim=-1)
         return reps

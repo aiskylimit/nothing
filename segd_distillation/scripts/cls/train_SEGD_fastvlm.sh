@@ -62,7 +62,8 @@ torchrun --standalone --nproc_per_node="$NUM_GPUS_PER_NODE" --master_port="$MAST
   --teacher_lora_r "$TEACHER_LORA_R" \
   --teacher_backbone "qwen2_vl" \
   --model_backbone "llava_qwen2" \
-  --pooling "mean" \
+  --pooling "eos" \
+  --teacher_pooling "eos" \
   --dataset_name "TIGER-Lab/MMEB-train" \
   --subset_name "${SUBSETS[@]}" \
   --dataset_split "original" \

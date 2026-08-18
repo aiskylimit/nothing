@@ -6,10 +6,11 @@ Loss composition:
 
 Pipeline:
   Graph / spectral: relative-depth checkpoints (default N=4 → 25/50/75%).
-  Graph nodes: R_txt/R_vis = mean-pool; R_all = last token of [vision | text] (both models).
-  L_sim: last-layer encode_input embeddings — Teacher last-token vs Student mean (qry + pos);
-         if hidden dims differ, student reps go through distiller Linear s→t first.
-  Contrastive: one-way InfoNCE q→p on Student encode_input mean-pool last layer (not symmetric).
+  Graph nodes: R_txt/R_vis = mean-pool extracted tokens;
+    R_all = TALAS eos/last on the full layer hidden (collator attention_mask).
+  L_sim: last-layer encode_input embeddings (same vectors as contrastive);
+         TALAS 1−cos; projector s→t if hidden dims differ.
+  Contrastive: TALAS one-way InfoNCE q→p on Student encode_input (not symmetric).
 """
 
 from __future__ import annotations
@@ -69,10 +70,33 @@ def get_align_layer_indices(
 
 # ---------------------------------------------------------------------------
 # 3-node representations
-# Graph: txt/vis mean, all = last token. L_sim is last-layer encode_input (not these nodes).
+# Graph: txt/vis mean of extracted tokens. R_all = TALAS eos on the full sequence.
 # ---------------------------------------------------------------------------
 
 POOL_GRAPH = {"txt": "mean", "vis": "mean", "all": "last"}
+
+
+def talas_eos_pool(
+    last_hidden_state: torch.Tensor,
+    attention_mask: torch.Tensor,
+    normalize: bool = False,
+) -> torch.Tensor:
+    """Last/eos pooling identical to talas_vlm_embed ``criterions.utils.pooling``."""
+    left_padding = (attention_mask[:, -1].sum() == attention_mask.shape[0])
+    batch_size = last_hidden_state.shape[0]
+    if left_padding:
+        reps = last_hidden_state[torch.arange(batch_size), -1, :]
+    else:
+        max_length = last_hidden_state.size(1)
+        invert_mask = (attention_mask == 0).long()
+        num_padding_tokens = invert_mask.sum(dim=1)
+        eos_indices_positive = max_length - num_padding_tokens - 1
+        reps = last_hidden_state[
+            torch.arange(batch_size, device=last_hidden_state.device), eos_indices_positive
+        ]
+    if normalize:
+        reps = F.normalize(reps, p=2, dim=-1)
+    return reps
 
 
 def pool_tokens(tokens: Optional[torch.Tensor], mode: str = "mean") -> Optional[torch.Tensor]:
@@ -305,16 +329,15 @@ def spectral_projector_loss(
     return ((pt - ps) ** 2).sum() / max(ps.size(0), 1)
 
 
-def representation_sim_loss(r_t: torch.Tensor, r_s: torch.Tensor) -> torch.Tensor:
-    """1 − cos(Teacher detach, Student) over leading dim. Dims must already match."""
-    if r_t.size(-1) != r_s.size(-1):
+def cosine_loss(student_embeddings: torch.Tensor, teacher_embeddings: torch.Tensor) -> torch.Tensor:
+    """TALAS ``cosine_loss``: mean(1 − cos). Teacher should already be detached / no_grad."""
+    if student_embeddings.size(-1) != teacher_embeddings.size(-1):
         raise ValueError(
-            f"L_sim cosine requires equal hidden dims, got teacher={r_t.size(-1)} "
-            f"student={r_s.size(-1)}. Project student→teacher before calling this."
+            f"L_sim cosine requires equal hidden dims, got student={student_embeddings.size(-1)} "
+            f"teacher={teacher_embeddings.size(-1)}. Project student→teacher before calling this."
         )
-    rt = F.normalize(r_t.detach().float(), dim=-1)
-    rs = F.normalize(r_s.float(), dim=-1)
-    return 1.0 - (rt * rs).sum(dim=-1)
+    cos_sim = F.cosine_similarity(student_embeddings, teacher_embeddings, dim=-1)
+    return (1.0 - cos_sim).mean()
 
 
 def project_student_reps_for_sim(distiller, student_reps: torch.Tensor, teacher_dim: int) -> torch.Tensor:
@@ -354,20 +377,6 @@ def project_student_reps_for_sim(distiller, student_reps: torch.Tensor, teacher_
 
     proj_param = next(proj.parameters())
     return proj(student_reps.to(dtype=proj_param.dtype)).to(dtype=student_reps.dtype)
-
-
-def infonce_loss(
-    r_q: torch.Tensor,
-    r_p: torch.Tensor,
-    temperature: float,
-    student_model,
-) -> torch.Tensor:
-    """One-way InfoNCE (q→p only), same as SGD / span contrastive. Not symmetric."""
-    scores = student_model.compute_similarity(r_q, r_p)
-    scores = scores.view(r_q.size(0), -1)
-    target = torch.arange(scores.size(0), device=scores.device, dtype=torch.long)
-    target = target * (r_q.size(0) // max(r_p.size(0), 1))
-    return F.cross_entropy(scores / max(temperature, _EPS), target)
 
 
 def _checkpoint_spectral(
@@ -447,8 +456,8 @@ class SEGDLoss(nn.Module):
         batch_size = student_qry_input["input_ids"].size(0)
         device = student_qry_input["input_ids"].device
 
-        # Contrastive: Student encode_input last-layer mean (--pooling mean).
-        # L_sim: Teacher encode_input last-token (default) vs Student mean, same last layer.
+        # Contrastive / L_sim: Student encode_input last-layer (TALAS eos/last).
+        # Teacher encode_input uses teacher_pooling (script: eos).
         with torch.no_grad():
             teacher_model.eval()
             teacher_qry_output = teacher_model.encode_input(
@@ -508,6 +517,10 @@ class SEGDLoss(nn.Module):
             # Positive hidden at the same relative-depth checkpoint (own forward).
             t_hidden_pos = teacher_pos_hidden_states[t_idx]
             s_hidden_pos = student_pos_hidden_states[s_idx]
+            t_all_q = talas_eos_pool(t_hidden, teacher_qry_input["attention_mask"])
+            t_all_p = talas_eos_pool(t_hidden_pos, teacher_pos_input["attention_mask"])
+            s_all_q = talas_eos_pool(s_hidden, student_qry_input["attention_mask"])
+            s_all_p = talas_eos_pool(s_hidden_pos, student_pos_input["attention_mask"])
             t_graph_batch = []
             s_graph_batch = []
             for i in range(batch_size):
@@ -527,14 +540,16 @@ class SEGDLoss(nn.Module):
                     s_hidden_pos, is_teacher=False, model_input=student_pos_input,
                     image_features=student_pos_image_features, sample_idx=i,
                 )
-                t_graph_batch.append({
-                    "qry": three_semantic_nodes(t_vis_q, t_txt_q, POOL_GRAPH),
-                    "pos": three_semantic_nodes(t_vis_p, t_txt_p, POOL_GRAPH),
-                })
-                s_graph_batch.append({
-                    "qry": three_semantic_nodes(s_vis_q, s_txt_q, POOL_GRAPH),
-                    "pos": three_semantic_nodes(s_vis_p, s_txt_p, POOL_GRAPH),
-                })
+                t_qry_nodes = three_semantic_nodes(t_vis_q, t_txt_q, POOL_GRAPH)
+                t_pos_nodes = three_semantic_nodes(t_vis_p, t_txt_p, POOL_GRAPH)
+                s_qry_nodes = three_semantic_nodes(s_vis_q, s_txt_q, POOL_GRAPH)
+                s_pos_nodes = three_semantic_nodes(s_vis_p, s_txt_p, POOL_GRAPH)
+                t_qry_nodes["all"] = t_all_q[i]
+                t_pos_nodes["all"] = t_all_p[i]
+                s_qry_nodes["all"] = s_all_q[i]
+                s_pos_nodes["all"] = s_all_p[i]
+                t_graph_batch.append({"qry": t_qry_nodes, "pos": t_pos_nodes})
+                s_graph_batch.append({"qry": s_qry_nodes, "pos": s_pos_nodes})
 
             if m == 0:
                 for i in range(batch_size):
@@ -574,33 +589,32 @@ class SEGDLoss(nn.Module):
         else:
             spectral_loss = self._zero(device)
 
-        # L_sim: last-layer sequence embeddings only (not graph txt/vis nodes).
-        # FastVLM(896)↔Qwen2(1536) needs distiller s→t projector; same-dim skips it.
+        # L_sim: same last-layer encode_input vectors as contrastive (TALAS cosine).
         t_dim = int(teacher_qry_reps.size(-1))
         s_qry_for_sim = project_student_reps_for_sim(distiller, student_qry_reps, t_dim)
         s_pos_for_sim = project_student_reps_for_sim(distiller, student_pos_reps, t_dim)
-        sim_loss = torch.cat([
-            representation_sim_loss(teacher_qry_reps, s_qry_for_sim),
-            representation_sim_loss(teacher_pos_reps, s_pos_for_sim),
-        ], dim=0).mean()
-
-        # Contrastive: Student last-layer mean (--pooling mean), one-way q→p (not symmetric).
-        cq, cp = student_qry_reps, student_pos_reps
-        if self.world_size > 1:
-            all_q = self._dist_gather_tensor(cq)
-            all_p = self._dist_gather_tensor(cp)
-        else:
-            all_q, all_p = cq, cp
-
-        c_loss = infonce_loss(
-            all_q, all_p,
-            temperature=float(distiller.temperature),
-            student_model=student_model,
+        sim_loss = 0.5 * (
+            cosine_loss(s_qry_for_sim, teacher_qry_reps)
+            + cosine_loss(s_pos_for_sim, teacher_pos_reps)
         )
+
+        # Contrastive: identical to talas.py (student encode_input, one-way q→p).
+        if self.world_size > 1:
+            all_student_qry_reps = self._dist_gather_tensor(student_qry_reps)
+            all_student_pos_reps = self._dist_gather_tensor(student_pos_reps)
+        else:
+            all_student_qry_reps = student_qry_reps
+            all_student_pos_reps = student_pos_reps
+
+        scores = student_model.compute_similarity(all_student_qry_reps, all_student_pos_reps)
+        scores = scores.view(all_student_qry_reps.size(0), -1)
+        target = torch.arange(scores.size(0), device=scores.device, dtype=torch.long)
+        target = target * (all_student_qry_reps.size(0) // all_student_pos_reps.size(0))
+        contrastive_loss = nn.CrossEntropyLoss()(scores / distiller.temperature, target)
 
         sim_weighted = self.lambda_sim * sim_loss
         spectral_weighted = self.lambda_spectral * spectral_loss
-        total_loss = c_loss + sim_weighted + spectral_weighted
+        total_loss = contrastive_loss + sim_weighted + spectral_weighted
 
         def _metric(v: float) -> torch.Tensor:
             return torch.tensor(v, device=device, dtype=torch.float32)
@@ -615,7 +629,7 @@ class SEGDLoss(nn.Module):
 
         return {
             "loss": total_loss,
-            "contrastive_loss": c_loss.detach(),
+            "contrastive_loss": contrastive_loss.detach(),
             "sim_loss": sim_loss.detach(),
             "segd_loss": spectral_loss.detach(),
             "spectral_kd_loss": spectral_loss.detach(),
