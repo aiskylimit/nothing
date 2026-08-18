@@ -1,0 +1,31 @@
+[project]
+name = "pad-training"
+version = "0.1.0"
+description = "Preference Alignment Distillation training and data-generation scripts."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = "Apache-2.0"
+dependencies = [
+    "numpy==1.26.4",
+    "torch>=2.6,<2.7",
+    "tqdm>=4.66,<5",
+    "transformers==4.50.1",
+    "huggingface-hub",
+    "peft>=0.14,<0.16",
+    "accelerate>=1.5,<2",
+    "datasets>=3.3,<4",
+    "trl>=0.15,<0.16",
+    "deepspeed==0.16.4",
+    "bitsandbytes>=0.45,<0.47",
+    "wandb==0.19.8",
+    "jinja2",
+    "packaging",
+    "pyyaml",
+    "protobuf",
+    "safetensors",
+    "sentencepiece",
+    "python-Levenshtein",
+]
+
+[tool.uv]
+package = false
