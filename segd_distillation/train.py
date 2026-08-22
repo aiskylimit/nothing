@@ -9,6 +9,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 import torch 
+import wandb 
 import yaml 
 from tqdm import tqdm
 
@@ -64,6 +65,7 @@ def main():
         resume_checkpoint_dir = None
         logger.info("No checkpoint found. Starting fresh training.")
 
+            
     hf_config = AutoConfig.from_pretrained(model_args.model_name, trust_remote_code=True)
     model = MMEBModel.build(model_args)
     if not hasattr(model_args, "model_backbone") or not model_args.model_backbone:
@@ -93,7 +95,7 @@ def main():
     
     train_dataset.trainer = trainer 
     trainer.train(resume_from_checkpoint=resume_checkpoint_dir)
-    trainer.save_model(training_args.output_dir)
+    trainer.save_model(training_args.output_dir)  # Saves the tokenizer too for easy upload
     
     if trainer.is_world_process_zero(): 
         processor.save_pretrained(training_args.output_dir)

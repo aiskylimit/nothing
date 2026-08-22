@@ -1,6 +1,6 @@
 """
 Usage:
-python3 -m llava.model.make_delta --base ~/model_weights/llama-7b --target ~/model_weights/llava-7b --delta ~/model_weights/llava-7b-delta
+python3 -m llava.model.make_delta --base ~/model_weights/llama-7b --target ~/model_weights/llava-7b --delta ~/model_weights/llava-7b-delta --hub-repo-id liuhaotian/llava-7b-delta
 """
 import argparse
 
@@ -10,7 +10,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from llava.model.utils import auto_upgrade
 
 
-def make_delta(base_model_path, target_model_path, delta_path):
+def make_delta(base_model_path, target_model_path, delta_path, hub_repo_id):
     print("Loading base model")
     base = AutoModelForCausalLM.from_pretrained(
         base_model_path, torch_dtype=torch.float16, low_cpu_mem_usage=True)
@@ -31,10 +31,10 @@ def make_delta(base_model_path, target_model_path, delta_path):
             bparam = base.state_dict()[name]
             param.data[:bparam.shape[0], :bparam.shape[1]] -= bparam
 
-    print("Saving delta")
-    target.save_pretrained(delta_path)
+    kwargs = {}
+    target.save_pretrained(delta_path, **kwargs)
     target_tokenizer = AutoTokenizer.from_pretrained(target_model_path)
-    target_tokenizer.save_pretrained(delta_path)
+    target_tokenizer.save_pretrained(delta_path, **kwargs)
 
 
 if __name__ == "__main__":
@@ -42,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument("--base-model-path", type=str, required=True)
     parser.add_argument("--target-model-path", type=str, required=True)
     parser.add_argument("--delta-path", type=str, required=True)
+    parser.add_argument("--hub-repo-id", type=str, default=None)
     args = parser.parse_args()
 
-    make_delta(args.base_model_path, args.target_model_path, args.delta_path)
+    make_delta(args.base_model_path, args.target_model_path, args.delta_path, args.hub_repo_id)

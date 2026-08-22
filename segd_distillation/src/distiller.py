@@ -62,12 +62,17 @@ def process_image(image, resolution, max_dim=1344):
         target_max = 672
     elif resolution == "low":
         target_max = 448
+    elif resolution == "tiny":
+        target_max = 128
     else:
         target_max = max_dim
 
-    # resize if larger than target_max
+    # Tính tỉ lệ scale sao cho cạnh lớn nhất = target_max
     if max_side > target_max:
-        image = image.resize((target_max, target_max))
+        scale = target_max / max_side
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        image = image.resize((new_width, new_height))
 
     return image
 
@@ -98,7 +103,7 @@ class Distiller(nn.Module):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_args.teacher_model_name)
         # if self.model_args.projector_config_path is not None:
         self.set_projector()
-        print_master("Projectors set.")
+        print("Projectors set.")
     
     def _create_model_args(self, model_type='teacher'):
         if model_type == 'teacher': 
@@ -113,6 +118,7 @@ class Distiller(nn.Module):
                 pooling=self.model_args.teacher_pooling,
                 normalize=self.model_args.teacher_normalize,
                 model_backbone=self.model_args.teacher_backbone,
+                modality_gated_pooling=self.model_args.teacher_modality_gated_pooling
             )
         else:
             print_rank("Not implemented student model args creation.")
@@ -120,31 +126,37 @@ class Distiller(nn.Module):
         return model_args
     
     def _load_student(self):
-        print_master(f"Load student with lora rank: {self.model_args.lora_r}")
-        print_master(f"Student use lora: {self.model_args.lora}")
+        print("Load student with lora rank:", self.model_args.lora_r)
+        print("Student use lora:", self.model_args.lora)
         student = MMEBModel.build(self.model_args)
-        print_master("Student model built.")
+        print("Student model built.")
         return student 
     
     def _load_teacher(self):
         model_args = self._create_model_args('teacher')
-        print_master(f"Load teacher with lora rank: {model_args.lora_r}")
-        print_master(f"Teacher use lora: {model_args.lora}")
+        print("Load teacher with lora rank:", model_args.lora_r)
+        print("Teacher use lora:", model_args.lora)
         teacher = MMEBModel.load(model_args, is_trainable=False)
         for param in teacher.parameters():
             param.requires_grad = False
-        print_master("Teacher model loaded.")
+        print("Teacher model loaded.")
         return teacher
     
     def get_student_processor(self):
+        if hasattr(self, 'student_processor'):
+            return self.student_processor
         processor = load_processor(self.model_args, None)
-        print_master("Student processor loaded.")
+        setattr(self, 'student_processor', processor)
+        print("Student processor loaded.")
         return processor
 
     def get_teacher_processor(self):
+        if hasattr(self, 'teacher_processor'):
+            return self.teacher_processor
         model_args = self._create_model_args('teacher')
         processor = load_processor(model_args, None)
-        print_master("Teacher processor loaded.")
+        setattr(self, 'teacher_processor', processor)
+        print("Teacher processor loaded.")
         return processor
     
     def forward(self, criterion, batch):
@@ -201,17 +213,8 @@ class Distiller(nn.Module):
                         layer = layer.to(dtype=torch.bfloat16)
                         seq.append(layer)
                 self.projectors[name] = seq
-        else:
-            n_proj = len(self.training_args.teacher_layer_mapping)
-            # SEGD L_sim compares last-layer T↔S cosine; different hidden dims
-            # (e.g. FastVLM 896 vs Qwen2 1536) need at least one s→t Linear.
-            if (
-                n_proj == 0
-                and getattr(self.training_args, "kd_loss_type", "") == "segd_loss"
-                and int(self.student_hidden_dim) != int(self.teacher_hidden_dim)
-            ):
-                n_proj = 1
-            for _ in range(n_proj):
+        elif self.training_args.teacher_layer_mapping:
+            for _ in range(len(self.training_args.teacher_layer_mapping)):
                 projector = nn.Linear(
                     self.student_hidden_dim,
                     self.teacher_hidden_dim,
@@ -220,21 +223,46 @@ class Distiller(nn.Module):
                 projector_list.append(projector)
 
             self.projectors = projector_list
-        print_master(f"Created {len(self.projectors)} linear projectors.")
+        elif self.training_args.num_projectors > 0:
+            for _ in range(self.training_args.num_projectors):
+                projector = nn.Linear(
+                    self.student_hidden_dim,
+                    self.teacher_hidden_dim,
+                    dtype=torch.bfloat16
+                )
+                with torch.no_grad():
+                    projector.weight.normal_(mean=0.0, std=1e-3)
+                projector_list.append(projector)
+
+            self.projectors = nn.ModuleList(projector_list)
+        else:
+            self.projectors = None
+            print("No projectors created.")
+
+        if self.projectors:
+            print(f"Created {len(self.projectors)} linear projectors.")
     
     def add_optimizer_param_group(self, optimizer):
         if hasattr(self, 'projectors') and self.projectors is not None:
-            lr = (
-                getattr(self.model_args, "projector_lr", None)
-                or getattr(self.training_args, "projector_lr", None)
-                or self.training_args.learning_rate
-            )
+            lr = getattr(self.training_args, "projector_lr", None) or self.training_args.learning_rate
             optimizer.add_param_group({
                 "params": self.projectors.parameters(),
                 "lr": lr
             })
-        print_master("Projector parameters added to optimizer.")
+            print("-----------Projector parameters added to optimizer.----------")
+
+        if self.model_args.modality_gated_pooling:
+            optimizer.add_param_group({
+                "params": self.student.encoder.pool_v.parameters(),
+                "lr": self.training_args.learning_rate
+            })
+            optimizer.add_param_group({
+                "params": self.student.encoder.pool_t.parameters(),
+                "lr": self.training_args.learning_rate
+            })
+            print("-----------Modality gated pooling parameters added to optimizer.----------")
         return optimizer
+    
 class DistillationCollator:
     def __init__(self, student_processor: ProcessorMixin, teacher_processor: ProcessorMixin,
                  model_args: ModelArguments, data_args: DataArguments, training_args: TrainingArguments,
@@ -293,7 +321,8 @@ class DistillationCollator:
         processed_student_pos_inputs = process_student_fn(student_pos_inputs, processor=self.student_processor, max_length=self.data_args.max_len)
         processed_teacher_qry_inputs = process_teacher_fn(teacher_qry_inputs, processor=self.teacher_processor, max_length=self.data_args.max_len)
         processed_teacher_pos_inputs = process_teacher_fn(teacher_pos_inputs, processor=self.teacher_processor, max_length=self.data_args.max_len)
-        
+        # get encoded_dir from examples
+        encoded_dirs = [example["encoded_dir"] for example in examples]
         return {
             'student_inputs':{
                 'qry': processed_student_qry_inputs,
@@ -302,7 +331,8 @@ class DistillationCollator:
             'teacher_inputs':{
                 'qry': processed_teacher_qry_inputs,
                 'pos': processed_teacher_pos_inputs
-            }
+            },
+            'encoded_dir': encoded_dirs
         }
         
 class DistillationDataset(Dataset):
@@ -329,6 +359,10 @@ class DistillationDataset(Dataset):
             subset_data = subset_data.remove_columns(set(['neg_text', 'neg_image_path']) & set(subset_data.column_names))
             subset_data = subset_data.remove_columns(set(subset_data.column_names) - set(['qry', 'qry_image_path', 'pos_image_path', 'pos_text_instruction']))
             subset_data = subset_data.rename_column("pos_text_instruction", "pos_text")
+            subset_data = subset_data.add_column(
+                "encoded_dir",
+                [f"{subset}/{idx}" for idx in range(len(subset_data))]
+            )
             train_data.append(subset_data)
             
         self.train_data = concatenate_datasets(train_data)
@@ -336,6 +370,7 @@ class DistillationDataset(Dataset):
     
     def __len__(self):
         return len(self.train_data)
+    
     def _get_image(self, img_path, backbone):
         if not img_path:
             return None
@@ -389,13 +424,8 @@ class DistillationDataset(Dataset):
             stu_pos_image = self._get_image(pos_image_path, student_backbone)
 
             if (not stu_qry_text and not stu_qry_image) or (not stu_pos_text and not stu_pos_image):
-                print_master("empty inputs")
+                print("empty inputs")
                 continue
-            
-            student_qry_texts.append(stu_qry_text)
-            student_qry_images.append(stu_qry_image)
-            student_pos_texts.append(stu_pos_text)
-            student_pos_images.append(stu_pos_image)
 
             teacher_qry_text, teacher_pos_text = qry_text, pos_text
             if teacher_backbone != PHI3V:
@@ -405,8 +435,14 @@ class DistillationDataset(Dataset):
             teacher_pos_image = self._get_image(pos_image_path, teacher_backbone)
 
             if (not teacher_qry_text and not teacher_qry_image) or (not teacher_pos_text and not teacher_pos_image):
-                print_master("empty inputs")
+                print("empty inputs")
                 continue
+
+            student_qry_texts.append(stu_qry_text)
+            student_qry_images.append(stu_qry_image)
+            student_pos_texts.append(stu_pos_text)
+            student_pos_images.append(stu_pos_image)
+
             teacher_qry_texts.append(teacher_qry_text)
             teacher_qry_images.append(teacher_qry_image)
             teacher_pos_texts.append(teacher_pos_text)
@@ -421,4 +457,5 @@ class DistillationDataset(Dataset):
             "teacher_query_image": teacher_qry_images,
             "teacher_pos_text": teacher_pos_texts,
             "teacher_pos_image": teacher_pos_images,
+            "encoded_dir": self.train_data[data_idx]["encoded_dir"]
         }

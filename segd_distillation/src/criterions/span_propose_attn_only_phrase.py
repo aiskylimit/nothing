@@ -101,8 +101,7 @@ def compute_vision_distance_matrix(hidden_states, num_pathches_per_row, patch_si
     total_dist = cosine_distance + spatial_weight * spatial_distance_norm
     return total_dist.cpu().numpy()
 
-def cluster_vision_tokens_hdbscan(hidden_states, num_patches_per_row, patch_size, image_width, image_height,
-                                  min_cluster_size=3, min_samples_dbscan=8):
+def cluster_vision_tokens_hdbscan(hidden_states, num_patches_per_row, patch_size, image_width, image_height, min_cluster_size=3):
     """Phân cụm vision tokens bằng HDBSCAN"""
     
     if hidden_states.size(0) < min_cluster_size:
@@ -125,7 +124,7 @@ def cluster_vision_tokens_hdbscan(hidden_states, num_patches_per_row, patch_size
     
     clusterer = DBSCAN(
         eps=eps,
-        min_samples=max(1, int(min_samples_dbscan)),
+        min_samples=8,
         metric="precomputed"
     )
     # End of DBSCAN
@@ -895,7 +894,6 @@ def compute_vision_cluster_loss_weighted(projectors,
     
     teacher_patches_per_row = int(np.sqrt(num_teacher_vision_tokens))
     student_patches_per_row = int(np.sqrt(num_student_vision_tokens))
-    min_samples_dbscan_teacher = max(1, int(getattr(args, 'min_samples_dbscan_teacher', 8)))
     
     total_loss = 0.0
     num_valid_layers = 0
@@ -917,8 +915,7 @@ def compute_vision_cluster_loss_weighted(projectors,
             teacher_vision_hidden_list[first_t_idx],
             teacher_patches_per_row, teacher_patch_size,
             original_width, original_height,
-            min_cluster_size=6,
-            min_samples_dbscan=min_samples_dbscan_teacher
+            min_cluster_size=6
         )
         
         # Chuẩn bị cluster info cho teacher
@@ -957,8 +954,7 @@ def compute_vision_cluster_loss_weighted(projectors,
             teacher_vision_hidden_list[first_t_idx],
             teacher_patches_per_row, teacher_patch_size,
             original_width, original_height,
-            min_cluster_size=8,  # Larger min_cluster_size for span-level
-            min_samples_dbscan=min_samples_dbscan_teacher
+            min_cluster_size=8  # Larger min_cluster_size for span-level
         )
         
         # Chuẩn bị cluster info cho teacher

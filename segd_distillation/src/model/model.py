@@ -1,18 +1,20 @@
+from copy import deepcopy
 from typing import Dict, Optional
 import torch
+import torch.nn.functional as F
 import torch.distributed as dist
 from torch import nn, Tensor
 from transformers import PreTrainedModel, AutoModelForCausalLM, AutoConfig, AutoTokenizer
 from peft import LoraConfig, get_peft_model, PeftModel
 import os
 from src.arguments import ModelArguments, TrainingArguments
+from src.model.modules import ModalityGatedPooling
 from src.model.processor import LLAVA_NEXT, QWEN2_VL, PHI3V, get_backbone_name, print_master, QWEN2_5_VL, \
     backbone2model, QWEN2_VL_TOKENSELECTION, QWEN2_5_VL_TOKENSELECTION, LLAVA_ONEVISION, LLAVA_QWEN2
 
 from src.arguments import ModelArguments
 from src.model.processor import LLAVA_NEXT, QWEN2_VL, PHI3V, get_backbone_name, print_master, QWEN2_5_VL, \
-    QWEN2_VL_TOKENSELECTION, backbone2model, GME, VLM_IMAGE_TOKENS, LamRA, COLPALI, INTERN_VL3, LLAVA_ONEVISION, \
-    LLAVA_QWEN2
+    QWEN2_VL_TOKENSELECTION, backbone2model, GME, VLM_IMAGE_TOKENS, LamRA, COLPALI, INTERN_VL3, LLAVA_ONEVISION
 from src.model.vlm_backbone.colpali import ColPali
 from src.model.vlm_backbone.gme.gme_inference import GmeQwen2VL
 from src.model.vlm_backbone.lamra.lamra_inference import LamRAQwen2VL
@@ -24,6 +26,7 @@ from src.model.llava.constants import DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_STAR
 
 from peft import PeftConfig
 from unittest.mock import patch
+from .utils import get_hidden_text_vision, get_hidden_text
 
 class MMEBModel(nn.Module):
     TRANSFORMER_CLS = AutoModelForCausalLM
@@ -45,6 +48,9 @@ class MMEBModel(nn.Module):
         if self.is_ddp:
             self.process_rank = dist.get_rank()
             self.world_size = dist.get_world_size()
+        
+        # for z pooling
+        self.vision_weight = 0.6
 
     def encode_input(self, input, output_attentions=True):
         INTERNVIDEO2 = "internvideo2"
@@ -114,6 +120,7 @@ class MMEBModel(nn.Module):
                 - attention_matrix: list of (batch, num_heads, num_tokens, num_tokens)
             """
         elif getattr(self, "model_backbone", None) in [LLAVA_NEXT, LLAVA_ONEVISION]:
+            # print("Encoding input for LLAVA model backbone")
             if hasattr(input, 'pixel_values'):
                 input['pixel_values'] = input['pixel_values'].squeeze(1)
                 input['image_sizes'] = input['image_sizes'].squeeze(1)
@@ -125,9 +132,9 @@ class MMEBModel(nn.Module):
                 image_features = None
             output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
-            attention_matrix = hidden_states.attentions if output_attentions and hasattr(hidden_states, 'attentions') else None
-            pool_mask = self._resolve_pool_mask(last_hidden_state, input, hidden_states)
-            pooled_output = self._pooling(last_hidden_state, pool_mask)
+            attention_matrix = hidden_states.attentions if hasattr(hidden_states, 'attentions') else None
+            pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
+            # print("len image features:", None if image_features is None else image_features.shape)
             return pooled_output, image_features, attention_matrix, output_hidden_states
         elif getattr(self, "model_backbone", None) in [LLAVA_QWEN2, QWEN2_VL]:
             # print("Encoding input for FastVLM model backbone")
@@ -138,9 +145,8 @@ class MMEBModel(nn.Module):
                 image_features = None
             output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
-            attention_matrix = hidden_states.attentions if output_attentions and hasattr(hidden_states, 'attentions') else None
-            pool_mask = self._resolve_pool_mask(last_hidden_state, input, hidden_states)
-            pooled_output = self._pooling(last_hidden_state, pool_mask)
+            attention_matrix = hidden_states.attentions if hasattr(hidden_states, 'attentions') else None
+            pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
 
             return pooled_output, image_features, attention_matrix, output_hidden_states
         else:
@@ -152,12 +158,11 @@ class MMEBModel(nn.Module):
                 image_features = None
             output_hidden_states = hidden_states.hidden_states
             last_hidden_state = hidden_states.hidden_states[-1]
-            attention_matrix = hidden_states.attentions if output_attentions and hasattr(hidden_states, 'attentions') else None
-            pool_mask = self._resolve_pool_mask(last_hidden_state, input, hidden_states)
-            pooled_output = self._pooling(last_hidden_state, pool_mask)
+            attention_matrix = hidden_states.attentions if hasattr(hidden_states, 'attentions') else None
+            pooled_output = self._pooling(last_hidden_state, input['attention_mask'])
 
-            all_layers_embeds = torch.stack([self._pooling(hidden_state, pool_mask)
-                                            for hidden_state in hidden_states.hidden_states]).permute(1, 0, 2)
+            # all_layers_embeds = torch.stack([self._pooling(hidden_state, input['attention_mask']) 
+            #                                 for hidden_state in hidden_states.hidden_states]).permute(1, 0, 2)
             
             return pooled_output, image_features, attention_matrix, output_hidden_states
         """
@@ -168,37 +173,6 @@ class MMEBModel(nn.Module):
             - image_features: (batch, num_image_tokens, embed_dim), 
             - attention_matrix: list of (batch, num_heads, num_tokens, num_tokens)
         """
-
-    def _resolve_pool_mask(self, last_hidden_state, input, model_output=None):
-        """
-        Prefer the post-multimodal (expanded) attention mask when available.
-
-        LLaVA/FastVLM replaces the image placeholder with many patch tokens, so
-        ``input['attention_mask']`` (pre-expand) no longer matches
-        ``last_hidden_state`` seq length. The encoder forward returns the expanded
-        mask on the output when supported.
-        """
-        seq_len = last_hidden_state.size(1)
-        candidates = []
-        if model_output is not None and getattr(model_output, "attention_mask", None) is not None:
-            candidates.append(model_output.attention_mask)
-        if isinstance(input, dict) and input.get("attention_mask", None) is not None:
-            candidates.append(input["attention_mask"])
-
-        for mask in candidates:
-            if mask is None:
-                continue
-            if mask.dim() == 2 and mask.size(1) == seq_len:
-                return mask
-
-        # Fallback: treat all expanded positions as valid (no pad info available).
-        return torch.ones(
-            last_hidden_state.size(0),
-            seq_len,
-            device=last_hidden_state.device,
-            dtype=torch.long,
-        )
-
     def _pooling(self, last_hidden_state, attention_mask):
         if self.pooling == 'last' or self.pooling == 'eos':
             left_padding = (attention_mask[:, -1].sum() == attention_mask.shape[0])
@@ -215,17 +189,52 @@ class MMEBModel(nn.Module):
                 # Get the vectors at the last 1 position of each attention mask
                 reps = last_hidden_state[
                     torch.arange(batch_size, device=last_hidden_state.device), eos_indices_positive]
-        elif self.pooling == 'mean':
-            # Masked mean over all non-padding tokens (vision + text).
-            mask = attention_mask.unsqueeze(-1).to(dtype=last_hidden_state.dtype)
-            reps = (last_hidden_state * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1e-8)
+
         else:
-            raise NotImplementedError(
-                f"Unsupported pooling={self.pooling!r}; choose 'last', 'eos', or 'mean'."
-            )
+            raise NotImplementedError
         if self.normalize:
             reps = torch.nn.functional.normalize(reps, p=2, dim=-1)
         return reps
+
+    def encode_input_pooling(self, input, tokenizer):
+        pooled_output, image_features, _, output_hidden_states = self.encode_input(input)
+        special_ids = torch.tensor(tokenizer.all_special_ids, device=input['input_ids'].device)
+        
+        num_text_tokens = (~torch.isin(input['input_ids'], 
+                                                   special_ids)).sum(dim=1)
+        batch_size = pooled_output.size(0)
+        cur_idx_img = 0
+        z_list = []
+        for i in range(batch_size):
+            z_qry = 0
+            if image_features is not None:
+                num_vision_tokens = image_features[cur_idx_img].size(0)
+                last_text_state, last_vision_state = get_hidden_text_vision(
+                    output_hidden_states[-1][i], 
+                    num_text_tokens[i].item(), 
+                    num_vision_tokens, 
+                    attention_mask=input['attention_mask'][i]
+                )
+                cur_idx_img += 1
+                last_text_state = F.normalize(last_text_state, p=2, dim=-1)
+                last_vision_state = F.normalize(last_vision_state, p=2, dim=-1)
+                z_v_qry, _ = self.encoder.pool_v(last_vision_state.unsqueeze(0)) # [1, D]
+                z_t_qry, _ = self.encoder.pool_t(last_text_state.unsqueeze(0)) # [1, D]
+                z_qry = z_v_qry * self.vision_weight + z_t_qry * (1 - self.vision_weight)
+            else:
+                last_text_state = get_hidden_text(
+                    output_hidden_states[-1][i], 
+                    num_text_tokens[i].item(), 
+                    attention_mask=input['attention_mask'][i]
+                )
+                last_text_state = F.normalize(last_text_state, p=2, dim=-1)
+                z_qry, _ = self.encoder.pool_t(last_text_state.unsqueeze(0)) # [1, D]
+
+            z_list.append(z_qry)
+        z_pooling = torch.cat(z_list, dim=0)  # [B, D]
+        z_pooling = F.normalize(z_pooling, p=2, dim=-1)
+        return z_pooling
+
 
     @classmethod
     def build(cls, model_args: ModelArguments, **kwargs):
@@ -332,6 +341,37 @@ class MMEBModel(nn.Module):
                 torch_dtype=torch.bfloat16,
                 trust_remote_code=True)
 
+        if model_args.modality_gated_pooling:
+            hidden_size = base_model.config.hidden_size
+            pool_v = ModalityGatedPooling(hidden_size)
+            pool_t = ModalityGatedPooling(hidden_size)
+            setattr(base_model, 'pool_v', pool_v)
+            setattr(base_model, 'pool_t', pool_t)
+            print_master("Added Modality Gated Pooling to the base model")
+
+            modality_gated_pooling_path = os.path.join(
+                    model_args.model_name, "modality_gated_pooling.pth"
+                )
+
+            if os.path.exists(modality_gated_pooling_path):
+                state_dict = torch.load(modality_gated_pooling_path)
+                pool_v.load_state_dict(state_dict['pool_v'])
+                pool_t.load_state_dict(state_dict['pool_t'])
+                print_master("Loaded modality gated pooling weights")
+            else:
+                try: 
+                    from huggingface_hub import hf_hub_download
+                    projector_path = hf_hub_download(
+                        repo_id=model_name_or_path,
+                        filename="modality_gated_pooling.pth",
+                    )
+                    state_dict = torch.load(projector_path)
+                    pool_v.load_state_dict(state_dict['pool_v'])
+                    pool_t.load_state_dict(state_dict['pool_t'])
+                    print_master("Loaded modality gated pooling weights from the hub")
+                except:
+                    print_master("No modality gated pooling weights found in the hub.")
+                    pass
 
         if model_args.load_pretrained_lora:
             model_name_or_path = model_args.checkpoint_path if model_args.checkpoint_path else model_args.model_name
@@ -357,6 +397,14 @@ class MMEBModel(nn.Module):
                     )
                 print("Successfully loading the projector's weight")
 
+            if model_args.modality_gated_pooling:
+                for p in lora_model.base_model.pool_v.parameters():
+                    p.requires_grad = True
+                for p in lora_model.base_model.pool_t.parameters():
+                    p.requires_grad = True
+
+                print_master("Enabled training for modality gated pooling")
+
             model = cls(
                 encoder=lora_model,
                 pooling=model_args.pooling,
@@ -365,6 +413,7 @@ class MMEBModel(nn.Module):
             )
 
             return model
+        
         elif model_args.lora:
             print_master(f'Initializing LoRA adapter from {base_model}')
             if model_args.model_backbone in ["llava_onevision", "llava_next"]:
@@ -398,7 +447,6 @@ class MMEBModel(nn.Module):
                 )
                 print(f"Applying LoRA to vision_tower/layers: {model_args.lora_target_modules.split(',')}")
             else:
-                    
                 lora_config = LoraConfig(
                     r=model_args.lora_r,
                     lora_alpha=model_args.lora_alpha,
@@ -408,7 +456,15 @@ class MMEBModel(nn.Module):
                     use_dora=True,
                     inference_mode=False
                 )
+                
             lora_model = get_peft_model(base_model, lora_config)
+
+            if model_args.modality_gated_pooling:
+                for p in lora_model.base_model.pool_v.parameters():
+                    p.requires_grad = True
+                for p in lora_model.base_model.pool_t.parameters():
+                    p.requires_grad = True
+                print_master("Enabled training for modality gated pooling")
 
             model = cls(
                 encoder=lora_model,
@@ -416,7 +472,7 @@ class MMEBModel(nn.Module):
                 normalize=model_args.normalize,
                 temperature=model_args.temperature
             )
-
+            setattr(model, 'model_backbone', model_backbone)
             return model
         
         model = cls(
@@ -452,15 +508,6 @@ class MMEBModel(nn.Module):
                 torch_dtype=torch.bfloat16,
                 low_cpu_mem_usage=True,
                 config=config
-            )
-        elif model_backbone in [LLAVA_QWEN2]:
-            config._attn_implementation = "eager"
-            base_model = LlavaQwen2ForCausalLM.from_pretrained(
-                model_args.model_name,
-                low_cpu_mem_usage=True,
-                torch_dtype=torch.bfloat16,
-                config=config,
-                # **kwargs
             )
         elif model_args.model_backbone in [INTERN_VL3]:
             config._attn_implementation = "eager"
@@ -499,6 +546,16 @@ class MMEBModel(nn.Module):
         elif model_args.model_backbone == COLPALI:
             base_model = ColPali.from_pretrained(model_args.model_name)
             setattr(base_model, 'config', config)
+        elif model_args.model_backbone == LLAVA_QWEN2:
+            config._attn_implementation = "eager"
+            base_model = LlavaQwen2ForCausalLM.from_pretrained(
+                model_args.model_name,
+                low_cpu_mem_usage=True,
+                torch_dtype=torch.bfloat16,
+                config=config,
+                # **kwargs
+            )
+            setattr(base_model, 'config', config)
         else:
             # Loading external base model from HF
             config = AutoConfig.from_pretrained(model_args.model_name, trust_remote_code=True)
@@ -509,6 +566,39 @@ class MMEBModel(nn.Module):
                 trust_remote_code=True)
             print(f"Loaded base model from HF: {model_name_or_path}")
 
+        # load modality gated pooling weights if exists
+        if model_args.modality_gated_pooling:
+            hidden_size = base_model.config.hidden_size
+            pool_v = ModalityGatedPooling(hidden_size)
+            pool_t = ModalityGatedPooling(hidden_size)
+            setattr(base_model, 'pool_v', pool_v)
+            setattr(base_model, 'pool_t', pool_t)
+            print_master("Added Modality Gated Pooling to the base model")
+
+            modality_gated_pooling_path = os.path.join(
+                    model_name_or_path, "modality_gated_pooling.pth"
+                )
+
+            if os.path.exists(modality_gated_pooling_path):
+                state_dict = torch.load(modality_gated_pooling_path)
+                pool_v.load_state_dict(state_dict['pool_v'])
+                pool_t.load_state_dict(state_dict['pool_t'])
+                print_master("Loaded modality gated pooling weights")
+            else:
+                try: 
+                    from huggingface_hub import hf_hub_download
+                    projector_path = hf_hub_download(
+                        repo_id=model_name_or_path,
+                        filename="modality_gated_pooling.pth",
+                    )
+                    state_dict = torch.load(projector_path)
+                    pool_v.load_state_dict(state_dict['pool_v'])
+                    pool_t.load_state_dict(state_dict['pool_t'])
+                    print_master("Loaded modality gated pooling weights from the hub")
+                except:
+                    print_master("No modality gated pooling weights found in the hub.")
+                    pass
+        
         # Building the model on top of the base
         if model_args.lora:
             print_master(f'Loading LoRA from {model_name_or_path}')
@@ -548,8 +638,18 @@ class MMEBModel(nn.Module):
                     print("No projector weight found in the hub.")
                     pass
                 print("Successfully loading the projector's weight")
-                
-            # lora_model = lora_model.merge_and_unload()
+            
+            if model_args.modality_gated_pooling and is_trainable:
+                for p in lora_model.base_model.pool_v.parameters():
+                    p.requires_grad = True
+                for p in lora_model.base_model.pool_t.parameters():
+                    p.requires_grad = True
+
+                print_master("Enabled training for modality gated pooling")
+
+            
+            if not is_trainable:
+                lora_model = lora_model.merge_and_unload()
 
             model = cls(
                 encoder=lora_model,

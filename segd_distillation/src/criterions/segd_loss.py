@@ -7,9 +7,9 @@ Loss composition:
 Pipeline:
   Graph / spectral: relative-depth checkpoints (default N=4 → 25/50/75%).
   Graph nodes: R_txt/R_vis = mean-pool; R_all = last token of [vision | text] (both models).
-  L_sim: last-layer encode_input embeddings — Teacher last-token vs Student mean (qry + pos);
+  L_sim: last-layer encode_input — Teacher EOS vs Student EOS (qry + pos);
          if hidden dims differ, student reps go through distiller Linear s→t first.
-  Contrastive: one-way InfoNCE q→p on Student encode_input mean-pool last layer (not symmetric).
+  Contrastive: one-way InfoNCE q→p on Student encode_input EOS last layer (not symmetric).
 """
 
 from __future__ import annotations
@@ -36,21 +36,10 @@ _NODE_TYPES = ("txt", "vis", "all")
 _CLUSTERS = ("qry", "pos")
 
 
-# ---------------------------------------------------------------------------
-# Layer checkpoints (graph / spectral only; L_sim uses last-layer encode_input)
-# ---------------------------------------------------------------------------
-
 def get_align_layer_indices(
     num_hidden_states: int,
     num_align_layers: int = 4,
 ) -> List[int]:
-    """
-    Internal checkpoints at ratios 1/N, 2/N, …, (N-1)/N of model depth.
-
-    ``idx(r, L) = round(r * L)`` with Python banker's rounding (half to even).
-    L = number of transformer layers = ``num_hidden_states - 1`` (skip embeddings).
-    Each model passes its own ``num_hidden_states``; indices are not shared.
-    """
     L = max(int(num_hidden_states) - 1, 1)
     n = max(int(num_align_layers), 2)
     idxs: List[int] = []
@@ -58,7 +47,6 @@ def get_align_layer_indices(
     for i in range(1, n):
         r = i / n
         idx = round(r * L)
-        # Skip embeddings (0); last transformer output lives at index L.
         idx = min(max(int(idx), 1), L)
         if idx in seen:
             continue
@@ -67,16 +55,10 @@ def get_align_layer_indices(
     return idxs
 
 
-# ---------------------------------------------------------------------------
-# 3-node representations
-# Graph: txt/vis mean, all = last token. L_sim is last-layer encode_input (not these nodes).
-# ---------------------------------------------------------------------------
-
 POOL_GRAPH = {"txt": "mean", "vis": "mean", "all": "last"}
 
 
 def pool_tokens(tokens: Optional[torch.Tensor], mode: str = "mean") -> Optional[torch.Tensor]:
-    """Reduce valid tokens (already pad-stripped). Empty → None."""
     if tokens is None or tokens.numel() == 0:
         return None
     if mode == "last":
@@ -88,7 +70,6 @@ def _concat_cluster_tokens(
     vision: Optional[torch.Tensor],
     text: Optional[torch.Tensor],
 ) -> Optional[torch.Tensor]:
-    """Cluster sequence order: [vision | text]. Either side may be missing."""
     parts = [p for p in (vision, text) if p is not None and p.numel() > 0]
     if not parts:
         return None
@@ -102,13 +83,6 @@ def three_semantic_nodes(
     text: Optional[torch.Tensor],
     pools: Dict[str, str],
 ) -> Dict[str, Optional[torch.Tensor]]:
-    """
-    R_txt, R_vis, R_all at one checkpoint / cluster / sample.
-
-    ``pools`` maps type → ``'mean'`` or ``'last'``.
-    R_all is pooled from concatenated [H_vis ; H_txt] (sequence order), not (R_txt+R_vis)/2.
-    Missing vision → R_vis is None; R_all pools the remaining tokens with ``pools['all']``.
-    """
     r_txt = pool_tokens(text, pools["txt"])
     r_vis = pool_tokens(vision, pools["vis"])
     r_all = pool_tokens(_concat_cluster_tokens(vision, text), pools["all"])
@@ -135,7 +109,6 @@ def extract_cluster_tokens(
     image_features: Optional[Sequence[Optional[torch.Tensor]]],
     sample_idx: int,
 ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """Native vision/text tokens at one layer. Returns (vision, text), either may be None."""
     input_ids = model_input["input_ids"][sample_idx]
     if is_teacher:
         num_text = count_text_tokens_teacher(input_ids)
@@ -160,43 +133,10 @@ def extract_cluster_tokens(
     return vision, text
 
 
-def extract_cluster_nodes(
-    hidden_one_layer: torch.Tensor,
-    *,
-    is_teacher: bool,
-    model_input: Dict[str, torch.Tensor],
-    image_features: Optional[Sequence[Optional[torch.Tensor]]],
-    sample_idx: int,
-    pool: str = "mean",
-) -> Dict[str, Optional[torch.Tensor]]:
-    """Native vision/text tokens at one layer → 3 semantic nodes.
-
-    ``pool`` is a shortcut: ``mean`` / ``last`` applied to all types. Prefer
-    ``POOL_GRAPH`` via ``three_semantic_nodes`` in the loss.
-    """
-    vision, text = extract_cluster_tokens(
-        hidden_one_layer,
-        is_teacher=is_teacher,
-        model_input=model_input,
-        image_features=image_features,
-        sample_idx=sample_idx,
-    )
-    pools = {k: pool for k in _NODE_TYPES}
-    return three_semantic_nodes(vision, text, pools=pools)
-
-
 def align_checkpoint_nodes(
     teacher_batch: List[Dict[str, Dict[str, Optional[torch.Tensor]]]],
     student_batch: List[Dict[str, Dict[str, Optional[torch.Tensor]]]],
 ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """
-    Stack corresponding nodes in canonical order:
-
-      sample i: txt_q, vis_q (if both sides have vis), all_q,
-                txt_p, vis_p (if both sides have vis), all_p
-
-    Dropping vis on both sides together preserves 1-1 index correspondence (no P).
-    """
     t_list: List[torch.Tensor] = []
     s_list: List[torch.Tensor] = []
     b = len(teacher_batch)
@@ -214,17 +154,7 @@ def align_checkpoint_nodes(
     return torch.stack(t_list, dim=0), torch.stack(s_list, dim=0)
 
 
-# ---------------------------------------------------------------------------
-# Fully-connected cosine-softmax graph + unsigned Laplacian
-# ---------------------------------------------------------------------------
-
 def build_full_cosine_graph(nodes: torch.Tensor, tau: float = 1.0) -> torch.Tensor:
-    """
-    Fully-connected batch graph: softmax-normalized cosine, then symmetrized.
-
-    w_ij = exp(cos(x_i, x_j) / τ) / Σ_{k≠i} exp(cos(x_i, x_k) / τ)
-    W ← ½ (w + wᵀ)
-    """
     n = int(nodes.size(0))
     if n < 2:
         return nodes.new_zeros(n, n, dtype=torch.float32)
@@ -237,18 +167,15 @@ def build_full_cosine_graph(nodes: torch.Tensor, tau: float = 1.0) -> torch.Tens
 
 
 def build_normalized_laplacian(w: torch.Tensor) -> torch.Tensor:
-    """Unsigned normalized Laplacian L = I - D^{-1/2} W D^{-1/2}, D_ii = Σ_j W_ij."""
     w = w.float()
-    n = int(w.size(0))
     deg = w.sum(dim=1)
     deg_inv_sqrt = deg.pow(-0.5)
     w_norm = deg_inv_sqrt.unsqueeze(1) * w * deg_inv_sqrt.unsqueeze(0)
-    eye = torch.eye(n, device=w.device, dtype=w.dtype)
+    eye = torch.eye(w.size(0), device=w.device, dtype=w.dtype)
     return eye - w_norm
 
 
 def get_eigenspace(lap: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Full ``torch.linalg.eigh``; k is chosen afterwards by eigengap."""
     eigvals, eigvecs = torch.linalg.eigh(lap)
     return eigvals, eigvecs
 
@@ -256,14 +183,8 @@ def get_eigenspace(lap: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
 def select_k_by_eigengap(
     eigvals: torch.Tensor,
     k_max: int = 0,
-    k_min: int = 16,
+    k_min: int = 8,
 ) -> int:
-    """
-    k = argmax_i (λ_{i+1} − λ_i) + 1 over consecutive ascending eigenvalues.
-
-    ``k_min`` floors the chosen k; search only considers gaps that yield k ≥ min.
-    ``k_max > 0`` optionally caps so k ≤ k_max (and ≤ n−1); ``k_max ≤ 0`` = uncapped.
-    """
     n = int(eigvals.numel())
     if n <= 1:
         return 1
@@ -289,12 +210,6 @@ def spectral_projector_loss(
     u_s: torch.Tensor,
     k: int,
 ) -> torch.Tensor:
-    """
-    Frobenius distance between subspace projectors (no cross-model P).
-
-    Π = U_k U_kᵀ;  L = (1 / N) ||Π_t − Π_s||_F²
-    Teacher eigenvectors must already be detached.
-    """
     k_use = min(int(k), u_t.size(1), u_s.size(1))
     if k_use <= 0:
         return u_s.new_zeros(())
@@ -306,7 +221,6 @@ def spectral_projector_loss(
 
 
 def representation_sim_loss(r_t: torch.Tensor, r_s: torch.Tensor) -> torch.Tensor:
-    """1 − cos(Teacher detach, Student) over leading dim. Dims must already match."""
     if r_t.size(-1) != r_s.size(-1):
         raise ValueError(
             f"L_sim cosine requires equal hidden dims, got teacher={r_t.size(-1)} "
@@ -318,7 +232,6 @@ def representation_sim_loss(r_t: torch.Tensor, r_s: torch.Tensor) -> torch.Tenso
 
 
 def project_student_reps_for_sim(distiller, student_reps: torch.Tensor, teacher_dim: int) -> torch.Tensor:
-    """Map student last-layer reps to teacher dim when needed (Linear s→t on distiller)."""
     if student_reps.size(-1) == teacher_dim:
         return student_reps
 
@@ -327,8 +240,7 @@ def project_student_reps_for_sim(distiller, student_reps: torch.Tensor, teacher_
     if projectors is None or len(projectors) == 0:
         raise ValueError(
             f"L_sim needs student→teacher projector for dims {in_dim}→{teacher_dim}, "
-            "but distiller.projectors is empty. Ensure Distiller creates at least one "
-            "Linear(student_hidden_dim, teacher_hidden_dim)."
+            "but distiller.projectors is empty. Set --num_projectors 1."
         )
 
     if isinstance(projectors, nn.ModuleDict):
@@ -362,7 +274,6 @@ def infonce_loss(
     temperature: float,
     student_model,
 ) -> torch.Tensor:
-    """One-way InfoNCE (q→p only), same as SGD / span contrastive. Not symmetric."""
     scores = student_model.compute_similarity(r_q, r_p)
     scores = scores.view(r_q.size(0), -1)
     target = torch.arange(scores.size(0), device=scores.device, dtype=torch.long)
@@ -378,7 +289,6 @@ def _checkpoint_spectral(
     k_eigen_max: int,
     k_eigen_min: int,
 ) -> Tuple[torch.Tensor, int, int, int]:
-    """One checkpoint: graph → Laplacian → eigh → projector KD. Returns (loss, k, k_t, k_s)."""
     n = int(nodes_s.size(0))
     if n < 2:
         return nodes_s.new_zeros(()), 1, 1, 1
@@ -402,10 +312,6 @@ def _checkpoint_spectral(
     return kd, k_use, k_t, k_s
 
 
-# ---------------------------------------------------------------------------
-# Main criterion
-# ---------------------------------------------------------------------------
-
 class SEGDLoss(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -421,8 +327,8 @@ class SEGDLoss(nn.Module):
         self.lambda_spectral = float(getattr(args, "segd_lambda_spectral", 1.0))
         self.tau_graph = float(getattr(args, "segd_tau_graph", 1.0))
         self.num_align_layers = int(getattr(args, "segd_num_align_layers", 4))
-        self.k_eigen_max = int(getattr(args, "segd_k_eigen", getattr(args, "num_eigenvectors", 0)))
-        self.k_eigen_min = int(getattr(args, "segd_k_eigen_min", 16))
+        self.k_eigen_max = int(getattr(args, "segd_k_eigen", 0))
+        self.k_eigen_min = int(getattr(args, "segd_k_eigen_min", 8))
 
     def _dist_gather_tensor(self, t: torch.Tensor) -> torch.Tensor:
         t = t.contiguous()
@@ -447,8 +353,6 @@ class SEGDLoss(nn.Module):
         batch_size = student_qry_input["input_ids"].size(0)
         device = student_qry_input["input_ids"].device
 
-        # Contrastive: Student encode_input last-layer mean (--pooling mean).
-        # L_sim: Teacher encode_input last-token (default) vs Student mean, same last layer.
         with torch.no_grad():
             teacher_model.eval()
             teacher_qry_output = teacher_model.encode_input(
@@ -505,7 +409,6 @@ class SEGDLoss(nn.Module):
         for m, (t_idx, s_idx) in enumerate(zip(t_idxs, s_idxs)):
             t_hidden = teacher_qry_hidden_states[t_idx]
             s_hidden = student_qry_hidden_states[s_idx]
-            # Positive hidden at the same relative-depth checkpoint (own forward).
             t_hidden_pos = teacher_pos_hidden_states[t_idx]
             s_hidden_pos = student_pos_hidden_states[s_idx]
             t_graph_batch = []
@@ -574,8 +477,6 @@ class SEGDLoss(nn.Module):
         else:
             spectral_loss = self._zero(device)
 
-        # L_sim: last-layer sequence embeddings only (not graph txt/vis nodes).
-        # FastVLM(896)↔Qwen2(1536) needs distiller s→t projector; same-dim skips it.
         t_dim = int(teacher_qry_reps.size(-1))
         s_qry_for_sim = project_student_reps_for_sim(distiller, student_qry_reps, t_dim)
         s_pos_for_sim = project_student_reps_for_sim(distiller, student_pos_reps, t_dim)
@@ -584,7 +485,6 @@ class SEGDLoss(nn.Module):
             representation_sim_loss(teacher_pos_reps, s_pos_for_sim),
         ], dim=0).mean()
 
-        # Contrastive: Student last-layer mean (--pooling mean), one-way q→p (not symmetric).
         cq, cp = student_qry_reps, student_pos_reps
         if self.world_size > 1:
             all_q = self._dist_gather_tensor(cq)

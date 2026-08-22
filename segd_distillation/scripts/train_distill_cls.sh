@@ -25,7 +25,7 @@ torchrun --standalone \
     --dataset_name "TIGER-Lab/MMEB-train" \
     --subset_name "HatefulMemes" \
     --dataset_split "original" \
-    --image_dir "/workspace/ComfyUI/models/photomaker/VLM_Embed/vlm2vec_train/MMEB-train" \
+    --image_dir "vlm2vec_train/MMEB-train" \
     --percent_data 1.0 \
     --output_dir "training/meta_propose_cls" \
     --per_device_train_batch_size 8 \

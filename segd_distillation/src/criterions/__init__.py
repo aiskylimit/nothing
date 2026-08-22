@@ -1,3 +1,9 @@
+from src.criterions.contrastive_kd_loss import ContrastiveKDLoss
+from src.criterions.contrastive_loss import ContrastiveLoss
+from src.criterions.contrastive_er_loss import ContrastiveERLoss
+from src.criterions.contrastive_loss_2 import ContrastiveLoss2
+from src.criterions.eigen_rank_align import ERAlign
+from src.criterions.vision_RKD import VisionRKDLoss
 from .contrastive_loss_with_RKD import ContrastiveLossWithRKD
 from .proposal_loss_with_DTW import ProposalLossWithDTW
 from .universal_logit_distillation import UniversalLogitDistillation
@@ -8,11 +14,20 @@ from .em_kd_llava_ov import EMKDLLavaLoss
 from .span_propose import SpanProposeCriterion
 from .span_propose_attn import SpanProposeCriterionWeighted
 from .span_propose_attn_only_phrase import SpanProposeCriterionWeightedOnlyPhrase
-
-from .sgd_loss import SGDLoss
+from .penultimate_mse_loss import PenultimateMSELoss
+from .vision_encoder_kd_loss import VisionEncoderLoss
+from .kl_cosine_loss import KLCosineLoss
+from .compute_effective_rank import EffectiveRankLoss
+from .contrastive_pooling_loss import ContrastivePoolingLoss
+from .grad_aggregation import GradPoolingLoss
+from .talas import Talas
+from .similarity_matrix_distillation import SimilarityMatrixDistillationLoss
 from .segd_loss import SEGDLoss
 
 criterion_list = {
+    "contrastive": ContrastiveLoss,
+    "contrastive_2": ContrastiveLoss2,
+    "contrastive_er": ContrastiveERLoss,
     "contrastive_rkd": ContrastiveLossWithRKD,
     "proposal_dtw": ProposalLossWithDTW,
     "universal_logit": UniversalLogitDistillation,
@@ -23,7 +38,18 @@ criterion_list = {
     "span_propose": SpanProposeCriterion,
     "span_propose_attn": SpanProposeCriterionWeighted,
     "span_propose_attn_only_phrase": SpanProposeCriterionWeightedOnlyPhrase,
-    "sgd_loss": SGDLoss,
+
+    "vision_rkd": VisionRKDLoss,
+    "penultimate_mse": PenultimateMSELoss,
+    "contrastive_kd": ContrastiveKDLoss,
+    "vision_encoder_kd": VisionEncoderLoss,
+    "kl_cosine_loss": KLCosineLoss,
+    "effective_rank_loss": EffectiveRankLoss,
+    "eigen_rank_align_loss": ERAlign,
+    "contrastive_pooling_loss": ContrastivePoolingLoss,
+    "grad_pooling": GradPoolingLoss,
+    "talas": Talas,
+    "similarity_matrix_distillation": SimilarityMatrixDistillationLoss,
     "segd_loss": SEGDLoss,
 }
 
