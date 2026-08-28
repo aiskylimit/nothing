@@ -2,7 +2,7 @@
 # Full pipeline (data -> capture -> masks -> train -> eval) for all 4 tracks, unattended.
 set -euo pipefail
 
-GPUS=(2 3)
+GPUS=(6 7)
 export CUDA_VISIBLE_DEVICES=$(IFS=,; echo "${GPUS[*]}")
 
 if [[ -z "${VIRTUAL_ENV:-}" ]]; then
