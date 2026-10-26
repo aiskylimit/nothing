@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Student-only full-parameter SFT (no LoRA) on generated LoRA-218 train-only
 # data. Optimizer settings follow scripts/qwen/sft/sft_qwen3_0.6b.sh; the
-# per-GPU batch is 4 with no gradient accumulation, run on 2 GPUs by default.
+# per-GPU batch is 4 with gradient accumulation 4, run on 2 GPUs by default.
 
 if [[ -n "${RUN_GPUS:-}" ]]; then
   IFS=', ' read -r -a GPUS <<< "${RUN_GPUS}"
@@ -37,13 +37,13 @@ CKPT="${CKPT:-Qwen/Qwen3-0.6B}"
 
 BATCH_SIZE="${BATCH_SIZE:-4}"
 LR="${LR:-0.00005}"
-GRAD_ACC="${GRAD_ACC:-1}"
+GRAD_ACC="${GRAD_ACC:-4}"
 EVAL_BATCH_SIZE="${EVAL_BATCH_SIZE:-16}"
 EPOCHS="${EPOCHS:-5}"
 SEED="${SEED:-42}"
 
-MAX_LENGTH="${MAX_LENGTH:-2048}"
-MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-1536}"
+MAX_LENGTH="${MAX_LENGTH:-1612}"
+MAX_PROMPT_LENGTH="${MAX_PROMPT_LENGTH:-1479}"
 
 echo "Qwen ablation 3 full-finetune SFT on generated LoRA-218 train-only data"
 echo "  gpus: ${GPUS[*]}  batch size: ${BATCH_SIZE}  grad acc: ${GRAD_ACC}  lr: ${LR}"
