@@ -16,7 +16,7 @@ for arg in "$@"; do
   fi
 done
 
-ABLATION_SET="${ABLATION_SET:-csd,distillm,synid_sql}"
+ABLATION_SET="${ABLATION_SET:-sft,csd,distillm,synid_sql}"
 INFER_OUTPUT_ROOT_BASE="${INFER_OUTPUT_ROOT:-results/infer/qwen_ablation_3}"
 EVAL_OUTPUT_ROOT_BASE="${EVAL_OUTPUT_ROOT:-results/eval/qwen_ablation_3}"
 

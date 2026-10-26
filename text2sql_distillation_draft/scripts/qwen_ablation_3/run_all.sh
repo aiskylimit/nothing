@@ -22,7 +22,7 @@ INFER_BATCH_SIZE="${INFER_BATCH_SIZE:-100}"
 INFER_OUTPUT_ROOT="${INFER_OUTPUT_ROOT:-results/infer/qwen_ablation_3}"
 INFER_FLUSH_EVERY="${INFER_FLUSH_EVERY:-100}"
 INFER_CHECKPOINT_METRIC="${INFER_CHECKPOINT_METRIC:-exact_match}"
-ABLATION_SET="${ABLATION_SET:-csd,distillm,synid_sql}"
+ABLATION_SET="${ABLATION_SET:-sft,csd,distillm,synid_sql}"
 SKIP_PREPARE="${SKIP_PREPARE:-false}"
 
 is_dry_run=false
@@ -42,6 +42,9 @@ export SKIP_EXISTING
 
 script_for_variant() {
   case "$1" in
+    sft)
+      echo "scripts/qwen_ablation_3/train_sft_generated_lora218.sh"
+      ;;
     csd)
       echo "scripts/qwen_ablation_3/train_csd_generated_lora218.sh"
       ;;
@@ -53,7 +56,7 @@ script_for_variant() {
       ;;
     *)
       echo "Unknown ablation variant: $1" >&2
-      echo "Supported variants: csd,distillm,synid_sql" >&2
+      echo "Supported variants: sft,csd,distillm,synid_sql" >&2
       exit 2
       ;;
   esac

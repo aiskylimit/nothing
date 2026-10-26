@@ -11,6 +11,7 @@ student and teacher forward passes.
 
 Variants:
 
+- `sft`: student-only SFT (`--type lm`, no teacher) with the same LoRA, optimizer, and length settings as `scripts/kd_2/csd`.
 - `csd`: standard CSD KD, following `scripts/kd_2/csd`.
 - `distillm`: DistillM/adaptive SRKL, following `scripts/kd_2/distillm`.
 - `synid_sql`: SynID-SQL full contrastive objective on train-only generated data.
@@ -36,7 +37,7 @@ bash scripts/qwen_ablation_3/run_full_pipeline.sh
 Run one variant:
 
 ```bash
-ABLATION_SET=csd bash scripts/qwen_ablation_3/run_all.sh
+ABLATION_SET=sft bash scripts/qwen_ablation_3/run_all.sh
 ```
 
 Skip data preparation if the target directory already exists:
