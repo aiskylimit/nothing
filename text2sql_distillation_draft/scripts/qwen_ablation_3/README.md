@@ -11,7 +11,7 @@ student and teacher forward passes.
 
 Variants:
 
-- `sft`: student-only SFT (`--type lm`, no teacher) with the same LoRA, optimizer, and length settings as `scripts/kd_2/csd`.
+- `sft`: student-only full-parameter SFT (`--type lm`, no teacher, no LoRA). Batch size 4, gradient accumulation 1, lr 5e-5, run on 2 GPUs (`GPUS_PER_JOB=2 RUNNER_GPU_LIST=0,1`).
 - `csd`: standard CSD KD, following `scripts/kd_2/csd`.
 - `distillm`: DistillM/adaptive SRKL, following `scripts/kd_2/distillm`.
 - `synid_sql`: SynID-SQL full contrastive objective on train-only generated data.
