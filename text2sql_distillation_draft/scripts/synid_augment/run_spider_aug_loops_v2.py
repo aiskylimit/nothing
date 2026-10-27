@@ -7,6 +7,7 @@ import argparse
 import json
 import sys
 import gc
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -109,8 +110,12 @@ def generate_with_vllm(
     system_prompt: str,
     user_prompts: list[str],
     args: argparse.Namespace,
-) -> list[tuple[str, str]]:
-    """Generate responses using vLLM purely from base prompts (independent retry)."""
+) -> tuple[list[tuple[str, str]], dict[str, float]]:
+    """Generate responses using vLLM purely from base prompts (independent retry).
+
+    Returns the (raw_response, extracted_sql) pairs plus wall-clock stats:
+    pure vLLM generation seconds, ExtractSQL seconds and number of new tokens.
+    """
     
     prompts = [
         _build_messages(tokenizer, system_prompt, user_prompt)
@@ -134,14 +139,25 @@ def generate_with_vllm(
         skip_special_tokens=True,
     )
 
+    start = time.perf_counter()
     outputs = llm.generate(prompts, sampling_params)
+    vllm_generate_s = time.perf_counter() - start
 
+    start = time.perf_counter()
     results = []
+    new_tokens = 0
     for output in outputs:
         raw_response = output.outputs[0].text
+        new_tokens += len(output.outputs[0].token_ids)
         results.append((raw_response, extract_sql(raw_response)))
+    extract_sql_s = time.perf_counter() - start
 
-    return results
+    stats = {
+        "vllm_generate_s": vllm_generate_s,
+        "extract_sql_s": extract_sql_s,
+        "new_tokens": new_tokens,
+    }
+    return results, stats
 
 
 def _load_existing_loop(loop_dir: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]] | None:
@@ -222,17 +238,49 @@ def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
         fout.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+_VALIDATE_STEP_KEYS = ("exec_gold_s", "exec_cand_s", "exec_match_s", "similarity_s", "validate_total_s")
+
+
+def _environment_info(args: argparse.Namespace) -> dict[str, Any]:
+    info: dict[str, Any] = {
+        "model": args.model,
+        "teacher_peft_path": args.teacher_peft_path,
+        "tensor_parallel_size": args.tensor_parallel_size,
+        "num_loops": args.num_loops,
+        "similarity_threshold": args.gamma,
+        "temperature": args.temperature,
+        "top_p": args.top_p,
+        "max_new_tokens": args.max_new_tokens,
+    }
+    try:
+        import torch
+        import vllm
+
+        info["vllm_version"] = vllm.__version__
+        info["torch_version"] = torch.__version__
+        info["gpus"] = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
+    except Exception as exc:  # environment info is best-effort only
+        info["env_error"] = repr(exc)
+    return info
+
+
 def main() -> None:
+    t_main0 = time.perf_counter()
+    started_at = datetime.now().isoformat(timespec="seconds")
     args = parse_args()
+    startup_timing: dict[str, Any] = {}
+    loop_timings: list[dict[str, Any]] = []
     if args.num_loops <= 0:
         raise ValueError("--num-loops must be positive")
     
     if args.temperature <= 0.0 and args.num_loops > 1:
         print("WARNING: Temperature is 0. Independent retries will yield the exact same SQL. Consider setting --temperature > 0.")
 
+    t0 = time.perf_counter()
     records = load_spider_train_records(args.root)
     system_prompt, user_template = load_synid_teacher_templates(args.teacher_prompt_dir)
     user_prompt_builder = build_teacher_user_prompt
+    startup_timing["load_data_s"] = time.perf_counter() - t0
 
     source_total_records = len(records)
     if args.limit is not None:
@@ -276,7 +324,9 @@ def main() -> None:
 
         clean_peft_path = args.teacher_peft_path.replace("hf://", "")
         merged_model_path = args.output_root / "merged_model"
-        
+        t_merge0 = time.perf_counter()
+        startup_timing["merge_lora_skipped_existing"] = merged_model_path.exists()
+
         if not merged_model_path.exists():
             print(f"Merging LoRA from {clean_peft_path} into base model {args.model}...")
             print("Loading base model on CPU to prevent VRAM OOM...")
@@ -292,10 +342,12 @@ def main() -> None:
             print("Merge completed successfully.")
         else:
             print(f"Found existing merged model at {merged_model_path}. Skipping merge step.")
-        
+        startup_timing["merge_lora_s"] = time.perf_counter() - t_merge0
+
         # Override the model path so vLLM loads the merged version
         model_name_or_path = str(merged_model_path)
 
+    t_load0 = time.perf_counter()
     try:
         from transformers import AutoTokenizer
         from vllm import LLM
@@ -316,6 +368,7 @@ def main() -> None:
         tensor_parallel_size=args.tensor_parallel_size,
         gpu_memory_utilization=0.8
     )
+    startup_timing["vllm_load_s"] = time.perf_counter() - t_load0
 
     accepted_by_id: dict[int, dict[str, Any]] = {}
     terminal_rejected_by_id: dict[int, dict[str, Any]] = {}
@@ -326,31 +379,42 @@ def main() -> None:
     for loop_index in range(1, args.num_loops + 1):
         loop_dir = args.output_root / "loops" / f"loop_{loop_index}"
         loop_dir.mkdir(parents=True, exist_ok=True)
+        t_loop0 = time.perf_counter()
+        loop_timing: dict[str, Any] = {}
 
         existing = _load_existing_loop(loop_dir) if args.resume else None
         if existing is not None:
             accepted, rejected, repair_queue = existing
             candidates = read_jsonl(loop_dir / "candidates.jsonl")
+            loop_timing["resumed_from_disk"] = True
+            loop_timing["n_examples"] = len(candidates)
         else:
             candidates = []
             accepted = []
             rejected = []
-            
+
+            t0 = time.perf_counter()
             base_records = [records_by_id[int(item["id"])] for item in remaining]
             user_prompts = [
                 user_prompt_builder(user_template, base_record)
                 for base_record in base_records
             ]
-            
+            loop_timing["prompt_s"] = time.perf_counter() - t0
+            loop_timing["n_examples"] = len(base_records)
+
             print(f"Loop {loop_index}: Generating {len(remaining)} candidates via vLLM (Independent Rejection Sampling)...")
-            generated = generate_with_vllm(
+            t0 = time.perf_counter()
+            generated, gen_stats = generate_with_vllm(
                 llm=llm,
                 tokenizer=tokenizer,
                 system_prompt=system_prompt,
                 user_prompts=user_prompts,
                 args=args,
             )
+            loop_timing["generate_s"] = time.perf_counter() - t0
+            loop_timing.update(gen_stats)
 
+            t0 = time.perf_counter()
             for base_record, (raw_response, candidate_sql) in tqdm(
                 zip(base_records, generated), 
                 total=len(base_records), 
@@ -375,6 +439,11 @@ def main() -> None:
                     accepted.append(validation_row)
                 else:
                     rejected.append(validation_row)
+            loop_timing["validate_s"] = time.perf_counter() - t0
+            for key in _VALIDATE_STEP_KEYS:
+                loop_timing[f"sum_{key}"] = sum(
+                    row.get("timings", {}).get(key, 0.0) for row in (*accepted, *rejected)
+                )
 
             accepted_ids = {int(row["id"]) for row in accepted}
             for row in rejected:
@@ -404,6 +473,12 @@ def main() -> None:
 
         remaining = [row for row in repair_queue if int(row["id"]) not in accepted_by_id]
         summary = _summarize(loop_index, candidates, accepted, rejected)
+        loop_timing["loop_total_s"] = time.perf_counter() - t_loop0
+        loop_timing["other_s"] = loop_timing["loop_total_s"] - sum(
+            loop_timing.get(key, 0.0) for key in ("prompt_s", "generate_s", "validate_s")
+        )
+        summary["timing"] = loop_timing
+        loop_timings.append({"loop": loop_index, **loop_timing})
         kept_total = len(accepted_by_id)
         summary["kept_total"] = kept_total
         summary["source_total_records"] = source_total_records
@@ -464,9 +539,22 @@ def main() -> None:
     )
     write_jsonl(args.output_root / "accepted_all.jsonl", accepted_all)
     write_jsonl(args.output_root / "rejected_final.jsonl", rejected_final)
+    total_s = time.perf_counter() - t_main0
+    timing_payload = {
+        "started_at": started_at,
+        "finished_at": datetime.now().isoformat(timespec="seconds"),
+        "total_s": total_s,
+        "startup": startup_timing,
+        "loops": loop_timings,
+        "loops_total_s": sum(item["loop_total_s"] for item in loop_timings),
+        "environment": _environment_info(args),
+    }
+    write_json(args.output_root / "timing.json", timing_payload)
+    _append_log(log_path, f"TIMING total_s={total_s:.1f} startup={json.dumps(startup_timing)}")
     write_json(
         args.output_root / "summary.json",
         {
+            "timing": timing_payload,
             "source_total_records": source_total_records,
             "run_total_records": run_total_records,
             "accepted": len(accepted_all),

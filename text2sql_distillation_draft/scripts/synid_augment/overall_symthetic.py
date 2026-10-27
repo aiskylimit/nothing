@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -124,12 +125,21 @@ def main() -> int:
     if not loops_dir.exists():
         raise FileNotFoundError(f"Missing loops directory: {loops_dir}")
 
+    timing: dict[str, float] = {}
+    t_total0 = time.perf_counter()
+
+    t0 = time.perf_counter()
     final_rejected_rows = read_jsonl(rejected_final_path)
     final_rejected_ids = {str(row["id"]) for row in final_rejected_rows}
     best_candidates = select_best_rejected_candidates(loops_dir, final_rejected_ids)
+    timing["select_best_s"] = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
     recovered_rows, stats = recover_rows(final_rejected_rows, best_candidates)
     write_jsonl(recovered_output, recovered_rows)
+    timing["recover_s"] = time.perf_counter() - t0
 
+    t0 = time.perf_counter()
     accepted_rows = read_jsonl(accepted_path) if accepted_path.exists() else []
     for row in accepted_rows:
         row.setdefault("recovery_source", "accepted")
@@ -137,6 +147,10 @@ def main() -> int:
     final_rows = [*accepted_rows, *recovered_rows]
     sort_by_id(final_rows)
     write_jsonl(merged_output, final_rows)
+    timing["merge_s"] = time.perf_counter() - t0
+    timing["total_s"] = time.perf_counter() - t_total0
+    timing_path = args.base_dir / "overall_synthetic_timing.json"
+    timing_path.write_text(json.dumps({**timing, **stats}, indent=2) + "\n", encoding="utf-8")
 
     print(f"accepted={len(accepted_rows)}")
     print(f"recovered={len(recovered_rows)}")
@@ -145,6 +159,7 @@ def main() -> int:
     print(f"merged={len(final_rows)}")
     print(f"recovered_output={recovered_output}")
     print(f"merged_output={merged_output}")
+    print(f"timing_s={json.dumps({k: round(v, 3) for k, v in timing.items()})}")
     return 0
 
 
